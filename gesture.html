@@ -115,12 +115,11 @@ header{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:
 <div class="flash" id="flash"></div>
 
 <div class="hint">
+  <div class="chip"><k>张开</k> 一大团 <em>星云</em>，跟着手掌走</div>
   <div class="chip"><k>握拳</k> 全部粒子聚成 <em>KissCream</em></div>
-  <div class="chip"><k>张开</k> 散回 <em>四个图形</em></div>
-  <div class="chip desk"><em>手靠近哪个图形</em>，那个图形就被吸向手掌</div>
+  <div class="chip desk">手掌移到哪儿，星云就飘到哪儿</div>
   <div class="chip" id="fbChip" style="display:none"><em>无摄像头时：鼠标/手指 = 手掌</em></div>
 </div>
-
 <script>
 (function(){
 'use strict';
@@ -128,7 +127,7 @@ header{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:
 //==================== 配置 ====================
 var isNarrow = Math.min(window.innerWidth, window.innerHeight) < 820;
 var COUNT = isNarrow ? 25000 : 70000;
-var SHAPES = ['球体', '立方体', '心形', '星形'];
+var NEB_R = isNarrow ? 0.50 : 0.60;      // 星云半径（世界坐标，屏幕高 = 2）
 
 //==================== WebGL 初始化 ====================
 var canvas = document.getElementById('c');
@@ -144,39 +143,58 @@ if (!gl) {
 var VS = [
 '#version 300 es',
 'precision highp float;',
-'in vec2 aHome;',
-'in vec2 aFist;',
+'in vec2 aHome;',        // 星云局部坐标（中心 0）
+'in vec2 aFist;',        // KissCream 文字坐标
 'in vec3 aSeed;',
-'in float aSlot;',
+'in float aCore;',       // 星云核心度 0..1
 'uniform float uAspect;',
 'uniform float uTime;',
 'uniform float uMorph;',
-'uniform vec2 uHand;',
-'uniform float uSlotPull[4];',
+'uniform vec2 uFollow;', // 星云跟随手掌的位移
 'uniform float uSize;',
 'uniform float uDpr;',
-'uniform float uBright;',
+'uniform float uCloudR;',
 'out vec3 vCol;',
 'out float vA;',
 'void main(){',
-'  vec2 p = mix(aHome, aFist, uMorph);',
-'  float br = (1.0 - uMorph) * 0.011;',
-'  p += vec2(sin(uTime*0.70 + aSeed.x*6.2832), cos(uTime*0.55 + aSeed.y*6.2832)) * br;',
-'  float pull = uSlotPull[int(aSlot + 0.5)] * (1.0 - uMorph);',
-'  vec2 d = uHand - p;',
-'  float dd = dot(d, d);',
-'  float infl = exp(-dd * 1.6) * pull;',
-'  vec2 dir = d * inversesqrt(dd + 1e-6);',
-'  p += dir * infl * 0.13;',
-'  float sw = infl * 2.4;',
-'  float ca = cos(sw), sa = sin(sw);',
-'  p += vec2(ca*d.x - sa*d.y, sa*d.x + ca*d.y) * infl * 0.05;',
-'  vec2 clip = vec2(p.x / uAspect, p.y);',
-'  gl_Position = vec4(clip, 0.0, 1.0);',
-'  gl_PointSize = uSize * uDpr * (0.55 + 0.55 * aSeed.z) * (1.0 + infl * 1.1);',
-'  float heat = clamp(infl * 2.6 + aSeed.z * 0.16, 0.0, 1.0);',
-'  vCol = mix(vec3(0.82, 0.90, 0.95), vec3(1.0, 0.56, 0.24), heat);',
-'  vA = 0.30 + 0.32 * aSeed.z + infl * 0.55;',
+'  float neb = 1.0 - uMorph;',
+'  // 星云：缓慢自转（差速：外圈稍慢，看起来在流动）+ 呼吸缩放',
+'  float spin = uTime * 0.045;',
+'  float cs = cos(spin), sn = sin(spin);',
+'  vec2 loc = vec2(cs*aHome.x - sn*aHome.y, sn*aHome.x + cs*aHome.y);',
+'  loc *= 1.0 + 0.045 * sin(uTime * 0.55 + aSeed.x * 6.2832);',
+'  // 星云内部湍流：非核区抖得厉害，核心稳',
+'  loc += vec2(sin(uTime*0.62 + aSeed.x*6.2832), cos(uTime*0.48 + aSeed.y*6.2832))',
+'         * (0.014 + 0.026 * (1.0 - aCore));',
+'  loc += uFollow;',
+'  // 文字：轻微呼吸抖动，固定在屏幕中心',
+'  vec2 txt = aFist + vec2(sin(uTime*0.9 + aSeed.y*6.2832),',
+'                          cos(uTime*0.8 + aSeed.z*6.2832)) * 0.0035;',
+'  vec2 p = mix(loc, txt, uMorph);',
+'  gl_Position = vec4(p.x / uAspect, p.y, 0.0, 1.0);',
+'  float rad = length(aHome) / uCloudR;',
+'  float outer = smoothstep(0.26, 1.05, rad);',
+'  // 两段伪噪声：造丝状亮纹与暗缝，避免整团变成均匀噪点',
+'  float nz = 0.5 + 0.5*sin(aHome.x*6.2 + aHome.y*4.7 + aSeed.x*6.2832);',
+'  nz *= 0.5 + 0.5*sin(aHome.y*10.5 - aHome.x*3.9 + aSeed.y*6.2832);',
+'  nz = 0.28 + 1.20*nz;',
+'  // 6% 粒子做成大而极淡的光斑 → 出柔光晕',
+'  float puff = step(0.90, fract(aSeed.x*7.31 + aSeed.y*3.17));',
+'  float sizeMulN = (0.44 + 0.30*aSeed.z + 0.58*aCore + 0.85*outer) * mix(1.0, 7.0, puff);',
+'  float alphaMulN = (0.30 + 0.22*aSeed.z + 0.48*aCore) * (1.0 - 0.30*outer) * nz',
+'                    * mix(1.0, 0.062, puff);',
+'  float sizeMul = mix(sizeMulN, 0.62 + 0.62*aSeed.z, uMorph);',
+'  gl_PointSize = uSize * uDpr * sizeMul;',
+'  float alphaMul = mix(alphaMulN, 0.34 + 0.34*aSeed.z, uMorph);',
+'  // 配色：核心暖白 → 中层蓝白 → 外晕淡紫',
+'  vec3 warm = vec3(1.00, 0.80, 0.60);',
+'  vec3 mid  = vec3(0.88, 0.92, 1.00);',
+'  vec3 cold = vec3(0.42, 0.50, 1.00);',
+'  vec3 nebCol = mix(cold, mid, smoothstep(0.0, 0.42, aCore));',
+'  nebCol = mix(nebCol, warm, smoothstep(0.55, 1.0, aCore));',
+'  vec3 txtCol = vec3(0.93, 0.96, 1.00);',
+'  vCol = mix(nebCol, txtCol, uMorph);',
+'  vA = alphaMul;',
 '}'
 ].join('\n');
 
@@ -213,98 +231,77 @@ if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
 gl.useProgram(prog);
 
 var U = {};
-['uAspect','uTime','uMorph','uHand','uSlotPull','uSize','uDpr','uBright'].forEach(function(n){
+['uAspect','uTime','uMorph','uFollow','uSize','uDpr','uCloudR','uBright'].forEach(function(n){
   U[n] = gl.getUniformLocation(prog, n);
 });
 var A = {};
-['aHome','aFist','aSeed','aSlot'].forEach(function(n){ A[n] = gl.getAttribLocation(prog, n); });
+['aHome','aFist','aSeed','aCore'].forEach(function(n){ A[n] = gl.getAttribLocation(prog, n); });
 
 gl.disable(gl.DEPTH_TEST);
 gl.enable(gl.BLEND);
 gl.blendFunc(gl.ONE, gl.ONE);
 gl.clearColor(0.02, 0.027, 0.039, 1);
 
-//==================== 形状生成 ====================
+//==================== 星云生成 ====================
 var TAU = Math.PI * 2;
 
-function sphere(n, r){
-  var out = [];
-  for (var i = 0; i < n; i++){
-    var y = 1 - (i / (n - 1)) * 2;
-    var rr = Math.sqrt(Math.max(0, 1 - y * y));
-    var th = i * 2.399963229728653;
-    out.push([Math.cos(th) * rr * r, y * r]);
-  }
-  return out;
+// 近似高斯：四个均匀分布相加
+function gauss(){
+  return (Math.random() + Math.random() + Math.random() + Math.random() - 2) * 1.7;
 }
-function cube(n, r){
-  // 等轴测立方体：面填充打底 + 12 条棱加亮，看起来就是个方块
-  var c30 = Math.cos(Math.PI / 6), s30 = 0.5, g = 0.55;
-  var V = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
-  var E = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
-  function iso(p){ return [(p[0] - p[2]) * c30, p[1] + (p[0] + p[2]) * s30 - 0.5]; }
-  var out = [];
-  for (var i = 0; i < n; i++){
-    var P;
-    if (i % 5 < 2){
-      // 棱：更密，视觉上更亮
-      var e = E[(i * 7 + Math.floor(i / 5)) % 12];
-      var A = V[e[0]], B = V[e[1]];
-      var t = ((i * 0.6180339887) % 1);
-      P = [A[0] + (B[0]-A[0])*t, A[1] + (B[1]-A[1])*t, A[2] + (B[2]-A[2])*t];
-    } else {
-      var a = (((i * 0.6180339887) % 1) * 2 - 1);
-      var b = (((i * 0.7548776662 + 0.31) % 1) * 2 - 1);
-      var f = i % 3;
-      P = f === 0 ? [a, 1, b] : (f === 1 ? [-1, a, b] : [a, b, -1]);
-    }
-    var q = iso(P);
-    out.push([q[0] * r * g + (Math.random()-.5)*0.004, q[1] * r * g + (Math.random()-.5)*0.004]);
-  }
-  return out;
-}function heart(n, r){
-  var out = [];
-  var k = r / 17;
-  for (var i = 0; i < n; i++){
-    var t = (i / n) * TAU;
-    var x = 16 * Math.pow(Math.sin(t), 3);
-    var y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
-    var jr = 0.62 + 0.38 * ((i * 0.618) % 1);      // 往内填一点，别只剩轮廓
-    out.push([x * k * jr, y * k * jr]);
-  }
-  return out;
-}
-function heart(n, r){
-  var out = [];
-  var k = r / 17;
-  for (var i = 0; i < n; i++){
-    var t = (i / n) * TAU;
-    var x = 16 * Math.pow(Math.sin(t), 3);
-    var y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
-    var jr = 0.62 + 0.38 * ((i * 0.618) % 1);
-    out.push([x * k * jr, y * k * jr]);
-  }
-  return out;
-}
-function star(n, r){
-  var out = [];
-  var pts = [];
-  for (var k = 0; k < 5; k++){
-    var a1 = -Math.PI / 2 + k * TAU / 5;
-    var a2 = a1 + TAU / 10;
-    pts.push([Math.cos(a1) * r, Math.sin(a1) * r]);
-    pts.push([Math.cos(a2) * r * 0.42, Math.sin(a2) * r * 0.42]);
-  }
-  for (var i = 0; i < n; i++){
-    var t = (i % 100) / 100;
-    var e = (Math.floor(i / 100)) % 10;
-    var p1 = pts[e], p2 = pts[(e + 1) % 10];
-    out.push([p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t]);
-  }
-  return out;
-}
-var GEN = [sphere, cube, heart, star];
 
+// 一大团星云：致密核心 + 几个错落的软云团 + 丝状气流 + 外圈晕
+// 返回 [x, y, core]，core∈[0,1] 表示核心程度（用于亮度/尺寸/色温）
+function nebula(n, R){
+  var out = [];
+  var CORE = R * 0.17;
+  // 六团错落的云，构成不规则的一大团
+  var LOBES = [];
+  for (var a = 0; a < 6; a++){
+    var ang = (a / 6) * TAU + (Math.random() - 0.5) * 0.6;
+    var rr  = R * (0.20 + 0.60 * Math.random());
+    LOBES.push({ x: Math.cos(ang) * rr, y: Math.sin(ang) * rr * 0.85,
+                 sx: R * (0.26 + 0.26 * Math.random()),
+                 sy: R * (0.22 + 0.28 * Math.random()) });
+  }
+  for (var i = 0; i < n; i++){
+    var u = Math.random(), x, y, core;
+    if (u < 0.19){
+      // 核：致密高斯簇
+      x = gauss() * CORE;
+      y = gauss() * CORE * 0.92;
+      var d0 = Math.sqrt(x*x + y*y);
+      core = Math.max(0.60, 1.0 - d0 / (CORE * 1.9));
+      x += R * 0.02; y -= R * 0.015;
+    } else if (u < 0.80){
+      // 云团：随机落在一团云里，椭圆高斯铺开
+      var L = LOBES[(Math.random() * LOBES.length) | 0];
+      x = L.x + gauss() * L.sx * 0.46;
+      y = L.y + gauss() * L.sy * 0.48;
+      var rr2 = Math.sqrt(x*x + y*y) / R;
+      core = Math.max(0.04, 0.80 - 0.72 * rr2);
+    } else if (u < 0.90){
+      // 丝状气流：从核往外飘的弯曲线
+      var s = Math.random();
+      var a2 = Math.random() * TAU + 1.1 * Math.sin(s * 2.4) * 0.5;
+      var r2 = CORE * 0.7 + s * R * 0.95;
+      x = Math.cos(a2) * r2;
+      y = Math.sin(a2) * r2 * 0.86;
+      core = Math.max(0.02, 0.46 - 0.40 * s);
+    } else {
+      // 晕：指数衰减的散尘，把整体撑成「一大团」
+      var e = -Math.log(1 - Math.random() * 0.97);
+      var r3 = CORE + e * R * 0.46;
+      if (r3 > R * 1.40) r3 = R * 1.40 * (0.66 + Math.random() * 0.34);
+      var a3 = Math.random() * TAU;
+      x = Math.cos(a3) * r3;
+      y = Math.sin(a3) * r3 * 0.88;
+      core = 0.0;
+    }
+    out.push([x, y, core]);
+  }
+  return out;
+}
 // 采样文字位置（用于「握拳聚合」）
 function sampleText(text, maxW, maxH){
   var fs = 200, pad = 40;
@@ -330,43 +327,27 @@ function sampleText(text, maxW, maxH){
 }
 
 //==================== 粒子数据 ====================
-var state = { morph: 0, morphT: 0, time: 0, hand: [0, 0], pull: [0, 0, 0, 0], hasHand: false };
+var state = { morph: 0, morphT: 0, time: 0,
+              follow: [0, 0], followT: [0, 0], lastHand: -1e9, hasHand: false };
+var ges = { last: 'unknown', stable: 0, fired: 0, mode: 'scatter' };
 
-var texFist = sampleText('KissCream', 1.86, 0.62);   // 世界宽约 1.86（aspect≈1.78 时铺满）
+var texFist = sampleText('KissCream', 1.86, 0.62);
 
 var aHome = new Float32Array(COUNT * 2);
 var aFist = new Float32Array(COUNT * 2);
 var aSeed = new Float32Array(COUNT * 3);
-var aSlot = new Float32Array(COUNT);
-
-// 槽位布局（世界坐标：x∈[-aspect,aspect]，y∈[-1,1]）
-function layoutSlots(aspect, narrow){
-  if (narrow){
-    var dx = Math.min(0.44, aspect * 0.44), dy = 0.30;
-    return [[-dx, dy], [dx, dy], [-dx, -dy], [dx, -dy]];
-  }
-  var sx = Math.min(0.62, aspect * 0.335);
-  return [[-sx * 1.5, 0.02], [-sx * 0.5, 0.02], [sx * 0.5, 0.02], [sx * 1.5, 0.02]];
-}
-var slots = layoutSlots(canvas.width / canvas.height || 1.78, isNarrow);
+var aCore = new Float32Array(COUNT);
 
 function buildParticles(){
-  var per = Math.floor(COUNT / 4);
-  var ptsPer = [];
-  var R = isNarrow ? 0.20 : 0.235;
-  for (var s = 0; s < 4; s++) ptsPer.push(GEN[s](Math.min(per, 3000), R));
-
+  var tmpl = nebula(Math.min(COUNT, 24000), NEB_R);
   for (var i = 0; i < COUNT; i++){
-    var s = i % 4;
-    var slot = slots[s];
-    var src = ptsPer[s];
-    var p = src[i % src.length];
-    // 同一形状内用不同相位取点，避免规律重复
-    var ang = i * 2.399963229728653;
-    var jr = 0.010 + 0.006 * Math.sin(i * 0.37);
-    aHome[i*2]   = slot[0] + p[0] + Math.cos(ang) * jr;
-    aHome[i*2+1] = slot[1] + p[1] + Math.sin(ang) * jr;
-    aSlot[i] = s;
+    var p = tmpl[i % tmpl.length];
+    // 弥散取样：同一模板点重复使用也不显规律
+    var jr = 0.005 + 0.011 * ((i * 0.6180339887) % 1);
+    var ja = i * 2.399963229728653;
+    aHome[i*2]   = p[0] + Math.cos(ja) * jr;
+    aHome[i*2+1] = p[1] + Math.sin(ja) * jr;
+    aCore[i]     = p[2];
 
     var tp = texFist.pts[(i * 7919) % texFist.pts.length];
     aFist[i*2]   = (tp[0] - texFist.w / texFist.sc / 2) * texFist.sc + (Math.random() - .5) * 0.004;
@@ -387,7 +368,7 @@ function buildParticles(){
   buf(aHome, A.aHome, 2);
   buf(aFist, A.aFist, 2);
   buf(aSeed, A.aSeed, 3);
-  buf(aSlot, A.aSlot, 1);
+  buf(aCore, A.aCore, 1);
 }
 
 //==================== 视口 ====================
@@ -403,7 +384,6 @@ function resize(){
   gl.viewport(0, 0, canvas.width, canvas.height);
   aspect = canvas.width / canvas.height;
   isNarrow = Math.min(w, h) < 820;
-  slots = layoutSlots(aspect, isNarrow);
   texFist = sampleText('KissCream', aspect * 0.94, 0.42 * (isNarrow ? 1.1 : 1.5));
   buildParticles();
   brightMul = isNarrow ? 1.35 : 1.0;
@@ -439,7 +419,7 @@ function classify(lm, handed){
   else g = 'unknown';
   return { g: g, ext: ext, thumb: thumbOut, dots: dots };
 }
-var ges = { last: 'unknown', stable: 0, fired: 0, mode: 'scatter' };
+
 var HAND_NAMES = { fist: '握拳', open: '张开', mid: '半握', unknown: '—' };
 var flashEl = document.getElementById('flash');
 var flashTimer = 0;
@@ -456,7 +436,7 @@ function onGesture(g){
     flash('握拳 · 聚合成字');
   } else if (g === 'open' && ges.mode !== 'scatter'){
     ges.mode = 'scatter'; state.morphT = 0;
-    flash('张开 · 散成图形');
+    flash('张开 · 星云跟随手掌');
   }
 }
 
@@ -475,23 +455,20 @@ function feedLandmarks(lm, handed){
   for (var i = 0; i < w.length; i++){ px += lm[w[i]].x; py += lm[w[i]].y; }
   px /= w.length; py /= w.length;
   setHand(1 - px, py);
-  state.hasHand = true;
   return r;
 }
 
-var handMeta = { x: 0, y: 0 };
+// nx,ny ∈[0,1] 屏幕比例 → 星云跟随目标（世界坐标）
 function setHand(nx, ny){
-  // nx,ny ∈[0,1] 屏幕比例 → 世界坐标
-  handMeta.x = nx; handMeta.y = ny;
-  state.hand[0] = (nx * 2 - 1) * aspect;
-  state.hand[1] = -(ny * 2 - 1);
-  var thr = isNarrow ? 0.30 : 0.26;
-  for (var i = 0; i < 4; i++){
-    var dx = (state.hand[0] - slots[i][0]) / aspect, dy = state.hand[1] - slots[i][1];
-    var dist = Math.sqrt(dx*dx + dy*dy);
-    var v = Math.max(0, 1 - dist / thr);
-    state.pull[i] = v * v * (3 - 2 * v);
-  }
+  var wx = (nx * 2 - 1) * aspect;
+  var wy = -(ny * 2 - 1);
+  // 别让星云整个跑出画面
+  // 跟随用 0.85 的增益：手到画面边缘时，星云仍有一大半留在屏幕里
+  var mx = Math.max(0.12, aspect * 0.70), my = 0.58;
+  state.followT[0] = Math.max(-mx, Math.min(mx, wx * 0.85));
+  state.followT[1] = Math.max(-my, Math.min(my, wy * 0.85));
+  state.lastHand = performance.now();
+  state.hasHand = true;
 }
 
 //==================== 渲染循环 ====================
@@ -507,15 +484,22 @@ function draw(){
   var k = 1 - Math.exp(-dt * 7.5);
   state.morph += (state.morphT - state.morph) * k;
 
+  // 星云跟随：手还在就紧跟，手丢了就慢慢飘回中心
+  var fresh = (now - state.lastHand) < 700;
+  if (!fresh){ state.followT[0] = 0; state.followT[1] = 0; state.hasHand = false; }
+  var kf = 1 - Math.exp(-dt * (fresh ? 6.0 : 2.4));
+  state.follow[0] += (state.followT[0] - state.follow[0]) * kf;
+  state.follow[1] += (state.followT[1] - state.follow[1]) * kf;
+
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.uniform1f(U.uAspect, aspect);
   gl.uniform1f(U.uTime, state.time);
   gl.uniform1f(U.uMorph, state.morph);
-  gl.uniform2f(U.uHand, state.hand[0], state.hand[1]);
-  gl.uniform1fv(U.uSlotPull, new Float32Array(state.pull));
-  gl.uniform1f(U.uSize, isNarrow ? 2.5 : 2.35);
+  gl.uniform2f(U.uFollow, state.follow[0], state.follow[1]);
+  gl.uniform1f(U.uSize, isNarrow ? 2.5 : 2.3);
   gl.uniform1f(U.uDpr, DPR);
-  gl.uniform1f(U.uBright, (isNarrow ? 1.9 : 1.55) * brightMul * (1.0 + 0.45 * state.morph));
+  gl.uniform1f(U.uCloudR, NEB_R);
+  gl.uniform1f(U.uBright, (isNarrow ? 1.75 : 1.45) * brightMul * (0.90 + 0.45 * state.morph));
   gl.drawArrays(gl.POINTS, 0, COUNT);
 
   fpsAcc += dt; fpsN++;
@@ -539,7 +523,6 @@ canvas.addEventListener('pointerdown', function(e){
   // 兜底：点一下 = 握拳，再点 = 张开
   onGesture(ges.mode === 'scatter' ? 'fist' : 'open');
 });
-
 //==================== 摄像头 + MediaPipe ====================
 var elD = { cam: document.getElementById('dCam'), mdl: document.getElementById('dMdl'),
             hand: document.getElementById('dHand') };
@@ -632,23 +615,20 @@ function detectLoop(){
       elT.hand.textContent = '寻找中';
       elT.ges.textContent = '—';
     }
-    for (var i = 0; i < 4; i++) state.pull[i] = 0;
   }
 }
 
 //==================== 自检（?selftest=1，无需摄像头）====================
 function selftest(){
   // 构造 21 点：open = 四指全伸；fist = 四指全收
-  // 更精确的构造：直接按「伸直/弯曲」摆指骨
   function make(open){
-    // 手朝上：y 越小越靠上。伸直时 mcp->pip->tip 同向；握拳时 tip 折回
     var b = [
-      [0.50, 0.82],                                                   // 0 腕
-      [0.42, 0.76],[0.38, 0.72],[0.35, 0.69],[0.32, 0.66],            // 1-4 拇指
-      [0.44, 0.60],[0.44, 0.52],[0.44, 0.46],[0.44, 0.40],            // 5-8 食指
-      [0.50, 0.59],[0.50, 0.50],[0.50, 0.43],[0.50, 0.36],            // 9-12 中指
-      [0.56, 0.60],[0.56, 0.52],[0.56, 0.46],[0.56, 0.41],            // 13-16 无名
-      [0.62, 0.63],[0.62, 0.56],[0.62, 0.51],[0.62, 0.47]             // 17-20 小指
+      [0.50, 0.82],
+      [0.42, 0.76],[0.38, 0.72],[0.35, 0.69],[0.32, 0.66],
+      [0.44, 0.60],[0.44, 0.52],[0.44, 0.46],[0.44, 0.40],
+      [0.50, 0.59],[0.50, 0.50],[0.50, 0.43],[0.50, 0.36],
+      [0.56, 0.60],[0.56, 0.52],[0.56, 0.46],[0.56, 0.41],
+      [0.62, 0.63],[0.62, 0.56],[0.62, 0.51],[0.62, 0.47]
     ];
     var lm = [];
     for (var i = 0; i < 21; i++) lm.push({ x: b[i][0], y: b[i][1] });
@@ -656,43 +636,58 @@ function selftest(){
       for (var f = 0; f < 4; f++){
         var mcp = 5 + f*4;
         lm[mcp+1] = { x: b[mcp][0], y: b[mcp][1] - 0.07 };
-        lm[mcp+2] = { x: b[mcp][0], y: b[mcp][1] - 0.05 };   // 折回
-        lm[mcp+3] = { x: b[mcp][0], y: b[mcp][1] - 0.01 };   // 尖几乎回到掌指关节
+        lm[mcp+2] = { x: b[mcp][0], y: b[mcp][1] - 0.05 };
+        lm[mcp+3] = { x: b[mcp][0], y: b[mcp][1] - 0.01 };
       }
-      lm[3] = { x: 0.42, y: 0.72 }; lm[4] = { x: 0.46, y: 0.70 }; // 拇指收起
+      lm[3] = { x: 0.42, y: 0.72 }; lm[4] = { x: 0.46, y: 0.70 };
     } else {
-      lm[4] = { x: 0.30, y: 0.60 };  // 拇指张开
+      lm[4] = { x: 0.30, y: 0.60 };
     }
     return lm;
-  }  var rOpen = classify(make(true));
+  }
+  var rOpen = classify(make(true));
   var rFist = classify(make(false));
   var ok = (rOpen.g === 'open') && (rFist.g === 'fist');
   console.log('[selftest] open =>', JSON.stringify(rOpen));
   console.log('[selftest] fist =>', JSON.stringify(rFist));
   console.log('[selftest] classify =', ok ? 'PASS' : 'FAIL');
 
-  // 走一遍完整链路：握拳 → 字，张开 → 散
-  setHand(0.5, 0.5);
+  // 完整链路：握拳 → 字；张开 → 星云
   onGesture('fist');
-  var morphAfterFist = state.morphT;
-  var modeAfterFist = ges.mode;
+  var morphFist = state.morphT, modeFist = ges.mode;
   onGesture('open');
-  var morphAfterOpen = state.morphT;
-  var modeAfterOpen = ges.mode;
-  console.log('[selftest] fist->morphT', morphAfterFist, 'mode', modeAfterFist);
-  console.log('[selftest] open->morphT', morphAfterOpen, 'mode', modeAfterOpen);
+  var morphOpen = state.morphT, modeOpen = ges.mode;
+  console.log('[selftest] fist -> morphT', morphFist, 'mode', modeFist);
+  console.log('[selftest] open -> morphT', morphOpen, 'mode', modeOpen);
 
-  // 吸附：手掌靠近 0 号槽位
-  setHand(0.5, 0.5);
-  var pullCenter = state.pull.slice();
-  setHand((slots[0][0] / aspect + 1) / 2, 1 - (slots[0][1] + 1) / 2);
-  var pullNear = state.pull.slice();
-  console.log('[selftest] pull center', JSON.stringify(pullCenter));
-  console.log('[selftest] pull near slot0', JSON.stringify(pullNear));
-  console.log('[selftest] attract =', (pullNear[0] > 0.8 && pullCenter[0] < 0.2) ? 'PASS' : 'FAIL');
-  console.log('[selftest] ALL =', (ok && morphAfterFist === 1 && morphAfterOpen === 0 &&
-    pullNear[0] > 0.8) ? 'PASS' : 'FAIL');
-  document.title = 'SELFTEST ' + ((ok && pullNear[0] > 0.8) ? 'PASS' : 'FAIL');
+  // 跟随：手掌在右侧 / 左侧，星云目标应该跟着跑
+  setHand(0.88, 0.5);
+  var fRight = state.followT[0];
+  setHand(0.12, 0.5);
+  var fLeft = state.followT[0];
+  setHand(0.5, 0.14);
+  var fUp = state.followT[1];
+  console.log('[selftest] follow right', fRight.toFixed(3), 'left', fLeft.toFixed(3),
+              'up', fUp.toFixed(3));
+  var followOK = (fRight > 0.25) && (fLeft < -0.25) && (fUp > 0.25);
+
+  // 星云数据自检
+  var nb = nebula(4000, NEB_R);
+  var finite = true, rmax = 0;
+  for (var i = 0; i < nb.length; i++){
+    if (!isFinite(nb[i][0]) || !isFinite(nb[i][1])) finite = false;
+    var rr = Math.sqrt(nb[i][0]*nb[i][0] + nb[i][1]*nb[i][1]);
+    if (rr > rmax) rmax = rr;
+  }
+  console.log('[selftest] nebula finite =', finite, 'rmax =', rmax.toFixed(3),
+              '(R =', NEB_R + ')');
+  var nebOK = finite && rmax < NEB_R * 1.7 && rmax > NEB_R * 0.5;
+
+  console.log('[selftest] follow =', followOK ? 'PASS' : 'FAIL');
+  console.log('[selftest] nebula =', nebOK ? 'PASS' : 'FAIL');
+  var all = ok && nebOK && followOK && morphFist === 1 && morphOpen === 0;
+  console.log('[selftest] ALL =', all ? 'PASS' : 'FAIL');
+  document.title = 'SELFTEST ' + (all ? 'PASS' : 'FAIL');
 }
 
 //==================== 启动 ====================
