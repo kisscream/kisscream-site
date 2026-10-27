@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AIGC 短剧 · KissCream</title>
+<meta name="description" content="用 AI 生成的画面和声音，<b>在网页里直接播完一整段短剧</b>。">
+<meta name="theme-color" content="#05080c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ff7a3a'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23101418' stroke-width='2.4'/%3E%3C/svg%3E">
+<style>
+  :root{--bg:#05080c;--fg:#e8f1f4;--dim:#93a8b4;--accent:#ff7a3a;--line:rgba(120,190,210,.16)}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1100px 620px at 50% 8%, rgba(40,120,140,.16), transparent 62%), var(--bg);
+    color:var(--fg);font-family:"Microsoft YaHei","PingFang SC",-apple-system,"Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex;align-items:center;justify-content:center;padding:34px 24px;
+  }
+  a{color:inherit;text-decoration:none}
+  .box{width:100%;max-width:620px}
+  .back{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim);margin-bottom:30px}
+  .back:hover{color:var(--fg)}
+  .kicker{font-size:10.5px;letter-spacing:3.2px;text-transform:uppercase;color:rgba(140,175,190,.6)}
+  h1{font-size:clamp(28px,6vw,44px);margin:14px 0 0;letter-spacing:-.6px;line-height:1.15}
+  .state{display:inline-block;margin-top:16px;font-size:11px;letter-spacing:1.4px;padding:5px 11px;border-radius:6px;
+    background:rgba(255,122,58,.14);border:1px solid rgba(255,122,58,.42);color:#ffb08a}
+  p.lead{margin:20px 0 0;font-size:14px;line-height:1.95;color:var(--dim)}
+  p.lead b{color:var(--fg);font-weight:600}
+  ul{margin:26px 0 0;padding:0;list-style:none;border-top:1px solid rgba(120,190,210,.12)}
+  li{position:relative;padding:15px 0 15px 26px;font-size:13px;line-height:1.8;color:rgba(200,216,224,.86);
+    border-bottom:1px solid rgba(120,190,210,.12)}
+  li:before{content:"";position:absolute;left:2px;top:22px;width:7px;height:7px;border-radius:50%;
+    background:rgba(255,122,58,.85);box-shadow:0 0 12px rgba(255,122,58,.55)}
+  .note{margin:26px 0 0;font-size:12px;line-height:1.85;color:rgba(140,168,182,.62)}
+  .cta{display:inline-block;margin-top:30px;padding:13px 26px;border-radius:11px;font-size:14px;font-weight:600;color:#fff;
+    background:linear-gradient(135deg,#ff8a4c,#f0521a);box-shadow:0 10px 26px rgba(240,82,26,.26)}
+  .cta:hover{transform:translateY(-1px);filter:brightness(1.06)}
+</style>
+</head>
+<body>
+  <div class="box">
+    <a class="back" href="index.html">← 回到 KissCream 首页</a>
+    <div class="kicker">Generated Short Drama</div>
+    <h1>AIGC 短剧</h1>
+    <div class="state">开发中</div>
+    <p class="lead">用 AI 生成的画面和声音，<b>在网页里直接播完一整段短剧</b>。</p>
+    <ul>
+      <li>写脚本 → 生成分镜画面 → 配音配乐，整条流程串起来</li>
+      <li>网页里直接播放，不用跳去别的平台</li>
+      <li>片名、字幕、进度都在浏览器里拼</li>
+      <li>先把第一集的完整链路跑通，再谈批量</li>
+    </ul>
+    <p class="note">还在规划阶段。等第一个能播的成品出来，这里会直接放上去。</p>
+    <a class="cta" href="index.html">先回首页看看别的</a>
+  </div>
+</body>
+</html>

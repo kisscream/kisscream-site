@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#05070a">
+<title>手势识别交互 · KissCream</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+:root{
+  --bg:#05070a; --ink:#eef3f5; --dim:#8b9aa3; --line:rgba(255,255,255,.09);
+  --hot:#ff6b35; --hot2:#ffa06a;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
+  font-family:"Microsoft YaHei","PingFang SC",-apple-system,"Segoe UI",sans-serif}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+header{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 clamp(16px,4vw,40px);z-index:20;
+  background:linear-gradient(180deg,rgba(5,7,10,.9),rgba(5,7,10,0));
+  backdrop-filter:blur(6px)}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink);text-decoration:none;
+  font-weight:700;font-size:15px;letter-spacing:.01em}
+.brand .mark{width:26px;height:26px;border-radius:9px;display:grid;place-items:center;
+  background:linear-gradient(140deg,#ff8a4c,#e2521f);box-shadow:0 2px 10px rgba(255,107,53,.35)}
+.brand .mark i{width:9px;height:9px;border-radius:50%;background:#0a0d10;display:block}
+.back{font-size:12.5px;color:var(--dim);text-decoration:none;border:1px solid var(--line);
+  padding:6px 12px;border-radius:99px;transition:.2s}
+.back:hover{color:var(--ink);border-color:rgba(255,255,255,.25)}
+
+/* 左上：状态面板 */
+.panel{position:fixed;left:clamp(14px,3vw,28px);top:74px;z-index:15;width:212px;
+  background:rgba(10,14,18,.72);border:1px solid var(--line);border-radius:14px;
+  padding:13px 14px;backdrop-filter:blur(10px);font-size:12px;line-height:1.7}
+.panel h4{font-size:10.5px;letter-spacing:.14em;color:var(--dim);font-weight:600;
+  text-transform:uppercase;margin-bottom:9px}
+.row{display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+.row b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.row.s b{color:var(--hot2)}
+.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#3a464d;
+  margin-right:6px;vertical-align:1px;transition:.25s}
+.dot.on{background:#43d17c;box-shadow:0 0 8px rgba(67,209,124,.8)}
+.dot.warn{background:#e8b33c;box-shadow:0 0 8px rgba(232,179,60,.7)}
+.dot.err{background:#e05656;box-shadow:0 0 8px rgba(224,86,86,.7)}
+
+/* 右上：摄像头预览 */
+.cam{position:fixed;right:clamp(14px,3vw,28px);top:74px;z-index:15;width:176px;
+  border-radius:14px;overflow:hidden;border:1px solid var(--line);
+  background:#0a0e12;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+.cam video{display:block;width:100%;height:auto;transform:scaleX(-1);opacity:.92;
+  filter:saturate(.55) contrast(1.05)}
+.cam .cap{position:absolute;left:8px;bottom:6px;font-size:10px;color:#cfe0e8;
+  background:rgba(0,0,0,.45);padding:2px 6px;border-radius:6px;letter-spacing:.04em}
+.cam.off video{display:none}
+.cam.off{height:88px;display:grid;place-items:center}
+.cam.off .cap{position:static;background:none;color:var(--dim);text-align:center;
+  padding:0 10px;line-height:1.5;font-size:11px}
+
+/* 底部提示 */
+.hint{position:fixed;left:50%;bottom:clamp(16px,3.6vh,34px);transform:translateX(-50%);
+  z-index:15;display:flex;gap:10px;flex-wrap:wrap;justify-content:center;
+  width:min(720px,92vw)}
+.chip{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#c9d6dd;
+  background:rgba(10,14,18,.74);border:1px solid var(--line);border-radius:99px;
+  padding:8px 14px;backdrop-filter:blur(10px);white-space:nowrap}
+.chip em{font-style:normal;color:var(--hot2);font-weight:600}
+.chip k{font:600 11px/1 ui-monospace,Consolas,monospace;border:1px solid var(--line);
+  border-radius:5px;padding:3px 5px;color:var(--ink)}
+
+/* 大动作字样（触发时闪现） */
+.flash{position:fixed;left:50%;top:46%;transform:translate(-50%,-50%) scale(.9);
+  z-index:18;font-size:clamp(26px,6vw,54px);font-weight:800;letter-spacing:.04em;
+  color:var(--hot2);opacity:0;pointer-events:none;transition:.28s cubic-bezier(.2,.9,.3,1);
+  text-shadow:0 0 34px rgba(255,107,53,.55);white-space:nowrap}
+.flash.show{opacity:1;transform:translate(-50%,-50%) scale(1)}
+
+@media (max-width:819px){
+  .panel{top:64px;left:10px;width:auto;max-width:176px;font-size:11px;padding:10px 11px;
+    border-radius:12px}
+  .panel h4{font-size:9.5px;margin-bottom:6px}
+  .cam{top:64px;right:10px;width:104px;border-radius:11px}
+  .cam.off{height:64px}
+  .hint{bottom:14px;gap:7px;width:94vw}
+  .chip{font-size:11px;padding:6px 10px}
+  .hint .desk{display:none}
+}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<header>
+  <a class="brand" href="index.html"><span class="mark"><i></i></span>KissCream</a>
+  <a class="back" href="index.html">← 返回首页</a>
+</header>
+
+<div class="panel">
+  <h4>交互状态</h4>
+  <div class="row"><span><i class="dot" id="dCam"></i>摄像头</span><b id="tCam">未启动</b></div>
+  <div class="row"><span><i class="dot" id="dMdl"></i>手部模型</span><b id="tMdl">待加载</b></div>
+  <div class="row"><span><i class="dot" id="dHand"></i>手掌</span><b id="tHand">无</b></div>
+  <div class="row s"><span>手势</span><b id="tGes">—</b></div>
+  <div class="row"><span>粒子</span><b id="tNum">—</b></div>
+  <div class="row"><span>帧率</span><b id="tFps">—</b></div>
+</div>
+
+<div class="cam off" id="camBox">
+  <video id="v" playsinline muted autoplay></video>
+  <span class="cap" id="camCap">摄像头预览</span>
+</div>
+
+<div class="flash" id="flash"></div>
+
+<div class="hint">
+  <div class="chip"><k>握拳</k> 全部粒子聚成 <em>KissCream</em></div>
+  <div class="chip"><k>张开</k> 散回 <em>四个图形</em></div>
+  <div class="chip desk"><em>手靠近哪个图形</em>，那个图形就被吸向手掌</div>
+  <div class="chip" id="fbChip" style="display:none"><em>无摄像头时：鼠标/手指 = 手掌</em></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+//==================== 配置 ====================
+var isNarrow = Math.min(window.innerWidth, window.innerHeight) < 820;
+var COUNT = isNarrow ? 25000 : 70000;
+var SHAPES = ['球体', '立方体', '心形', '星形'];
+
+//==================== WebGL 初始化 ====================
+var canvas = document.getElementById('c');
+var gl = canvas.getContext('webgl2', {antialias:false, alpha:false, depth:false,
+  premultipliedAlpha:false, powerPreference:'high-performance'});
+if (!gl) {
+  document.body.innerHTML = '<div style="display:grid;place-items:center;height:100%;' +
+    'color:#8b9aa3;font:14px sans-serif;text-align:center;padding:24px">' +
+    '这个浏览器不支持 WebGL2<br>换个新版 Chrome / Edge / Safari 试试</div>';
+  return;
+}
+
+var VS = [
+'#version 300 es',
+'precision highp float;',
+'in vec2 aHome;',
+'in vec2 aFist;',
+'in vec3 aSeed;',
+'in float aSlot;',
+'uniform float uAspect;',
+'uniform float uTime;',
+'uniform float uMorph;',
+'uniform vec2 uHand;',
+'uniform float uSlotPull[4];',
+'uniform float uSize;',
+'uniform float uDpr;',
+'uniform float uBright;',
+'out vec3 vCol;',
+'out float vA;',
+'void main(){',
+'  vec2 p = mix(aHome, aFist, uMorph);',
+'  float br = (1.0 - uMorph) * 0.011;',
+'  p += vec2(sin(uTime*0.70 + aSeed.x*6.2832), cos(uTime*0.55 + aSeed.y*6.2832)) * br;',
+'  float pull = uSlotPull[int(aSlot + 0.5)] * (1.0 - uMorph);',
+'  vec2 d = uHand - p;',
+'  float dd = dot(d, d);',
+'  float infl = exp(-dd * 1.6) * pull;',
+'  vec2 dir = d * inversesqrt(dd + 1e-6);',
+'  p += dir * infl * 0.13;',
+'  float sw = infl * 2.4;',
+'  float ca = cos(sw), sa = sin(sw);',
+'  p += vec2(ca*d.x - sa*d.y, sa*d.x + ca*d.y) * infl * 0.05;',
+'  vec2 clip = vec2(p.x / uAspect, p.y);',
+'  gl_Position = vec4(clip, 0.0, 1.0);',
+'  gl_PointSize = uSize * uDpr * (0.55 + 0.55 * aSeed.z) * (1.0 + infl * 1.1);',
+'  float heat = clamp(infl * 2.6 + aSeed.z * 0.16, 0.0, 1.0);',
+'  vCol = mix(vec3(0.82, 0.90, 0.95), vec3(1.0, 0.56, 0.24), heat);',
+'  vA = 0.30 + 0.32 * aSeed.z + infl * 0.55;',
+'}'
+].join('\n');
+
+var FS = [
+'#version 300 es',
+'precision highp float;',
+'in vec3 vCol;',
+'in float vA;',
+'uniform float uBright;',
+'out vec4 outColor;',
+'void main(){',
+'  vec2 q = gl_PointCoord - 0.5;',
+'  float r = length(q) * 2.0;',
+'  if (r > 1.0) discard;',
+'  float a = smoothstep(1.0, 0.10, r);',
+'  a *= a;',
+'  outColor = vec4(vCol * a * vA * uBright, a * vA * uBright);',
+'}'
+].join('\n');
+
+function mkShader(type, src){
+  var s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+    throw new Error('shader: ' + gl.getShaderInfoLog(s));
+  return s;
+}
+var prog = gl.createProgram();
+gl.attachShader(prog, mkShader(gl.VERTEX_SHADER, VS));
+gl.attachShader(prog, mkShader(gl.FRAGMENT_SHADER, FS));
+gl.linkProgram(prog);
+if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
+  throw new Error('link: ' + gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+
+var U = {};
+['uAspect','uTime','uMorph','uHand','uSlotPull','uSize','uDpr','uBright'].forEach(function(n){
+  U[n] = gl.getUniformLocation(prog, n);
+});
+var A = {};
+['aHome','aFist','aSeed','aSlot'].forEach(function(n){ A[n] = gl.getAttribLocation(prog, n); });
+
+gl.disable(gl.DEPTH_TEST);
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.ONE, gl.ONE);
+gl.clearColor(0.02, 0.027, 0.039, 1);
+
+//==================== 形状生成 ====================
+var TAU = Math.PI * 2;
+
+function sphere(n, r){
+  var out = [];
+  for (var i = 0; i < n; i++){
+    var y = 1 - (i / (n - 1)) * 2;
+    var rr = Math.sqrt(Math.max(0, 1 - y * y));
+    var th = i * 2.399963229728653;
+    out.push([Math.cos(th) * rr * r, y * r]);
+  }
+  return out;
+}
+function cube(n, r){
+  // 等轴测立方体：面填充打底 + 12 条棱加亮，看起来就是个方块
+  var c30 = Math.cos(Math.PI / 6), s30 = 0.5, g = 0.55;
+  var V = [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+  var E = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  function iso(p){ return [(p[0] - p[2]) * c30, p[1] + (p[0] + p[2]) * s30 - 0.5]; }
+  var out = [];
+  for (var i = 0; i < n; i++){
+    var P;
+    if (i % 5 < 2){
+      // 棱：更密，视觉上更亮
+      var e = E[(i * 7 + Math.floor(i / 5)) % 12];
+      var A = V[e[0]], B = V[e[1]];
+      var t = ((i * 0.6180339887) % 1);
+      P = [A[0] + (B[0]-A[0])*t, A[1] + (B[1]-A[1])*t, A[2] + (B[2]-A[2])*t];
+    } else {
+      var a = (((i * 0.6180339887) % 1) * 2 - 1);
+      var b = (((i * 0.7548776662 + 0.31) % 1) * 2 - 1);
+      var f = i % 3;
+      P = f === 0 ? [a, 1, b] : (f === 1 ? [-1, a, b] : [a, b, -1]);
+    }
+    var q = iso(P);
+    out.push([q[0] * r * g + (Math.random()-.5)*0.004, q[1] * r * g + (Math.random()-.5)*0.004]);
+  }
+  return out;
+}function heart(n, r){
+  var out = [];
+  var k = r / 17;
+  for (var i = 0; i < n; i++){
+    var t = (i / n) * TAU;
+    var x = 16 * Math.pow(Math.sin(t), 3);
+    var y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+    var jr = 0.62 + 0.38 * ((i * 0.618) % 1);      // 往内填一点，别只剩轮廓
+    out.push([x * k * jr, y * k * jr]);
+  }
+  return out;
+}
+function heart(n, r){
+  var out = [];
+  var k = r / 17;
+  for (var i = 0; i < n; i++){
+    var t = (i / n) * TAU;
+    var x = 16 * Math.pow(Math.sin(t), 3);
+    var y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+    var jr = 0.62 + 0.38 * ((i * 0.618) % 1);
+    out.push([x * k * jr, y * k * jr]);
+  }
+  return out;
+}
+function star(n, r){
+  var out = [];
+  var pts = [];
+  for (var k = 0; k < 5; k++){
+    var a1 = -Math.PI / 2 + k * TAU / 5;
+    var a2 = a1 + TAU / 10;
+    pts.push([Math.cos(a1) * r, Math.sin(a1) * r]);
+    pts.push([Math.cos(a2) * r * 0.42, Math.sin(a2) * r * 0.42]);
+  }
+  for (var i = 0; i < n; i++){
+    var t = (i % 100) / 100;
+    var e = (Math.floor(i / 100)) % 10;
+    var p1 = pts[e], p2 = pts[(e + 1) % 10];
+    out.push([p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t]);
+  }
+  return out;
+}
+var GEN = [sphere, cube, heart, star];
+
+// 采样文字位置（用于「握拳聚合」）
+function sampleText(text, maxW, maxH){
+  var fs = 200, pad = 40;
+  var cv = document.createElement('canvas');
+  var cx = cv.getContext('2d');
+  cx.font = '800 ' + fs + 'px "Segoe UI","Microsoft YaHei",sans-serif';
+  var w = Math.ceil(cx.measureText(text).width);
+  cv.width = w + pad * 2; cv.height = fs + pad * 2;
+  cx = cv.getContext('2d');
+  cx.fillStyle = '#fff';
+  cx.font = '800 ' + fs + 'px "Segoe UI","Microsoft YaHei",sans-serif';
+  cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.fillText(text, cv.width / 2, cv.height / 2);
+  var data = cx.getImageData(0, 0, cv.width, cv.height).data;
+  var pts = [];
+  for (var y = 0; y < cv.height; y += 2){
+    for (var x = 0; x < cv.width; x += 2){
+      if (data[(y * cv.width + x) * 4 + 3] > 22) pts.push([x, y]);
+    }
+  }
+  var sc = Math.min(maxW / cv.width, maxH / cv.height);
+  return { pts: pts, w: cv.width * sc, h: cv.height * sc, sc: sc };
+}
+
+//==================== 粒子数据 ====================
+var state = { morph: 0, morphT: 0, time: 0, hand: [0, 0], pull: [0, 0, 0, 0], hasHand: false };
+
+var texFist = sampleText('KissCream', 1.86, 0.62);   // 世界宽约 1.86（aspect≈1.78 时铺满）
+
+var aHome = new Float32Array(COUNT * 2);
+var aFist = new Float32Array(COUNT * 2);
+var aSeed = new Float32Array(COUNT * 3);
+var aSlot = new Float32Array(COUNT);
+
+// 槽位布局（世界坐标：x∈[-aspect,aspect]，y∈[-1,1]）
+function layoutSlots(aspect, narrow){
+  if (narrow){
+    var dx = Math.min(0.44, aspect * 0.44), dy = 0.30;
+    return [[-dx, dy], [dx, dy], [-dx, -dy], [dx, -dy]];
+  }
+  var sx = Math.min(0.62, aspect * 0.335);
+  return [[-sx * 1.5, 0.02], [-sx * 0.5, 0.02], [sx * 0.5, 0.02], [sx * 1.5, 0.02]];
+}
+var slots = layoutSlots(canvas.width / canvas.height || 1.78, isNarrow);
+
+function buildParticles(){
+  var per = Math.floor(COUNT / 4);
+  var ptsPer = [];
+  var R = isNarrow ? 0.20 : 0.235;
+  for (var s = 0; s < 4; s++) ptsPer.push(GEN[s](Math.min(per, 3000), R));
+
+  for (var i = 0; i < COUNT; i++){
+    var s = i % 4;
+    var slot = slots[s];
+    var src = ptsPer[s];
+    var p = src[i % src.length];
+    // 同一形状内用不同相位取点，避免规律重复
+    var ang = i * 2.399963229728653;
+    var jr = 0.010 + 0.006 * Math.sin(i * 0.37);
+    aHome[i*2]   = slot[0] + p[0] + Math.cos(ang) * jr;
+    aHome[i*2+1] = slot[1] + p[1] + Math.sin(ang) * jr;
+    aSlot[i] = s;
+
+    var tp = texFist.pts[(i * 7919) % texFist.pts.length];
+    aFist[i*2]   = (tp[0] - texFist.w / texFist.sc / 2) * texFist.sc + (Math.random() - .5) * 0.004;
+    aFist[i*2+1] = -(tp[1] - texFist.h / texFist.sc / 2) * texFist.sc + (Math.random() - .5) * 0.004;
+
+    aSeed[i*3]   = Math.random();
+    aSeed[i*3+1] = Math.random();
+    aSeed[i*3+2] = Math.random();
+  }
+
+  function buf(arr, loc, size){
+    var b = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, b);
+    gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
+  }
+  buf(aHome, A.aHome, 2);
+  buf(aFist, A.aFist, 2);
+  buf(aSeed, A.aSeed, 3);
+  buf(aSlot, A.aSlot, 1);
+}
+
+//==================== 视口 ====================
+var DPR = Math.min(window.devicePixelRatio || 1, isNarrow ? 2 : 1.75);
+var aspect = 1.78, brightMul = 1;
+
+function resize(){
+  var w = window.innerWidth, h = window.innerHeight;
+  canvas.width = Math.round(w * DPR);
+  canvas.height = Math.round(h * DPR);
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  aspect = canvas.width / canvas.height;
+  isNarrow = Math.min(w, h) < 820;
+  slots = layoutSlots(aspect, isNarrow);
+  texFist = sampleText('KissCream', aspect * 0.94, 0.42 * (isNarrow ? 1.1 : 1.5));
+  buildParticles();
+  brightMul = isNarrow ? 1.35 : 1.0;
+}
+
+//==================== 手势判定 ====================
+// MediaPipe 手部 21 点：0 腕, 4 拇指尖, 8/12/16/20 四指尖, 5/9/13/17 掌指关节
+function classify(lm, handed){
+  // 用「指骨方向是否连续」判伸展，不受手部旋转影响
+  function nrm(v){
+    var L = Math.sqrt(v[0]*v[0] + v[1]*v[1]) || 1e-6;
+    return [v[0]/L, v[1]/L];
+  }
+  function straight(mcp, pip, tip){
+    var a = nrm([lm[pip].x - lm[mcp].x, lm[pip].y - lm[mcp].y]);
+    var b = nrm([lm[tip].x - lm[pip].x, lm[tip].y - lm[pip].y]);
+    return a[0]*b[0] + a[1]*b[1];
+  }
+  var ext = 0, dots = [];
+  for (var i = 0; i < 4; i++){
+    var mcp = 5 + i*4, pip = 6 + i*4, tip = 8 + i*4;
+    var d1 = straight(mcp, pip, tip);
+    dots.push(+d1.toFixed(2));
+    if (d1 > 0.30) ext++;
+  }
+  var dThumb = straight(2, 3, 4);
+  var thumbOut = dThumb > 0.30;
+  if (thumbOut) ext++;
+  var g;
+  if (ext <= 1) g = 'fist';
+  else if (ext >= 5) g = 'open';
+  else if (ext <= 3) g = 'mid';
+  else g = 'unknown';
+  return { g: g, ext: ext, thumb: thumbOut, dots: dots };
+}
+var ges = { last: 'unknown', stable: 0, fired: 0, mode: 'scatter' };
+var HAND_NAMES = { fist: '握拳', open: '张开', mid: '半握', unknown: '—' };
+var flashEl = document.getElementById('flash');
+var flashTimer = 0;
+function flash(txt){
+  flashEl.textContent = txt;
+  flashEl.classList.add('show');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(function(){ flashEl.classList.remove('show'); }, 900);
+}
+
+function onGesture(g){
+  if (g === 'fist' && ges.mode !== 'text'){
+    ges.mode = 'text'; state.morphT = 1;
+    flash('握拳 · 聚合成字');
+  } else if (g === 'open' && ges.mode !== 'scatter'){
+    ges.mode = 'scatter'; state.morphT = 0;
+    flash('张开 · 散成图形');
+  }
+}
+
+function feedLandmarks(lm, handed){
+  var r = classify(lm, handed);
+  var now = performance.now();
+  if (r.g === ges.last) ges.stable++;
+  else { ges.last = r.g; ges.stable = 1; }
+
+  if (ges.stable === 3 && now - ges.fired > 700){
+    if (r.g === 'fist' || r.g === 'open'){ onGesture(r.g); ges.fired = now; }
+  }
+
+  // 手掌中心（镜像后映射到世界坐标）
+  var px = 0, py = 0, w = [0, 5, 9, 13, 17];
+  for (var i = 0; i < w.length; i++){ px += lm[w[i]].x; py += lm[w[i]].y; }
+  px /= w.length; py /= w.length;
+  setHand(1 - px, py);
+  state.hasHand = true;
+  return r;
+}
+
+var handMeta = { x: 0, y: 0 };
+function setHand(nx, ny){
+  // nx,ny ∈[0,1] 屏幕比例 → 世界坐标
+  handMeta.x = nx; handMeta.y = ny;
+  state.hand[0] = (nx * 2 - 1) * aspect;
+  state.hand[1] = -(ny * 2 - 1);
+  var thr = isNarrow ? 0.30 : 0.26;
+  for (var i = 0; i < 4; i++){
+    var dx = (state.hand[0] - slots[i][0]) / aspect, dy = state.hand[1] - slots[i][1];
+    var dist = Math.sqrt(dx*dx + dy*dy);
+    var v = Math.max(0, 1 - dist / thr);
+    state.pull[i] = v * v * (3 - 2 * v);
+  }
+}
+
+//==================== 渲染循环 ====================
+var lastT = performance.now(), fpsAcc = 0, fpsN = 0, fpsShow = 0;
+
+function draw(){
+  var now = performance.now();
+  var dt = Math.min(0.05, (now - lastT) / 1000);
+  lastT = now;
+  state.time += dt;
+
+  // 形变缓动
+  var k = 1 - Math.exp(-dt * 7.5);
+  state.morph += (state.morphT - state.morph) * k;
+
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniform1f(U.uAspect, aspect);
+  gl.uniform1f(U.uTime, state.time);
+  gl.uniform1f(U.uMorph, state.morph);
+  gl.uniform2f(U.uHand, state.hand[0], state.hand[1]);
+  gl.uniform1fv(U.uSlotPull, new Float32Array(state.pull));
+  gl.uniform1f(U.uSize, isNarrow ? 2.5 : 2.35);
+  gl.uniform1f(U.uDpr, DPR);
+  gl.uniform1f(U.uBright, (isNarrow ? 1.9 : 1.55) * brightMul * (1.0 + 0.45 * state.morph));
+  gl.drawArrays(gl.POINTS, 0, COUNT);
+
+  fpsAcc += dt; fpsN++;
+  if (fpsAcc > 0.5){
+    fpsShow = Math.round(fpsN / fpsAcc);
+    fpsAcc = 0; fpsN = 0;
+    document.getElementById('tFps').textContent = fpsShow + ' fps';
+  }
+  requestAnimationFrame(draw);
+}
+
+//==================== 鼠标 / 触摸兜底 ====================
+var usePointer = true;
+canvas.addEventListener('pointermove', function(e){
+  if (!usePointer) return;
+  setHand(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
+});
+canvas.addEventListener('pointerdown', function(e){
+  if (!usePointer) return;
+  setHand(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
+  // 兜底：点一下 = 握拳，再点 = 张开
+  onGesture(ges.mode === 'scatter' ? 'fist' : 'open');
+});
+
+//==================== 摄像头 + MediaPipe ====================
+var elD = { cam: document.getElementById('dCam'), mdl: document.getElementById('dMdl'),
+            hand: document.getElementById('dHand') };
+var elT = { cam: document.getElementById('tCam'), mdl: document.getElementById('tMdl'),
+            hand: document.getElementById('tHand'), ges: document.getElementById('tGes'),
+            num: document.getElementById('tNum') };
+function badge(elm, cls){ elm.className = 'dot ' + (cls || ''); }
+
+var video = document.getElementById('v');
+var camBox = document.getElementById('camBox');
+var camCap = document.getElementById('camCap');
+var landmarker = null;
+
+document.getElementById('tNum').textContent = COUNT.toLocaleString();
+
+async function initHand(){
+  badge(elD.mdl, 'warn'); elT.mdl.textContent = '加载中';
+  try {
+    var vision = await import('./vendor/vision_bundle.js');
+    var files = await vision.FilesetResolver.forVisionTasks('./vendor/wasm');
+    var opts = function(delegate){
+      return {
+        baseOptions: { modelAssetPath: './models/hand_landmarker.task', delegate: delegate },
+        runningMode: 'VIDEO', numHands: 1,
+        minHandDetectionConfidence: 0.55, minHandPresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      };
+    };
+    try {
+      landmarker = await vision.HandLandmarker.createFromOptions(files, opts('GPU'));
+    } catch (e1) {
+      landmarker = await vision.HandLandmarker.createFromOptions(files, opts('CPU'));
+    }
+    badge(elD.mdl, 'on'); elT.mdl.textContent = '就绪';
+    return true;
+  } catch (err) {
+    badge(elD.mdl, 'err'); elT.mdl.textContent = '失败';
+    camCap.textContent = '模型加载失败，已切鼠标模式';
+    usePointer = true;
+    document.getElementById('fbChip').style.display = '';
+    console.warn('[gesture] 手部模型加载失败：', err && err.message);
+    return false;
+  }
+}
+
+async function initCamera(){
+  badge(elD.cam, 'warn'); elT.cam.textContent = '启动中';
+  try {
+    var stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    camBox.classList.remove('off');
+    camCap.textContent = '摄像头预览';
+    badge(elD.cam, 'on'); elT.cam.textContent = '已启动';
+    return true;
+  } catch (err) {
+    badge(elD.cam, 'err'); elT.cam.textContent = '不可用';
+    camCap.textContent = '没有摄像头权限，用鼠标/手指来代替手掌';
+    document.getElementById('fbChip').style.display = '';
+    console.warn('[gesture] 摄像头不可用：', err && err.name);
+    return false;
+  }
+}
+
+var lastDetect = 0, detectTs = 0;
+
+function detectLoop(){
+  requestAnimationFrame(detectLoop);
+  if (!landmarker || !video.videoWidth) return;
+  var now = performance.now();
+  if (now - lastDetect < (fpsShow && fpsShow < 30 ? 60 : 33)) return;
+  lastDetect = now;
+  var res;
+  try {
+    res = landmarker.detectForVideo(video, (detectTs += 33));
+  } catch (e) { return; }
+  if (res && res.landmarks && res.landmarks.length){
+    usePointer = false;
+    var r = feedLandmarks(res.landmarks[0], res.handedness && res.handedness[0] &&
+                          res.handedness[0][0] ? res.handedness[0][0].categoryName : '');
+    badge(elD.hand, 'on');
+    elT.hand.textContent = '已锁定';
+    elT.ges.textContent = HAND_NAMES[r.g] || r.g;
+  } else {
+    if (!usePointer){
+      badge(elD.hand, 'warn');
+      elT.hand.textContent = '寻找中';
+      elT.ges.textContent = '—';
+    }
+    for (var i = 0; i < 4; i++) state.pull[i] = 0;
+  }
+}
+
+//==================== 自检（?selftest=1，无需摄像头）====================
+function selftest(){
+  // 构造 21 点：open = 四指全伸；fist = 四指全收
+  // 更精确的构造：直接按「伸直/弯曲」摆指骨
+  function make(open){
+    // 手朝上：y 越小越靠上。伸直时 mcp->pip->tip 同向；握拳时 tip 折回
+    var b = [
+      [0.50, 0.82],                                                   // 0 腕
+      [0.42, 0.76],[0.38, 0.72],[0.35, 0.69],[0.32, 0.66],            // 1-4 拇指
+      [0.44, 0.60],[0.44, 0.52],[0.44, 0.46],[0.44, 0.40],            // 5-8 食指
+      [0.50, 0.59],[0.50, 0.50],[0.50, 0.43],[0.50, 0.36],            // 9-12 中指
+      [0.56, 0.60],[0.56, 0.52],[0.56, 0.46],[0.56, 0.41],            // 13-16 无名
+      [0.62, 0.63],[0.62, 0.56],[0.62, 0.51],[0.62, 0.47]             // 17-20 小指
+    ];
+    var lm = [];
+    for (var i = 0; i < 21; i++) lm.push({ x: b[i][0], y: b[i][1] });
+    if (!open){
+      for (var f = 0; f < 4; f++){
+        var mcp = 5 + f*4;
+        lm[mcp+1] = { x: b[mcp][0], y: b[mcp][1] - 0.07 };
+        lm[mcp+2] = { x: b[mcp][0], y: b[mcp][1] - 0.05 };   // 折回
+        lm[mcp+3] = { x: b[mcp][0], y: b[mcp][1] - 0.01 };   // 尖几乎回到掌指关节
+      }
+      lm[3] = { x: 0.42, y: 0.72 }; lm[4] = { x: 0.46, y: 0.70 }; // 拇指收起
+    } else {
+      lm[4] = { x: 0.30, y: 0.60 };  // 拇指张开
+    }
+    return lm;
+  }  var rOpen = classify(make(true));
+  var rFist = classify(make(false));
+  var ok = (rOpen.g === 'open') && (rFist.g === 'fist');
+  console.log('[selftest] open =>', JSON.stringify(rOpen));
+  console.log('[selftest] fist =>', JSON.stringify(rFist));
+  console.log('[selftest] classify =', ok ? 'PASS' : 'FAIL');
+
+  // 走一遍完整链路：握拳 → 字，张开 → 散
+  setHand(0.5, 0.5);
+  onGesture('fist');
+  var morphAfterFist = state.morphT;
+  var modeAfterFist = ges.mode;
+  onGesture('open');
+  var morphAfterOpen = state.morphT;
+  var modeAfterOpen = ges.mode;
+  console.log('[selftest] fist->morphT', morphAfterFist, 'mode', modeAfterFist);
+  console.log('[selftest] open->morphT', morphAfterOpen, 'mode', modeAfterOpen);
+
+  // 吸附：手掌靠近 0 号槽位
+  setHand(0.5, 0.5);
+  var pullCenter = state.pull.slice();
+  setHand((slots[0][0] / aspect + 1) / 2, 1 - (slots[0][1] + 1) / 2);
+  var pullNear = state.pull.slice();
+  console.log('[selftest] pull center', JSON.stringify(pullCenter));
+  console.log('[selftest] pull near slot0', JSON.stringify(pullNear));
+  console.log('[selftest] attract =', (pullNear[0] > 0.8 && pullCenter[0] < 0.2) ? 'PASS' : 'FAIL');
+  console.log('[selftest] ALL =', (ok && morphAfterFist === 1 && morphAfterOpen === 0 &&
+    pullNear[0] > 0.8) ? 'PASS' : 'FAIL');
+  document.title = 'SELFTEST ' + ((ok && pullNear[0] > 0.8) ? 'PASS' : 'FAIL');
+}
+
+//==================== 启动 ====================
+resize();
+window.addEventListener('resize', function(){
+  clearTimeout(window.__rz);
+  window.__rz = setTimeout(resize, 180);
+});
+requestAnimationFrame(draw);
+
+var q = new URLSearchParams(location.search);
+if (q.get('morph') === '1'){ ges.mode = 'text'; state.morph = 1; state.morphT = 1; }
+if (q.get('selftest') === '1'){
+  setTimeout(selftest, 300);
+} else {
+  (async function(){
+    var camOK = await initCamera();
+    var mdlOK = await initHand();
+    if (camOK && mdlOK) detectLoop();
+  })();
+}
+})();
+</script>
+</body>
+</html>

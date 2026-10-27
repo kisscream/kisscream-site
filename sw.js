@@ -7,6 +7,8 @@ const CORE = [
   './',
   './index.html',
   './football.html',
+  './gesture.html',
+  './aigc.html',
   './manifest.json',
   './assets/football.jpg',
   './icons/icon-192.png',

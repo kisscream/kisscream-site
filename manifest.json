@@ -1,7 +1,7 @@
 {
-  "name": "KissCream · 把结构拆开来看",
+  "name": "KissCream · 交互实验室",
   "short_name": "KissCream",
-  "description": "交互式 3D 结构拆解：拖拽旋转、拉动进度、点击零件，把一层层结构拆开。",
+  "description": "KissCream 交互实验室：手势识别交互、可视化交互、AIGC 短剧。纯网页实现，不装插件。",
   "lang": "zh-CN",
   "start_url": "./",
   "scope": "./",

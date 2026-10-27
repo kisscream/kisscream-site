@@ -2,11 +2,11 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KissCream · 把结构拆开来看</title>
-<meta name="description" content="KissCream — 交互式 3D 结构解剖：拖动旋转、逐层拆解、点选零件，看清每一层是怎么装起来的。">
-<meta property="og:title" content="KissCream · 把结构拆开来看">
-<meta property="og:description" content="交互式 3D 结构解剖：拖动旋转、逐层拆解、点选零件。">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KissCream · 交互实验室</title>
+<meta name="description" content="KissCream — 手势识别交互、可视化交互、AIGC 短剧。纯网页实现，不装插件，打开就能用。">
+<meta property="og:title" content="KissCream · 交互实验室">
+<meta property="og:description" content="手势识别交互 · 可视化交互 · AIGC 短剧">
 <meta property="og:image" content="assets/football.jpg">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ff7a3a'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23101418' stroke-width='2.4'/%3E%3C/svg%3E">
@@ -39,19 +39,34 @@
   .nav nav{display:flex;gap:26px;font-size:13.5px;color:var(--dim)}
   .nav nav a:hover{color:var(--fg)}
 
-  /* Hero */
-  .hero{padding:92px 0 54px}
-  .eyebrow{font-size:11px;letter-spacing:3px;color:rgba(140,175,190,.7);text-transform:uppercase}
-  h1{font-size:52px;line-height:1.08;margin:16px 0 0;letter-spacing:-.5px}
-  h1 .thin{color:var(--dim);font-weight:400}
-  .sub{margin:18px 0 0;max-width:620px;font-size:15px;line-height:1.85;color:var(--dim)}
-  .sub b{color:var(--fg);font-weight:600}
+  /* 粒子舞台 */
+  .stage{position:relative;height:calc(100svh - 64px);min-height:470px;overflow:hidden;background:var(--bg)}
+  #gl{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:pan-y}
+  .stage:after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(120% 76% at 50% 44%, rgba(40,120,140,.15), transparent 62%),
+      linear-gradient(180deg, rgba(5,8,12,.62) 0%, rgba(5,8,12,0) 20%, rgba(5,8,12,0) 74%, #05080c 100%)}
+  .stage-eyebrow{position:absolute;left:0;right:0;top:max(6.5vh,48px);text-align:center;
+    font-size:10.5px;letter-spacing:3.4px;text-transform:uppercase;
+    color:rgba(140,175,190,.62);pointer-events:none}
+  .stage-title{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);margin:0;
+    text-align:center;font-size:clamp(40px,9.2vw,90px);line-height:1;letter-spacing:-1.2px;
+    font-weight:800;color:transparent;pointer-events:none;user-select:none}
+  .no-gl .stage-title{color:var(--fg)}
+  .no-gl #gl{display:none}
+  .stage-sub{position:absolute;left:0;right:0;bottom:15.5%;margin:0 auto;max-width:580px;padding:0 30px;
+    text-align:center;font-size:14px;line-height:1.9;color:var(--dim);pointer-events:none}
+  .stage-sub b{color:#e8f1f4;font-weight:600}
+  .scroll-cue{position:absolute;left:0;right:0;bottom:20px;text-align:center;font-size:11px;
+    letter-spacing:2.2px;color:rgba(160,190,205,.62);pointer-events:none}
+  .scroll-cue span{display:inline-block;animation:bob 2.2s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
 
-  /* 作品卡 */
-  .section-head{display:flex;align-items:baseline;justify-content:space-between;margin:46px 0 18px}
+  /* 入口卡 */
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;margin:52px 0 18px}
   .section-head h2{font-size:15px;font-weight:600;letter-spacing:.5px;margin:0}
   .section-head span{font-size:12px;color:rgba(140,175,190,.55)}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px;padding-bottom:80px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;padding-bottom:74px}
   .card{
     position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);
     background:var(--panel);transition:transform .25s cubic-bezier(.2,.7,.3,1),border-color .25s,box-shadow .25s;
@@ -61,29 +76,25 @@
   .cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s cubic-bezier(.2,.7,.3,1)}
   .card:hover .cover img{transform:scale(1.04)}
   .cover:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,8,12,0) 45%,rgba(5,8,12,.82) 100%)}
+  .cover-gesture{background:radial-gradient(82% 82% at 50% 42%, rgba(255,122,58,.15), rgba(7,11,15,0) 70%),#070b0f}
+  .cover-aigc{background:radial-gradient(82% 82% at 50% 46%, rgba(64,150,190,.18), rgba(7,11,15,0) 70%),#070b0f}
+  .cico{position:absolute;left:50%;top:50%;width:44%;height:auto;transform:translate(-50%,-50%);
+    transition:transform .5s cubic-bezier(.2,.7,.3,1);z-index:1}
+  .card:hover .cico{transform:translate(-50%,-50%) scale(1.06)}
   .tag{position:absolute;left:14px;top:14px;z-index:2;font-size:10.5px;letter-spacing:1.4px;
     padding:5px 10px;border-radius:6px;background:rgba(255,122,58,.16);border:1px solid rgba(255,122,58,.45);color:#ffb08a}
+  .tag.mute{background:rgba(120,190,210,.10);border-color:rgba(120,190,210,.28);color:#9fbcc8}
   .body{padding:18px 20px 20px}
   .body h3{margin:0;font-size:19px;font-weight:600}
   .body p{margin:9px 0 0;font-size:12.5px;line-height:1.75;color:var(--dim)}
-  .meta{display:flex;gap:14px;margin-top:14px;font-size:11px;color:rgba(140,168,182,.75)}
+  .meta{display:flex;gap:14px;margin-top:14px;font-size:11px;color:rgba(140,168,182,.75);flex-wrap:wrap}
   .meta i{font-style:normal;color:var(--accent);margin-right:5px}
   .go{position:absolute;right:18px;bottom:18px;font-size:12px;color:var(--accent);opacity:0;transform:translateX(-6px);transition:.25s}
   .card:hover .go{opacity:1;transform:none}
 
-  .card.soon{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
-    padding:34px 26px;min-height:260px;border-style:dashed;color:rgba(140,168,182,.55);cursor:default}
-  .card.soon:hover{transform:none;border-color:var(--line);box-shadow:none}
-  .card.soon h3{color:rgba(232,241,244,.55);font-size:16px;margin:0 0 8px}
-
   footer{border-top:1px solid rgba(120,190,210,.10);padding:26px 0 40px;font-size:12px;color:rgba(140,168,182,.5);
     display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-  @media (max-width:640px){
-    h1{font-size:36px}
-    .hero{padding:56px 0 34px}
-    .grid{grid-template-columns:1fr}
-    .nav nav{display:none}
-  }
+
   /* 下载 App 卡片 */
   .appcard{display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap;
     border:1px solid rgba(120,190,210,.16);border-radius:18px;padding:20px 24px;
@@ -111,14 +122,27 @@
   .dlg-url button{cursor:pointer;border-radius:9px;padding:0 14px;font-size:12px;font-family:inherit;
     background:rgba(255,255,255,.06);border:1px solid rgba(120,190,210,.22);color:#c6d8df}
   .dlg-close{margin-top:16px;width:100%;cursor:pointer;border-radius:10px;padding:11px;font-size:13px;
-    font-family:inherit;background:rgba(255,255,255,.05);border:1px solid rgba(120,190,210,.2);color:#c6d8df}</style>
-  <!-- PWA：可添加到主屏幕 / 离线可用 -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0a0d10">
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="KissCream">
+    font-family:inherit;background:rgba(255,255,255,.05);border:1px solid rgba(120,190,210,.2);color:#c6d8df}
+
+  @media (max-width:640px){
+    .stage{height:calc(100svh - 56px);min-height:430px}
+    .stage-sub{bottom:17%;font-size:13px}
+    .grid{grid-template-columns:1fr}
+    .nav nav{display:none}
+    .section-head{margin-top:44px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .scroll-cue span{animation:none}
+    .card,.cover img,.cico{transition:none}
+  }
+</style>
+<!-- PWA：可添加到主屏幕 / 离线可用 -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#05080c">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KissCream">
 </head>
 <body>
 
@@ -126,51 +150,100 @@
   <div class="wrap nav">
     <a class="brand" href="index.html"><span class="mark"></span>KissCream</a>
     <nav>
-      <a href="#works">作品</a>
+      <a href="#works">三个入口</a>
       <a href="#about">关于</a>
     </nav>
   </div>
 </header>
 
-<main class="wrap">
-  <section class="hero">
-    <div class="eyebrow">Interactive 3D · Teardown</div>
-    <h1>把结构<br><span class="thin">拆开来看</span></h1>
-    <p class="sub">每一件东西都藏着几层结构。<b>拖动旋转、拉动进度、点选零件</b>，就能把它们一层层拆开，看清是怎么装起来的。</p>
+<main>
+  <section class="stage" id="top">
+    <canvas id="gl"></canvas>
+    <div class="stage-eyebrow">KissCream · Interactive Lab</div>
+    <h1 class="stage-title">KissCream</h1>
+    <p class="stage-sub">三个入口，三种交互。<b>移动手指</b>把粒子推开，松开手它们会重新聚成字。</p>
+    <div class="scroll-cue">往下看 <span>↓</span></div>
   </section>
 
-  <div class="section-head" id="works">
-    <h2>作品</h2>
-    <span>1 个交互场景</span>
-  </div>
-
-  <div class="grid">
-
-    <a class="card" href="football.html">
-      <div class="cover">
-        <span class="tag">交互式 3D</span>
-        <img src="assets/football.jpg" alt="足球结构解剖">
-      </div>
-      <div class="body">
-        <h3>足球 · 结构解剖</h3>
-        <p>32 块拼片怎么拼成一个球？拆开看：外皮、内衬、缠纱中胎、气囊，四层结构一目了然。</p>
-        <div class="meta"><span><i>◆</i>32 块拼片</span><span><i>◆</i>4 层结构</span><span><i>◆</i>可拆解</span></div>
-      </div>
-      <span class="go">进入 →</span>
-    </a>
-
-    <div class="card soon">
-      <h3>更多作品</h3>
-      <p style="margin:0;font-size:12.5px;line-height:1.8">还在拆别的。下一个可能是相机、无人机，或者你随手发我的一张图。</p>
+  <section class="wrap" id="works">
+    <div class="section-head">
+      <h2>三个入口</h2>
+      <span>手势 · 可视化 · AIGC</span>
     </div>
 
-  </div>
+    <div class="grid">
 
-  <section id="about" style="padding:10px 0 70px;border-top:1px solid rgba(120,190,210,.10)">
+      <a class="card" href="gesture.html">
+        <div class="cover cover-gesture">
+          <span class="tag">开发中</span>
+          <svg class="cico" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+            <circle cx="60" cy="60" r="41" stroke="rgba(120,190,210,.20)" stroke-dasharray="3 7"/>
+            <circle cx="60" cy="60" r="23" stroke="rgba(255,122,58,.32)"/>
+            <g stroke="rgba(255,122,58,.42)" stroke-width="1.4">
+              <path d="M60 60 L60 19"/><path d="M60 60 L99 45"/><path d="M60 60 L84 94"/>
+              <path d="M60 60 L36 94"/><path d="M60 60 L21 45"/>
+            </g>
+            <g fill="#ff7a3a">
+              <circle cx="60" cy="19" r="3.4"/><circle cx="99" cy="45" r="3.4"/>
+              <circle cx="84" cy="94" r="3.4"/><circle cx="36" cy="94" r="3.4"/>
+              <circle cx="21" cy="45" r="3.4"/>
+            </g>
+            <circle cx="60" cy="60" r="6.5" fill="rgba(255,122,58,.55)"/>
+          </svg>
+        </div>
+        <div class="body">
+          <h3>手势识别交互模型</h3>
+          <p>摄像头认手：握拳、张开切换粒子形态；手往哪个形状靠，粒子就往哪儿吸过去。</p>
+          <div class="meta"><span><i>◆</i>摄像头</span><span><i>◆</i>粒子</span><span><i>◆</i>本地运行</span></div>
+        </div>
+        <span class="go">看看 →</span>
+      </a>
+
+      <a class="card" href="football.html">
+        <div class="cover">
+          <span class="tag">交互式 3D</span>
+          <img src="assets/football.jpg" alt="足球结构解剖">
+        </div>
+        <div class="body">
+          <h3>可视化交互模型</h3>
+          <p>32 块拼片怎么拼成一个球？拆开看：外皮、内衬、缠纱中胎、气囊，四层结构一目了然。</p>
+          <div class="meta"><span><i>◆</i>足球解剖</span><span><i>◆</i>4 层结构</span><span><i>◆</i>可拆解</span></div>
+        </div>
+        <span class="go">进入 →</span>
+      </a>
+
+      <a class="card" href="aigc.html">
+        <div class="cover cover-aigc">
+          <span class="tag mute">开发中</span>
+          <svg class="cico" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+            <rect x="19" y="31" width="82" height="58" rx="9" stroke="rgba(120,190,210,.26)"/>
+            <path d="M21 45h78" stroke="rgba(120,190,210,.16)"/>
+            <g fill="rgba(120,190,210,.22)">
+              <rect x="27" y="36" width="7" height="4" rx="2"/><rect x="42" y="36" width="7" height="4" rx="2"/>
+              <rect x="57" y="36" width="7" height="4" rx="2"/><rect x="72" y="36" width="7" height="4" rx="2"/>
+              <rect x="87" y="36" width="7" height="4" rx="2"/>
+            </g>
+            <path d="M51 55.5 L76 60 L51 64.5 Z" fill="rgba(255,122,58,.72)"/>
+            <rect x="28" y="74" width="64" height="3" rx="1.5" fill="rgba(120,190,210,.16)"/>
+            <rect x="28" y="80" width="40" height="3" rx="1.5" fill="rgba(120,190,210,.10)"/>
+          </svg>
+        </div>
+        <div class="body">
+          <h3>AIGC 短剧</h3>
+          <p>用 AI 生成的画面和声音，在网页里直接播完一整段短剧。片名、分镜、配音全在浏览器里拼。</p>
+          <div class="meta"><span><i>◆</i>生成视频</span><span><i>◆</i>网页播放</span><span><i>◆</i>规划中</span></div>
+        </div>
+        <span class="go">看看 →</span>
+      </a>
+
+    </div>
+  </section>
+
+  <section class="wrap" id="about" style="padding:10px 0 70px;border-top:1px solid rgba(120,190,210,.10)">
     <div class="section-head" style="margin-top:34px"><h2>关于</h2><span>KissCream</span></div>
     <p style="max-width:640px;margin:0;font-size:13px;line-height:1.95;color:var(--dim)">
-      所有场景都是纯网页实现：不装插件、不加载模型文件，打开就能转。<br>
-      技术上是自写的 Canvas 3D 渲染器 + 交互动画，单个 HTML 文件，离线也能跑。
+      所有场景都是纯网页实现：不装插件、不加载外部模型文件，打开就能用。<br>
+      技术上都是手写的渲染代码——首屏那团粒子是自写的 WebGL2 着色器，十万个点在显卡里同时运动，CPU 每帧只更新几个参数。
     </p>
   </section>
 </main>
@@ -212,42 +285,384 @@
     </div>
     <div class="dlg-tip">在微信里打不开这个菜单，请先点右上角「…」→ 在浏览器中打开。</div>
     <div class="dlg-url">
-      <input id="dlgUrl" readonly value="https://kisscream.netlify.app/">
+      <input id="dlgUrl" readonly value="https://kisscream.github.io/kisscream-site/">
       <button id="copyUrl">复制</button>
     </div>
     <button class="dlg-close" id="dlgClose">知道了</button>
   </div>
 </div>
-  <script>
-  (function(){
-    var card=document.getElementById('getapp'), btn=document.getElementById('installBtn');
-    var dlg=document.getElementById('dlg'), deferred=null;
-    window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e; });
-    window.addEventListener('appinstalled', function(){ if(card) card.style.display='none'; });
-    // 已经在独立窗口里运行就不显示
-    if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
-      if (card) card.style.display='none';
+
+<script>
+(function(){
+  var card=document.getElementById('getapp'), btn=document.getElementById('installBtn');
+  var dlg=document.getElementById('dlg'), deferred=null;
+  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e; });
+  window.addEventListener('appinstalled', function(){ if(card) card.style.display='none'; });
+  if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+    if (card) card.style.display='none';
+  }
+  var ios=/iPhone|iPad|iPod/i.test(navigator.userAgent);
+  var s1=document.getElementById('iosSteps'), s2=document.getElementById('andSteps');
+  if(ios){ s1.style.display='block'; s2.style.display='none'; } else { s1.style.display='none'; s2.style.display='block'; }
+  if(btn) btn.addEventListener('click', function(){
+    if(deferred){ deferred.prompt(); deferred.userChoice.then(function(){ deferred=null; }); return; }
+    dlg.hidden=false;
+  });
+  var close=document.getElementById('dlgClose');
+  if(close) close.addEventListener('click', function(){ dlg.hidden=true; });
+  if(dlg) dlg.addEventListener('click', function(e){ if(e.target===dlg) dlg.hidden=true; });
+  var cp=document.getElementById('copyUrl');
+  if(cp) cp.addEventListener('click', function(){
+    var i=document.getElementById('dlgUrl'); i.select(); i.setSelectionRange(0,999);
+    try{ document.execCommand('copy'); cp.textContent='已复制'; setTimeout(function(){ cp.textContent='复制'; },1600); }catch(e){}
+  });
+})();
+</script>
+
+<script>
+'use strict';
+/* ---------------------------------------------------------------
+   首屏粒子标题（纯 WebGL2，零依赖）
+   - 全部运动在顶点着色器里；CPU 每帧只更新几个 uniform
+   - 指针 / 手指 = 力场源（推开 + 涡流），最多 5 个
+   - 之后接手势识别时，只把「指尖坐标」写进同一个 fingers 数组即可
+   --------------------------------------------------------------- */
+(function(){
+  var canvas = document.getElementById('gl');
+  var gl = canvas.getContext('webgl2', {
+    alpha:false, antialias:false, depth:false, stencil:false,
+    powerPreference:'high-performance'
+  });
+  if (!gl) { document.documentElement.classList.add('no-gl'); return; }
+
+  var P = { size:2.6, stagger:0.62, force:1.85, radius:0.44, swirl:0.80, morph:6.0, bright:1.00 };
+
+  var MIN_SIDE = Math.min(window.innerWidth, window.innerHeight);
+  var qs = new URLSearchParams(location.search);
+  var COUNT = Math.max(3000, parseInt(qs.get('count')||'0',10) || (MIN_SIDE < 820 ? 30000 : 100000));
+
+  var VS = [
+'#version 300 es',
+'precision highp float;',
+'in vec3 aStart;','in vec3 aTarget;','in vec3 aRand;',
+'uniform float uTime;','uniform float uProgress;','uniform float uStagger;',
+'uniform vec2 uWorld;','uniform vec2 uTilt;','uniform float uAspect;',
+'uniform vec3 uFingers[5];','uniform float uPower[5];',
+'uniform float uRadius;','uniform float uForce;','uniform float uSwirl;',
+'uniform float uSize;','uniform float uDpr;',
+'out vec3 vColor;','out float vAlpha;',
+'void main(){',
+'  float s = aRand.x;',
+'  float off = s * uStagger;',
+'  float dur = max(1.0 - off, 0.05);',
+'  float t = clamp((uProgress - off) / dur, 0.0, 1.0);',
+'  t = t * t * (3.0 - 2.0 * t);',
+'  vec3 tgt = vec3(aTarget.xy * uWorld, aTarget.z);',
+'  vec3 pos = mix(aStart, tgt, t);',
+'  float ph = aRand.z * 6.2831853;',
+'  pos += vec3(sin(uTime*0.62+ph), cos(uTime*0.81+ph*1.7), sin(uTime*0.47+ph*2.3)) * 0.009;',
+'  float force = 0.0;',
+'  for (int i = 0; i < 5; i++) {',
+'    float pw = uPower[i];',
+'    if (pw <= 0.001) continue;',
+'    vec2 d = pos.xy - uFingers[i].xy;',
+'    float dist = length(d) + 1e-4;',
+'    float w = pow(1.0 - clamp(dist / uRadius, 0.0, 1.0), 2.0) * pw;',
+'    vec2 dir = d / dist;',
+'    pos.xy += (dir * uForce + vec2(-dir.y, dir.x) * uSwirl) * w * uRadius;',
+'    force += w;',
+'  }',
+'  pos.z += force * 0.055;',
+'  float cy = cos(uTilt.x), sy = sin(uTilt.x);',
+'  vec3 p = vec3(pos.x*cy + pos.z*sy, pos.y, -pos.x*sy + pos.z*cy);',
+'  float cx = cos(uTilt.y), sx = sin(uTilt.y);',
+'  p = vec3(p.x, p.y*cx - p.z*sx, p.y*sx + p.z*cx);',
+'  float d = 1.0 / (1.0 + p.z * 0.45);',
+'  gl_Position = vec4(p.xy * vec2(1.0 / uAspect, 1.0) * d, 0.0, 1.0);',
+'  gl_PointSize = clamp(uSize * aRand.y * d * uDpr, 1.0, 42.0);',
+'  vec3 cool = vec3(0.32,0.70,0.90);',
+'  vec3 warm = vec3(1.00,0.95,0.89);',
+'  vec3 col = mix(cool, warm, t);',
+'  col += vec3(1.00,0.40,0.14) * min(force, 1.6) * 0.85;',
+'  vColor = col;',
+'  float edgeFade = 0.34 + 0.66 * smoothstep(1.15, 0.15, length(aStart));',
+'  vAlpha = mix(0.030, 0.075, t) * edgeFade + force * 0.055;',
+'  vAlpha = min(vAlpha, 0.5);',
+'}'
+  ].join('\n');
+
+  var FS = [
+'#version 300 es',
+'precision mediump float;',
+'in vec3 vColor;','in float vAlpha;',
+'uniform float uBright;',
+'out vec4 fragColor;',
+'void main(){',
+'  vec2 uv = gl_PointCoord * 2.0 - 1.0;',
+'  float d2 = dot(uv, uv);',
+'  if (d2 > 1.0) discard;',
+'  float glow = pow(1.0 - d2, 2.2);',
+'  float core = smoothstep(1.0, 0.30, d2);',
+'  float a = (glow * 0.72 + core * 0.52) * vAlpha * uBright;',
+'  fragColor = vec4(vColor * a, a);',
+'}'
+  ].join('\n');
+
+  function compile(type, src){
+    var s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('shader: ' + gl.getShaderInfoLog(s));
+    return s;
+  }
+  var prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+
+  var U = {};
+  ['uTime','uProgress','uStagger','uWorld','uTilt','uFingers','uPower',
+   'uAspect','uRadius','uForce','uSwirl','uSize','uDpr','uBright'].forEach(function(n){
+    U[n] = gl.getUniformLocation(prog, n);
+  });
+  var A = {
+    aStart:  gl.getAttribLocation(prog, 'aStart'),
+    aTarget: gl.getAttribLocation(prog, 'aTarget'),
+    aRand:   gl.getAttribLocation(prog, 'aRand')
+  };
+
+  var TEX = null, linesKey = '';
+  function desiredLines(){ return W < 620 ? ['Kiss', 'Cream'] : ['KissCream']; }
+
+  function sampleText(lines){
+    var FONT = 200, LH = Math.round(FONT * 1.06);
+    var FAMILY = '"Segoe UI","Microsoft YaHei",system-ui,sans-serif';
+    var c = document.createElement('canvas');
+    var ctx = c.getContext('2d', { willReadFrequently:true });
+    ctx.font = '800 ' + FONT + 'px ' + FAMILY;
+    var maxW = 0;
+    for (var li = 0; li < lines.length; li++) maxW = Math.max(maxW, ctx.measureText(lines[li]).width);
+    var w = Math.ceil(maxW) + 60;
+    var h = LH * lines.length + 40;
+    c.width = w; c.height = h;
+    ctx = c.getContext('2d', { willReadFrequently:true });
+    ctx.font = '800 ' + FONT + 'px ' + FAMILY;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+    var y0 = h / 2 - (lines.length - 1) * LH / 2;
+    for (var k = 0; k < lines.length; k++) ctx.fillText(lines[k], w / 2, y0 + k * LH);
+    var px = ctx.getImageData(0, 0, w, h).data;
+    var xs = [], ys = [], as = [];
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var a = px[(y * w + x) * 4 + 3];
+        if (a > 22) { xs.push(x); ys.push(y); as.push(a / 255); }
+      }
     }
-    var ios=/iPhone|iPad|iPod/i.test(navigator.userAgent);
-    var s1=document.getElementById('iosSteps'), s2=document.getElementById('andSteps');
-    if(ios){ s1.style.display='block'; s2.style.display='none'; } else { s1.style.display='none'; s2.style.display='block'; }
-    if(btn) btn.addEventListener('click', function(){
-      if(deferred){ deferred.prompt(); deferred.userChoice.then(function(){ deferred=null; }); return; }
-      dlg.hidden=false;
-    });
-    var close=document.getElementById('dlgClose');
-    if(close) close.addEventListener('click', function(){ dlg.hidden=true; });
-    if(dlg) dlg.addEventListener('click', function(e){ if(e.target===dlg) dlg.hidden=true; });
-    var cp=document.getElementById('copyUrl');
-    if(cp) cp.addEventListener('click', function(){
-      var i=document.getElementById('dlgUrl'); i.select(); i.setSelectionRange(0,999);
-      try{ document.execCommand('copy'); cp.textContent='已复制'; setTimeout(function(){ cp.textContent='复制'; },1600); }catch(e){}
-    });
-  })();
-  </script>  <script>
-    if ('serviceWorker' in navigator && location.protocol === 'https:') {
-      addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+    return { xs:xs, ys:ys, as:as, w:w, h:h, count:xs.length };
+  }
+
+  /* 竖屏窄屏自动折成两行，字形能大一倍多；窗口尺寸变了就重新采样重建 */
+  function ensureTex(){
+    var L = desiredLines(), key = L.join('|');
+    if (TEX && key === linesKey) return false;
+    var t = sampleText(L);
+    if (!t || !t.count) { document.documentElement.classList.add('no-gl'); return false; }
+    TEX = t; linesKey = key;
+    return true;
+  }
+
+  var bufStart, bufTarget, bufRand, vao;
+  function buildParticles(){
+    var n = COUNT;
+    var start = new Float32Array(n * 3);
+    var target = new Float32Array(n * 3);
+    var rand = new Float32Array(n * 3);
+    var xs = TEX.xs, ys = TEX.ys, as = TEX.as, tw = TEX.w, th = TEX.h, m = TEX.count;
+    for (var i = 0; i < n; i++) {
+      var u = Math.random() * 2 - 1;
+      var th2 = Math.random() * Math.PI * 2;
+      var rr = Math.pow(Math.random(), 0.42) * 0.95;
+      var sq = Math.sqrt(1 - u * u);
+      start[i*3]   = rr * sq * Math.cos(th2);
+      start[i*3+1] = rr * sq * Math.sin(th2) * 0.92;
+      start[i*3+2] = rr * u * 0.78;
+
+      var k = (Math.random() * m) | 0;
+      var ax = xs[k], ay = ys[k], aa = as[k];
+      var jit = (1.55 - aa) * 1.5;
+      target[i*3]   = ((ax + (Math.random()-0.5)*jit) / tw - 0.5);
+      target[i*3+1] = -((ay + (Math.random()-0.5)*jit) / th - 0.5);
+      target[i*3+2] = (Math.random() - 0.5) * 0.10;
+
+      rand[i*3]   = Math.random();
+      rand[i*3+1] = 0.55 + Math.random() * 0.9;
+      rand[i*3+2] = Math.random();
     }
-  </script>
+    if (!vao) {
+      bufStart = gl.createBuffer(); bufTarget = gl.createBuffer(); bufRand = gl.createBuffer();
+      vao = gl.createVertexArray();
+    }
+    gl.bindVertexArray(vao);
+    function put(buf, attr, arr){
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(attr);
+      gl.vertexAttribPointer(attr, 3, gl.FLOAT, false, 0, 0);
+    }
+    put(bufStart, A.aStart, start);
+    put(bufTarget, A.aTarget, target);
+    put(bufRand, A.aRand, rand);
+    gl.bindVertexArray(null);
+  }
+
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE);
+  gl.disable(gl.DEPTH_TEST);
+
+  var DPR = Math.min(window.devicePixelRatio || 1, 2);
+  var W = 1, H = 1, aspect = 1, worldW = 1, worldH = 0.25, brightMul = 1.0;
+  function resize(){
+    W = canvas.clientWidth || 1;
+    H = canvas.clientHeight || 1;
+    var w = Math.round(W * DPR), h = Math.round(H * DPR);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    gl.viewport(0, 0, w, h);
+    aspect = W / H;
+    var texChanged = ensureTex();
+    if (!TEX) return;
+    if (texChanged) buildParticles();
+    var fill = W < 620 ? 0.88 : 0.82;
+    worldW = Math.min(fill * 2 * aspect, 3.2);
+    worldH = worldW * (TEX.h / TEX.w);
+    brightMul = (W < 620) ? 2.0 : 1.0;   // 竖屏两行时字面积翻倍，亮度补回来
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', function(){ setTimeout(resize, 140); });
+
+  var fingers = new Map();
+  var ptr = { x:0, y:0, tx:0, ty:0 };
+  var pressed = false, autoDrive = true;
+  function toWorld(cx, cy){ return { x:(cx / W * 2 - 1) * aspect, y:-(cy / H * 2 - 1) }; }
+  function ensureFinger(id, e){
+    var p = toWorld(e.clientX, e.clientY);
+    var f = fingers.get(id);
+    if (!f) { f = { x:p.x, y:p.y, power:0 }; fingers.set(id, f); }
+    f.x = p.x; f.y = p.y;
+    return f;
+  }
+  canvas.addEventListener('pointerdown', function(e){
+    if (canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch(_){} }
+    var f = ensureFinger(e.pointerId, e);
+    f.power = 1; pressed = true; autoDrive = false;
+  });
+  canvas.addEventListener('pointermove', function(e){
+    var f = ensureFinger(e.pointerId, e);
+    if (e.pointerType === 'mouse') { f.power = pressed ? 1 : Math.min(1, f.power + 0.35); }
+    else if (pressed || f.power > 0) { f.power = 1; }
+    if (e.pointerType === 'mouse') { ptr.tx = f.x; ptr.ty = f.y; }
+  });
+  function release(e){
+    var f = fingers.get(e.pointerId);
+    if (f) f.power = 0;
+    pressed = false;
+    if (e.pointerType !== 'mouse') {
+      fingers.forEach(function(v){ if (v.power > 0) pressed = true; });
+    }
+  }
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+  canvas.addEventListener('pointerleave', function(e){
+    var f = fingers.get(e.pointerId);
+    if (f && e.pointerType === 'mouse') f.power = 0;
+  });
+
+  var running = true;
+  if (window.IntersectionObserver) {
+    new IntersectionObserver(function(es){
+      running = es[0].isIntersecting;
+    }, { threshold: 0 }).observe(canvas);
+  }
+
+  var T0 = performance.now();
+  var prog01 = 0, progTarget = 0, last = T0;
+  var fpsAcc = 0, fpsN = 0, slowFrames = 0, degraded = false;
+  var fingerPos = new Float32Array(15);
+  var fingerPower = new Float32Array(5);
+  function smooth(a, b, x){ var t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+
+  function frame(now){
+    requestAnimationFrame(frame);
+    var dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!running) return;
+    var t = (now - T0) / 1000;
+
+    if (autoDrive) progTarget = smooth(1.30, 3.10, t);
+    else progTarget = pressed ? 0.10 : 1.0;
+    prog01 += (progTarget - prog01) * (1 - Math.exp(-dt * P.morph));
+
+    ptr.x += (ptr.tx - ptr.x) * (1 - Math.exp(-dt * 12));
+    ptr.y += (ptr.ty - ptr.y) * (1 - Math.exp(-dt * 12));
+
+    fingerPower.fill(0);
+    var slot = 0;
+    fingers.forEach(function(f){
+      if (slot >= 5) return;
+      if (f.power <= 0.002) return;
+      fingerPos[slot*3] = f.x; fingerPos[slot*3+1] = f.y; fingerPos[slot*3+2] = 0;
+      fingerPower[slot] = f.power;
+      slot++;
+    });
+    fingers.forEach(function(f){ if (f.power > 0) f.power = Math.max(0, f.power - dt * 6); });
+
+    var idleX = Math.sin(t * 0.33) * 0.06, idleY = Math.cos(t * 0.27) * 0.04;
+    var tiltX = ptr.x * 0.16 + idleX;
+    var tiltY = -ptr.y * 0.12 + idleY;
+
+    gl.clearColor(0.0196, 0.0314, 0.047, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(prog);
+    gl.bindVertexArray(vao);
+    gl.uniform1f(U.uTime, t);
+    gl.uniform1f(U.uProgress, prog01);
+    gl.uniform1f(U.uStagger, P.stagger);
+    gl.uniform2f(U.uWorld, worldW, worldH || worldW * 0.25);
+    gl.uniform1f(U.uAspect, aspect);
+    gl.uniform2f(U.uTilt, tiltX, tiltY);
+    gl.uniform3fv(U.uFingers, fingerPos);
+    gl.uniform1fv(U.uPower, fingerPower);
+    gl.uniform1f(U.uRadius, P.radius);
+    gl.uniform1f(U.uForce, P.force);
+    gl.uniform1f(U.uSwirl, P.swirl);
+    gl.uniform1f(U.uSize, P.size);
+    gl.uniform1f(U.uDpr, DPR);
+    gl.uniform1f(U.uBright, P.bright * brightMul * (COUNT >= 90000 ? 1.75 : 1.0));
+    gl.drawArrays(gl.POINTS, 0, COUNT);
+    gl.bindVertexArray(null);
+
+    fpsAcc += dt; fpsN++;
+    if (dt > 0.026) slowFrames++;
+    if (fpsAcc > 0.5) {
+      var fps = Math.round(fpsN / fpsAcc);
+      if (!degraded && fps < 38 && slowFrames / fpsN > 0.6 && COUNT > 12000) {
+        degraded = true;
+        COUNT = Math.max(8000, Math.round(COUNT / 2));
+        buildParticles();
+      }
+      fpsAcc = 0; fpsN = 0; slowFrames = 0;
+    }
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    addEventListener('load', function(){
+      navigator.serviceWorker.register('./sw.js').catch(function(){});
+    });
+  }
+</script>
 </body>
 </html>
