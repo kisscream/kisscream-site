@@ -62,36 +62,76 @@
   .scroll-cue span{display:inline-block;animation:bob 2.2s ease-in-out infinite}
   @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
 
-  /* 入口卡 */
-  .section-head{display:flex;align-items:baseline;justify-content:space-between;margin:52px 0 18px}
+    /* 模块区 */
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin:58px 0 20px}
   .section-head h2{font-size:15px;font-weight:600;letter-spacing:.5px;margin:0}
   .section-head span{font-size:12px;color:rgba(140,175,190,.55)}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;padding-bottom:74px}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
   .card{
-    position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);
-    background:var(--panel);transition:transform .25s cubic-bezier(.2,.7,.3,1),border-color .25s,box-shadow .25s;
+    position:relative;display:flex;flex-direction:column;border-radius:18px;overflow:hidden;
+    border:1px solid var(--line);background:var(--panel);
+    transition:transform .28s cubic-bezier(.2,.7,.3,1),border-color .28s,box-shadow .28s;
   }
-  .card:hover{transform:translateY(-4px);border-color:rgba(255,122,58,.45);box-shadow:0 18px 44px rgba(0,0,0,.45)}
+  .card:hover{transform:translateY(-4px);border-color:rgba(255,122,58,.45);box-shadow:0 20px 46px rgba(0,0,0,.48)}
+  .card.soon{cursor:default}
+  .card.soon:hover{transform:none;border-color:var(--line);box-shadow:none}
   .cover{position:relative;aspect-ratio:16/10;overflow:hidden;background:#070b0f}
-  .cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s cubic-bezier(.2,.7,.3,1)}
-  .card:hover .cover img{transform:scale(1.04)}
-  .cover:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(5,8,12,0) 45%,rgba(5,8,12,.82) 100%)}
-  .cover-gesture{background:radial-gradient(82% 82% at 50% 42%, rgba(255,122,58,.15), rgba(7,11,15,0) 70%),#070b0f}
-  .cover-aigc{background:radial-gradient(82% 82% at 50% 46%, rgba(64,150,190,.18), rgba(7,11,15,0) 70%),#070b0f}
-  .cico{position:absolute;left:50%;top:50%;width:44%;height:auto;transform:translate(-50%,-50%);
-    transition:transform .5s cubic-bezier(.2,.7,.3,1);z-index:1}
-  .card:hover .cico{transform:translate(-50%,-50%) scale(1.06)}
-  .tag{position:absolute;left:14px;top:14px;z-index:2;font-size:10.5px;letter-spacing:1.4px;
-    padding:5px 10px;border-radius:6px;background:rgba(255,122,58,.16);border:1px solid rgba(255,122,58,.45);color:#ffb08a}
+  .cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s cubic-bezier(.2,.7,.3,1)}
+  .card:hover .cover img{transform:scale(1.035)}
+  .cover:after{content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,rgba(5,8,12,.18) 0%,rgba(5,8,12,0) 42%,rgba(5,8,12,.72) 100%)}
+  .cover-tint{position:absolute;inset:0;
+    background:radial-gradient(60% 62% at 50% 46%, rgba(255,122,58,.20), rgba(7,11,15,0) 74%),
+      radial-gradient(120% 120% at 50% 0%, rgba(120,190,210,.05), rgba(7,11,15,0) 70%),#070b0f}
+  .cover-tint.blue{background:radial-gradient(60% 62% at 50% 46%, rgba(64,150,190,.26), rgba(7,11,15,0) 74%),
+      radial-gradient(120% 120% at 50% 0%, rgba(120,190,210,.06), rgba(7,11,15,0) 70%),#070b0f}
+  .cico{position:absolute;left:50%;top:50%;width:40%;height:auto;transform:translate(-50%,-50%);
+    transition:transform .6s cubic-bezier(.2,.7,.3,1);z-index:1}
+  .card:hover .cico{transform:translate(-50%,-50%) scale(1.05)}
+  .tag{position:absolute;left:15px;top:15px;z-index:2;font-size:10.5px;letter-spacing:1.4px;
+    padding:5px 10px;border-radius:6px;background:rgba(255,122,58,.16);
+    border:1px solid rgba(255,122,58,.45);color:#ffb08a;backdrop-filter:blur(4px)}
   .tag.mute{background:rgba(120,190,210,.10);border-color:rgba(120,190,210,.28);color:#9fbcc8}
-  .body{padding:18px 20px 20px}
-  .body h3{margin:0;font-size:19px;font-weight:600}
-  .body p{margin:9px 0 0;font-size:12.5px;line-height:1.75;color:var(--dim)}
-  .meta{display:flex;gap:14px;margin-top:14px;font-size:11px;color:rgba(140,168,182,.75);flex-wrap:wrap}
-  .meta i{font-style:normal;color:var(--accent);margin-right:5px}
-  .go{position:absolute;right:18px;bottom:18px;font-size:12px;color:var(--accent);opacity:0;transform:translateX(-6px);transition:.25s}
+  .body{padding:19px 21px 22px;flex:1;display:flex;flex-direction:column}
+  .body h3{margin:0;font-size:19px;font-weight:600;letter-spacing:.2px}
+  .body p{margin:10px 0 0;font-size:12.8px;line-height:1.85;color:var(--dim)}
+  .meta{display:flex;gap:13px;margin-top:auto;padding-top:15px;font-size:11px;
+    color:rgba(140,168,182,.72);flex-wrap:wrap}
+  .meta i{font-style:normal;color:var(--accent);margin-right:5px;opacity:.85}
+  .go{position:absolute;right:19px;bottom:20px;font-size:12px;color:var(--accent);
+    opacity:0;transform:translateX(-6px);transition:.28s}
   .card:hover .go{opacity:1;transform:none}
+  .card.soon .go{display:none}
 
+  /* 技术条 */
+  .tech-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:6px}
+  .tech{border:1px solid rgba(120,190,210,.13);border-radius:14px;padding:16px 17px 18px;
+    background:rgba(255,255,255,.025)}
+  .tech b{display:block;font-size:14.5px;font-weight:600;color:#eaf4f7;margin-bottom:7px}
+  .tech span{display:block;font-size:11.5px;line-height:1.8;color:var(--dim)}
+  .note{margin:26px 0 0;max-width:660px;font-size:13px;line-height:1.95;color:var(--dim)}
+
+  @media (max-width:960px){
+    .grid{grid-template-columns:1fr;gap:18px}
+    .tech-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
+  @media (max-width:640px){
+    .stage{height:calc(100svh - 56px);min-height:430px}
+    .stage-sub{bottom:17%;font-size:13px}
+    .nav nav{display:none}
+    .section-head{margin-top:44px}
+    .wrap{padding:0 20px}
+    .body{padding:17px 17px 19px}
+    .body h3{font-size:17.5px}
+    .meta{gap:10px}
+    .tech-grid{gap:10px}
+    .tech{padding:14px 14px 15px}
+    .tech b{font-size:13.5px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .scroll-cue span{animation:none}
+    .card,.cover img,.cico{transition:none}
+  }
   footer{border-top:1px solid rgba(120,190,210,.10);padding:26px 0 40px;font-size:12px;color:rgba(140,168,182,.5);
     display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 
@@ -150,8 +190,9 @@
   <div class="wrap nav">
     <a class="brand" href="index.html"><span class="mark"></span>KissCream</a>
     <nav>
-      <a href="#works">三个入口</a>
-      <a href="#about">关于</a>
+      <a href="#works">模块</a>
+      <a href="#tech">怎么做的</a>
+      <a href="#getapp">装到桌面</a>
     </nav>
   </div>
 </header>
@@ -161,89 +202,103 @@
     <canvas id="gl"></canvas>
     <div class="stage-eyebrow">KissCream · Interactive Lab</div>
     <h1 class="stage-title">KissCream</h1>
-    <p class="stage-sub">三个入口，三种交互。<b>移动手指</b>把粒子推开，松开手它们会重新聚成字。</p>
+    <p class="stage-sub">四个模块，一套手写渲染。<b>移动手指</b>把粒子推开，松开手它们会重新聚成字。</p>
     <div class="scroll-cue">往下看 <span>↓</span></div>
   </section>
 
-  <section class="wrap" id="works">
+    <section class="wrap" id="works">
     <div class="section-head">
-      <h2>三个入口</h2>
-      <span>手势 · 可视化 · AIGC</span>
+      <h2>模块</h2>
+      <span>手写渲染 · 全部在浏览器里跑</span>
     </div>
 
     <div class="grid">
 
       <a class="card" href="gesture.html">
-        <div class="cover cover-gesture">
-          <span class="tag">开发中</span>
-          <svg class="cico" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-            <circle cx="60" cy="60" r="41" stroke="rgba(120,190,210,.20)" stroke-dasharray="3 7"/>
-            <circle cx="60" cy="60" r="23" stroke="rgba(255,122,58,.32)"/>
-            <g stroke="rgba(255,122,58,.42)" stroke-width="1.4">
-              <path d="M60 60 L60 19"/><path d="M60 60 L99 45"/><path d="M60 60 L84 94"/>
-              <path d="M60 60 L36 94"/><path d="M60 60 L21 45"/>
-            </g>
-            <g fill="#ff7a3a">
-              <circle cx="60" cy="19" r="3.4"/><circle cx="99" cy="45" r="3.4"/>
-              <circle cx="84" cy="94" r="3.4"/><circle cx="36" cy="94" r="3.4"/>
-              <circle cx="21" cy="45" r="3.4"/>
-            </g>
-            <circle cx="60" cy="60" r="6.5" fill="rgba(255,122,58,.55)"/>
-          </svg>
+        <div class="cover">
+          <span class="tag">已上线</span>
+          <img src="assets/gesture.jpg" alt="手势识别粒子星云">
         </div>
         <div class="body">
           <h3>手势识别交互模型</h3>
-          <p>摄像头认手：握拳、张开切换粒子形态；手往哪个形状靠，粒子就往哪儿吸过去。</p>
-          <div class="meta"><span><i>◆</i>摄像头</span><span><i>◆</i>粒子</span><span><i>◆</i>本地运行</span></div>
+          <p>摄像头认手：握拳、张开切换形态；手往哪边靠，整团星云就被牵着偏移过去。识别全在本机跑，画面不离开这台设备。</p>
+          <div class="meta"><span><i>◆</i>7 万粒子</span><span><i>◆</i>端侧推理</span><span><i>◆</i>手部骨架回显</span></div>
         </div>
-        <span class="go">看看 →</span>
+        <span class="go">进去玩 →</span>
       </a>
 
       <a class="card" href="football.html">
         <div class="cover">
-          <span class="tag">交互式 3D</span>
+          <span class="tag">已上线</span>
           <img src="assets/football.jpg" alt="足球结构解剖">
         </div>
         <div class="body">
-          <h3>可视化交互模型</h3>
-          <p>32 块拼片怎么拼成一个球？拆开看：外皮、内衬、缠纱中胎、气囊，四层结构一目了然。</p>
-          <div class="meta"><span><i>◆</i>足球解剖</span><span><i>◆</i>4 层结构</span><span><i>◆</i>可拆解</span></div>
+          <h3>足球 · 3D 结构解剖</h3>
+          <p>32 块皮面怎么拼成一个球？拆开看四层：外皮、内衬、缠纱中胎、气囊。拖拽旋转、滚轮缩放，点零件看名字。</p>
+          <div class="meta"><span><i>◆</i>可拆解</span><span><i>◆</i>4 层结构</span><span><i>◆</i>可交互</span></div>
         </div>
-        <span class="go">进入 →</span>
+        <span class="go">进去看 →</span>
       </a>
 
       <a class="card" href="aigc.html">
-        <div class="cover cover-aigc">
+        <div class="cover">
           <span class="tag mute">开发中</span>
+          <div class="cover-tint blue"></div>
           <svg class="cico" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-            <rect x="19" y="31" width="82" height="58" rx="9" stroke="rgba(120,190,210,.26)"/>
-            <path d="M21 45h78" stroke="rgba(120,190,210,.16)"/>
-            <g fill="rgba(120,190,210,.22)">
-              <rect x="27" y="36" width="7" height="4" rx="2"/><rect x="42" y="36" width="7" height="4" rx="2"/>
-              <rect x="57" y="36" width="7" height="4" rx="2"/><rect x="72" y="36" width="7" height="4" rx="2"/>
-              <rect x="87" y="36" width="7" height="4" rx="2"/>
+            <rect x="17" y="30" width="86" height="60" rx="9" stroke="rgba(120,190,210,.45)"/>
+            <path d="M19 45h82" stroke="rgba(120,190,210,.16)"/>
+            <g fill="rgba(120,190,210,.34)">
+              <rect x="26" y="35" width="7" height="4" rx="2"/><rect x="41" y="35" width="7" height="4" rx="2"/>
+              <rect x="56" y="35" width="7" height="4" rx="2"/><rect x="71" y="35" width="7" height="4" rx="2"/>
+              <rect x="86" y="35" width="7" height="4" rx="2"/>
             </g>
-            <path d="M51 55.5 L76 60 L51 64.5 Z" fill="rgba(255,122,58,.72)"/>
-            <rect x="28" y="74" width="64" height="3" rx="1.5" fill="rgba(120,190,210,.16)"/>
-            <rect x="28" y="80" width="40" height="3" rx="1.5" fill="rgba(120,190,210,.10)"/>
+            <path d="M50 55.5 L77 60 L50 64.5 Z" fill="rgba(255,122,58,.88)"/>
+            <rect x="27" y="73" width="66" height="3" rx="1.5" fill="rgba(120,190,210,.26)"/>
+            <rect x="27" y="80" width="40" height="3" rx="1.5" fill="rgba(120,190,210,.16)"/>
           </svg>
         </div>
         <div class="body">
           <h3>AIGC 短剧</h3>
-          <p>用 AI 生成的画面和声音，在网页里直接播完一整段短剧。片名、分镜、配音全在浏览器里拼。</p>
+          <p>用 AI 生成的画面和声音，在网页里直接播完一整段短剧。片名、分镜、字幕全在浏览器里拼，不跳去别的平台。</p>
           <div class="meta"><span><i>◆</i>生成视频</span><span><i>◆</i>网页播放</span><span><i>◆</i>规划中</span></div>
         </div>
         <span class="go">看看 →</span>
       </a>
 
+      <div class="card soon">
+        <div class="cover">
+          <span class="tag mute">筹备中</span>
+          <div class="cover-tint"></div>
+          <svg class="cico" viewBox="0 0 160 120" fill="none" aria-hidden="true">
+            <rect x="16" y="46" width="34" height="28" rx="6" stroke="rgba(255,122,58,.52)"/>
+            <rect x="63" y="42" width="34" height="28" rx="6" stroke="rgba(255,122,58,.68)"/>
+            <rect x="110" y="38" width="34" height="28" rx="6" stroke="rgba(255,122,58,.84)"/>
+            <path d="M50 60h13M97 60h13" stroke="rgba(255,122,58,.28)" stroke-dasharray="3 4" stroke-width="1.2"/>
+            <circle cx="33" cy="60" r="2.6" fill="rgba(255,122,58,.7)"/>
+            <circle cx="127" cy="54" r="2.6" fill="rgba(255,122,58,.88)"/>
+          </svg>
+        </div>
+        <div class="body">
+          <h3>AK47 · 3D 拆解</h3>
+          <p>同一套引擎的枪械拆解练习：零件逐个分离、编号、再归位。本地工程已经能跑，搬上网站还在排期。</p>
+          <div class="meta"><span><i>◆</i>3D 部件</span><span><i>◆</i>拆解动画</span><span><i>◆</i>筹备中</span></div>
+        </div>
+      </div>
+
     </div>
   </section>
 
-  <section class="wrap" id="about" style="padding:10px 0 70px;border-top:1px solid rgba(120,190,210,.10)">
-    <div class="section-head" style="margin-top:34px"><h2>关于</h2><span>KissCream</span></div>
-    <p style="max-width:640px;margin:0;font-size:13px;line-height:1.95;color:var(--dim)">
-      所有场景都是纯网页实现：不装插件、不加载外部模型文件，打开就能用。<br>
-      技术上都是手写的渲染代码——首屏那团粒子是自写的 WebGL2 着色器，十万个点在显卡里同时运动，CPU 每帧只更新几个参数。
+  <section class="wrap" id="tech" style="padding-bottom:64px">
+    <div class="section-head"><h2>怎么做的</h2><span>没有框架 · 没有外部依赖</span></div>
+    <div class="tech-grid">
+      <div class="tech"><b>纯网页</b><span>三个场景都是单个 HTML 文件，不装插件、不连第三方库，点开就能用。</span></div>
+      <div class="tech"><b>自写 WebGL2</b><span>首页那团粒子是手写的着色器，十万个点在显卡里同时运动，CPU 每帧只改几个参数。</span></div>
+      <div class="tech"><b>端侧识别</b><span>手部识别的 wasm 和模型都托管在本站，摄像头画面不上传，断网也能识别。</span></div>
+      <div class="tech"><b>可装到桌面</b><span>PWA：加到主屏幕后全屏打开，没有地址栏，第一次打开过就能离线看。</span></div>
+    </div>
+    <p class="note">
+      这里记录的是我目前在做的四个模块：手势识别交互、可视化交互、AIGC 短剧，以及还没搬上来的 3D 拆解。
+      每个模块都尽量做成「打开就能玩」的单页，不下载、不注册。
     </p>
   </section>
 </main>
