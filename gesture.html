@@ -101,9 +101,39 @@ header{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:
   .hand .cap{font-size:9px}
   .hand canvas{height:88px}
 }
+/* ===== 启动闸门 / 模型下载进度 ===== */
+#boot{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(120% 90% at 50% 15%,#0a1016,#05070a 72%);transition:opacity .45s}
+#boot.off{opacity:0;pointer-events:none}
+#boot .card{width:min(430px,88vw);padding:26px 24px 22px;border-radius:20px;text-align:center;
+  background:rgba(12,17,22,.88);border:1px solid rgba(255,255,255,.10);backdrop-filter:blur(14px);
+  box-shadow:0 24px 60px rgba(0,0,0,.55)}
+#boot h2{font-size:18.5px;letter-spacing:.01em;margin-bottom:9px;font-weight:700}
+#boot p{font-size:12.5px;color:#93a3ad;line-height:1.75}
+#boot p b{color:#ffb98f;font-weight:600}
+#boot .bar{margin:18px 0 9px;height:4px;border-radius:99px;background:rgba(255,255,255,.10);overflow:hidden}
+#boot .bar i{display:block;height:100%;width:0;border-radius:99px;transition:width .25s;
+  background:linear-gradient(90deg,#ff8a4c,#ffc19a)}
+#boot small{font-size:11.5px;color:#6f8089;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+#boot .row2{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}
+#bootAgain{position:fixed;right:14px;top:62px;z-index:35;display:none}
+#bootAgain.on{display:block}
 </style>
 </head>
 <body>
+<div id="boot">
+  <div class="card">
+    <h2>开启手部识别</h2>
+    <p>手指骨骼识别引擎第一次要下载约 <b>12 MB</b>（下完会缓存在你手机里，以后秒开）。<br>不想等也可以先看：已经存过的手势照样能播放。</p>
+    <div class="bar"><i id="bootBar"></i></div>
+    <small id="bootMsg">准备好了再点开始</small>
+    <div class="row2">
+      <button class="btn pri" id="bootGo">下载并开启识别</button>
+      <button class="btn" id="bootSkip">先不下载</button>
+    </div>
+  </div>
+</div>
+<a class="btn" id="bootAgain" href="javascript:void 0">开启手势识别</a>
 
 <canvas id="c"></canvas>
 
@@ -833,7 +863,9 @@ async function initHand(){
     var files = await vision.FilesetResolver.forVisionTasks('./vendor/wasm');
     var opts = function(delegate){
       return {
-        baseOptions: { modelAssetPath: './models/hand_landmarker.task', delegate: delegate },
+        baseOptions: window.__modelBuf
+          ? { modelAssetBuffer: window.__modelBuf, delegate: delegate }
+          : { modelAssetPath: './models/hand_landmarker.task', delegate: delegate },
         runningMode: 'VIDEO', numHands: 1,
         minHandDetectionConfidence: 0.55, minHandPresenceConfidence: 0.5,
         minTrackingConfidence: 0.5
@@ -1078,14 +1110,128 @@ requestAnimationFrame(draw);
 var q = new URLSearchParams(location.search);
 if (q.get('morph') === '1'){ ges.mode = 'text'; state.morph = 1; state.morphT = 1; }
 if (q.get('selftest') === '1'){
+  var __bootEl = document.getElementById('boot');
+  if (__bootEl) __bootEl.style.display = 'none';
   setTimeout(selftest, 300);
-} else {
-  (async function(){
+}
+  // 启动闸门：等 #boot 里点了「下载并开启识别」再开始（见页面末尾脚本）
+  window.__bootStart = async function(){
     var camOK = await initCamera();
     var mdlOK = await initHand();
     if (camOK && mdlOK) detectLoop();
-  })();
-}
+    return { camOK: camOK, mdlOK: mdlOK };
+  };
+})();
+</script>
+<script>
+/* ================= 启动闸门：模型先下（有真实进度），引擎后装 ================= */
+(function(){
+  var boot = document.getElementById('boot');
+  if (!boot) return;
+  var bar = document.getElementById('bootBar'), msg = document.getElementById('bootMsg'),
+      go = document.getElementById('bootGo'), skip = document.getElementById('bootSkip'),
+      again = document.getElementById('bootAgain');
+  var started = false, ready = false;
+  var QSELF = /[?&]selftest=1/.test(location.search);   // 自检模式：闸门不自动跑、不抢引擎
+
+  function setP(p, t){
+    bar.style.width = Math.max(0, Math.min(100, p)) + '%';
+    if (t != null) msg.textContent = t;
+  }
+  function dismiss(){
+    boot.classList.add('off');
+    setTimeout(function(){ boot.style.display = 'none'; }, 500);
+  }
+
+  // 只下模型（7.6MB）：这份字节随后直接喂给 MediaPipe，绝不会再下第二遍
+  function fetchModel(p0, span){
+    return new Promise(function(res){
+      var x = new XMLHttpRequest();
+      x.open('GET', './models/hand_landmarker.task', true);
+      x.responseType = 'arraybuffer';
+      var last = 0, t0 = performance.now();
+      x.onprogress = function(ev){
+        var now = performance.now();
+        if (now - last < 150) return;
+        last = now;
+        var mb = (ev.loaded / 1048576).toFixed(1);
+        if (ev.lengthComputable && ev.total > 0){
+          setP(p0 + span * (ev.loaded / ev.total),
+               '手部模型 ' + mb + ' / ' + (ev.total / 1048576).toFixed(1) + ' MB' +
+               (ev.loaded < ev.total ? '' : '（首次会缓存下来）'));
+        } else {
+          setP(p0 + span * Math.min(0.85, (now - t0) / 12000), '手部模型 已下载 ' + mb + ' MB');
+        }
+      };
+      x.onload = function(){
+        setP(p0 + span, '手部模型已就绪');
+        res(new Uint8Array(x.response));
+      };
+      x.onerror = function(){ res(null); };
+      x.send();
+    });
+  }
+
+  async function run(){
+    if (started) return;
+    started = true;
+    go.disabled = true; skip.disabled = true;
+    again.classList.remove('on');
+    setP(1, '正在取手部模型…');
+    var buf = await fetchModel(1, 71);
+    if (!buf){ fail(); return; }
+    window.__modelBuf = buf;
+    setP(74, '正在装配识别引擎（约 13 MB）…');
+    var fn = window.__bootStart;
+    if (!fn){ setP(0, '初始化入口缺失，刷新页面再试'); started = false; go.disabled = false; skip.disabled = false; return; }
+    try { await fn(); }
+    catch (e){ setP(0, '初始化失败：' + ((e && e.name) || '未知')); started = false; go.disabled = false; skip.disabled = false; return; }
+    var t0 = performance.now();
+    (function wait(){
+      var el = document.getElementById('tMdl');
+      if (el && el.textContent === '就绪'){
+        ready = true;
+        try { localStorage.setItem('kc.engine.ok', '1'); } catch (e) {}
+        setP(100, '就绪 · 之后打开秒进');
+        setTimeout(function(){ dismiss(); flashStart(); }, 300);
+        return;
+      }
+      var sec = (performance.now() - t0) / 1000;
+      if (sec > 60){ setP(100, '引擎还没好，可以刷新重试（模型已缓存，下次只要装引擎）'); setTimeout(dismiss, 1200); return; }
+      setP(76 + Math.min(20, sec * 1.6), '正在装配识别引擎… ' + Math.round(sec) + 's（约 13 MB，仅首次）');
+      requestAnimationFrame(wait);
+    })();
+  }
+  function fail(){
+    setP(0, '下载失败（网络原因），刷新页面再试一次');
+    started = false; go.disabled = false; skip.disabled = false;
+  }
+  function flashStart(){
+    var f = document.getElementById('flash');
+    if (!f) return;
+    f.textContent = ready ? '识别已就绪 · 把手伸进镜头' : '';
+    f.classList.add('show');
+    setTimeout(function(){ f.classList.remove('show'); }, 2400);
+  }
+
+  if (QSELF) return;
+  go.addEventListener('click', run);
+  again.addEventListener('click', function(e){
+    e.preventDefault();
+    boot.style.display = ''; boot.classList.remove('off');
+    run();
+  });
+  skip.addEventListener('click', function(){ dismiss(); again.classList.add('on'); });
+
+  // 装过一次引擎的用户：进页面就自动开始，不再挡着等点击
+  try {
+    if (QSELF) return;
+    if (localStorage.getItem('kc.engine.ok') === '1'){
+      boot.querySelector('p').textContent = '识别引擎已缓存在本机，正在唤醒…（第一次装过之后就不用再等下载了）';
+      skip.textContent = '先不用识别';
+      setTimeout(run, 150);
+    }
+  } catch (e) {}
 })();
 </script>
 </body>
