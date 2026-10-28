@@ -498,15 +498,35 @@ function hvResize(){
 }
 
 var hvDpr = 1;
+var lmShow = null, lmShowT = 0;
+function smoothLm(now){
+  var dt = Math.min(0.05, (now - (lmShowT || now)) / 1000);
+  lmShowT = now;
+  if (!lmLast || lmLast.length < 21) return null;
+  if (!lmShow || lmShow.length !== 21){
+    lmShow = [];
+    for (var i = 0; i < 21; i++) lmShow.push({ x: lmLast[i].x, y: lmLast[i].y });
+    return lmShow;
+  }
+  var k = 1 - Math.exp(-dt * 22);
+  for (var j = 0; j < 21; j++){
+    lmShow[j].x += (lmLast[j].x - lmShow[j].x) * k;
+    lmShow[j].y += (lmLast[j].y - lmShow[j].y) * k;
+  }
+  return lmShow;
+}
+
 function drawHandView(now){
   var dd = Math.min(2, window.devicePixelRatio || 1);
   if (hv.clientWidth && Math.abs(hv.width - Math.round(hv.clientWidth * dd)) > 2) hvResize();
   var w = hv.width, h = hv.height, i;
   hctx.clearRect(0, 0, w, h);
   var useLm = lmLast && lmLast.length >= 21 && (now - lmLastT) < 420;
+  if (!useLm) lmShow = null;
   if (useLm){
+    var sm = smoothLm(now);
     var xs = [], ys = [];
-    for (i = 0; i < 21; i++){ xs.push(1 - lmLast[i].x); ys.push(lmLast[i].y); }
+    for (i = 0; i < 21; i++){ xs.push(1 - sm[i].x); ys.push(sm[i].y); }
     var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs);
     var y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
     var sc = Math.min((w * 0.80) / Math.max(0.02, x1 - x0),
@@ -654,6 +674,7 @@ async function initHand(){
     } catch (e1) {
       landmarker = await vision.HandLandmarker.createFromOptions(files, opts('CPU'));
     }
+    schedulePrewarm();
     badge(elD.mdl, 'on'); elT.mdl.textContent = '就绪';
     return true;
   } catch (err) {
@@ -688,19 +709,65 @@ async function initCamera(){
   }
 }
 
-var lastDetect = 0, detectTs = 0;
+var lastDetect = 0, detectTs = 0, missCount = 0, detMs = 24;
+
+// 预热：拿一张画好的假手掌空跑两次，把 wasm 编译 / 模型反序列化 / JIT 的钱付在这里，
+// 而不是付在用户第一次真正举手的那一刻
+var warmCanvas = null, warmT0 = 0, warmN = 0;
+function prewarmStep(){
+  if (!landmarker) return;
+  if (!warmCanvas){
+    warmCanvas = document.createElement('canvas');
+    warmCanvas.width = 320; warmCanvas.height = 240;
+    var g = warmCanvas.getContext('2d');
+    g.fillStyle = '#111'; g.fillRect(0, 0, 320, 240);
+    g.fillStyle = '#d8b49a';
+    g.beginPath(); g.ellipse(160, 165, 44, 54, 0, 0, 6.2832); g.fill();
+    for (var i = 0; i < 5; i++){
+      g.beginPath();
+      g.ellipse(124 + i * 18, (i === 0 ? 74 : 92), 8, 36, 0, 0, 6.2832);
+      g.fill();
+    }
+    warmT0 = performance.now();
+  }
+  try {
+    detectTs = Math.max(detectTs + 1, Math.round(performance.now()));
+    var r = landmarker.detectForVideo(warmCanvas, detectTs);
+    warmN++;
+    if (warmN >= 2){
+      console.log('[gesture] 预热完成 ' + Math.round(performance.now() - warmT0) + ' ms' +
+                  (r && r.landmarks && r.landmarks.length ? '，假手掌被识别到' : ''));
+    }
+  } catch (e) {
+    warmN = 2;
+    console.log('[gesture] 预热跳过：' + (e && e.message));
+  }
+}
+function schedulePrewarm(){
+  // 放到首帧渲染之后，分两拍跑，弱机上也不挡动画
+  setTimeout(function(){
+    prewarmStep();
+    setTimeout(prewarmStep, 150);
+  }, 350);
+}
 
 function detectLoop(){
   requestAnimationFrame(detectLoop);
   if (!landmarker || !video.videoWidth) return;
+  if (document.hidden) return;
   var now = performance.now();
-  if (now - lastDetect < (fpsShow && fpsShow < 30 ? 60 : 33)) return;
+  // 两档节拍：手在画面里 → 快速跟踪（按实测耗时自适应）；连续没手 → 慢速找手省电
+  var gap = missCount >= 5 ? 150 : Math.max(33, detMs * 1.6);
+  if (now - lastDetect < gap) return;
   lastDetect = now;
-  var res;
+  var res, t0 = performance.now();
   try {
-    res = landmarker.detectForVideo(video, (detectTs += 33));
+    detectTs = Math.max(detectTs + 1, Math.round(now));
+    res = landmarker.detectForVideo(video, detectTs);
   } catch (e) { return; }
+  detMs = detMs * 0.85 + (performance.now() - t0) * 0.15;
   if (res && res.landmarks && res.landmarks.length){
+    missCount = 0;
     usePointer = false;
     var r = feedLandmarks(res.landmarks[0], res.handedness && res.handedness[0] &&
                           res.handedness[0][0] ? res.handedness[0][0].categoryName : '');
@@ -708,6 +775,7 @@ function detectLoop(){
     elT.hand.textContent = '已锁定';
     elT.ges.textContent = HAND_NAMES[r.g] || r.g;
   } else {
+    missCount++;
     if (!usePointer){
       badge(elD.hand, 'warn');
       elT.hand.textContent = '寻找中';
