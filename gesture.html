@@ -147,8 +147,30 @@ header{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:
   #hsEmoji{font-size:26px}
   #hsName{font-size:11.5px}
 }
+
+/* ============ 行书书法体 ============ */
+
+.brand,#hsName,.panel h4,.flash,.hint em,#shotBtn,#hvCap{font-family:"KCSXing","华文行楷","STXingkai","KaiTi","楷体",cursive}
+.brand{letter-spacing:.03em;font-size:19px}
+#hsName{font-size:15px;letter-spacing:.05em}
+.panel h4{font-size:12px;letter-spacing:.1em}
+.hint em{font-style:normal;font-size:1.12em}
+#hvCap{letter-spacing:.06em}
+/* ============ 保存这一帧 ============ */
+#shotBtn{position:fixed;right:clamp(12px,2.2vw,26px);bottom:96px;z-index:7;
+  display:inline-flex;align-items:center;gap:8px;padding:10px 17px;border-radius:999px;cursor:pointer;
+  background:rgba(9,15,20,.66);border:1px solid rgba(120,190,255,.36);color:#eaf6ff;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:15px;letter-spacing:.06em;
+  transition:background .18s,border-color .18s,transform .12s;box-shadow:0 6px 22px rgba(0,0,0,.35)}
+#shotBtn:hover{background:rgba(18,32,42,.86);border-color:rgba(120,190,255,.66)}
+#shotBtn:active{transform:scale(.97)}
+#shotBtn.busy{opacity:.55;pointer-events:none}
+#shotBtn .ic{font-family:"Segoe UI",sans-serif;font-size:15px;line-height:1}
+@media (max-width:820px){
+  #shotBtn{right:10px;padding:9px 14px;font-size:14px}
+}
 </style>
-</head>
+<link rel="stylesheet" href="./fonts/xingshu.css"></head>
 <body>
 <div id="boot">
   <div class="card">
@@ -163,6 +185,8 @@ header{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:
   </div>
 </div>
 <a class="btn" id="bootAgain" href="javascript:void 0">开启手势识别</a>
+
+<button id="shotBtn" title="把这一刻保存成图片（可选保存位置）"><span class="ic">⤓</span>保存这一帧</button>
 
 <canvas id="c"></canvas>
 
@@ -220,7 +244,7 @@ var NEB_R = isNarrow ? 0.50 : 0.60;      // 星云半径（世界坐标，屏幕
 //==================== WebGL 初始化 ====================
 var canvas = document.getElementById('c');
 var gl = canvas.getContext('webgl2', {antialias:false, alpha:false, depth:false,
-  premultipliedAlpha:false, powerPreference:'high-performance'});
+  premultipliedAlpha:false, powerPreference:'high-performance', preserveDrawingBuffer:true});
 if (!gl) {
   document.body.innerHTML = '<div style="display:grid;place-items:center;height:100%;' +
     'color:#8b9aa3;font:14px sans-serif;text-align:center;padding:24px">' +
@@ -591,6 +615,148 @@ function classify(lm, handed){
 var HAND_NAMES = { fist: '握拳', open: '张开', mid: '半握', unknown: '—' };
 var flashEl = document.getElementById('flash');
 var flashTimer = 0;
+
+//==================== 保存这一帧（合成截图 → 选位置保存） ====================
+function shotFileName(){
+  var d = new Date(), p = function(n){ return (n < 10 ? '0' : '') + n; };
+  return 'KissCream-手势粒子-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) +
+    '-' + p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()) + '.png';
+}
+function shotText(id, dflt){
+  var el = document.getElementById(id);
+  var t = el ? (el.textContent || '').trim() : '';
+  return t || dflt;
+}
+function compoShot(){
+  var W = canvas.width, H = canvas.height;
+  var cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  var x = cv.getContext('2d');
+  x.fillStyle = '#04070a'; x.fillRect(0, 0, W, H);
+  try { x.drawImage(canvas, 0, 0); } catch (e) {}
+
+  // 左下角手部骨架一起画进去
+  var hb = document.getElementById('hv');
+  if (hb && hb.getBoundingClientRect) {
+    var r = hb.getBoundingClientRect();
+    if (r.width > 4 && r.height > 4) {
+      var k = W / Math.max(1, window.innerWidth);
+      x.drawImage(hb, r.left * k, r.top * k, r.width * k, r.height * k);
+    }
+  }
+
+  var U = Math.min(W, H);
+  var M = U * 0.055;
+  var XING = '"KCSXing","华文行楷","STXingkai","KaiTi","楷体",cursive';
+  var SANS = '"Microsoft YaHei","PingFang SC",sans-serif';
+
+  // 左上：品牌
+  x.textAlign = 'left'; x.textBaseline = 'alphabetic';
+  x.save();
+  x.shadowColor = 'rgba(120,205,255,.5)'; x.shadowBlur = U * 0.02;
+  x.fillStyle = 'rgba(240,250,255,.97)';
+  x.font = '400 ' + Math.round(U * 0.062) + 'px ' + XING;
+  x.fillText('KissCream', M, U * 0.115);
+  x.restore();
+  x.fillStyle = 'rgba(150,196,224,.8)';
+  x.font = Math.round(U * 0.021) + 'px ' + SANS;
+  x.fillText('手势粒子实验台', M + U * 0.004, U * 0.155);
+
+  // 左下：识别到的手势
+  var nm = shotText('hsName', '手势粒子');
+  var sb = shotText('hsSub', '');
+  x.save();
+  x.shadowColor = 'rgba(110,200,255,.6)'; x.shadowBlur = U * 0.035;
+  x.fillStyle = 'rgba(244,252,255,.985)';
+  x.font = '400 ' + Math.round(U * 0.098) + 'px ' + XING;
+  x.fillText(nm, M, H - U * 0.115);
+  x.restore();
+  if (sb) {
+    x.fillStyle = 'rgba(150,196,224,.88)';
+    x.font = Math.round(U * 0.025) + 'px ' + SANS;
+    x.fillText(sb, M + U * 0.004, H - U * 0.068);
+  }
+
+  // 右下：网址
+  x.textAlign = 'right';
+  x.fillStyle = 'rgba(120,170,200,.6)';
+  x.font = Math.round(U * 0.019) + 'px ' + SANS;
+  x.fillText('kisscream.github.io/kisscream-site', W - U * 0.05, H - U * 0.045);
+  x.textAlign = 'left';
+  return cv;
+}
+function blobOf(cv){
+  return new Promise(function(res, rej){
+    if (cv.toBlob) cv.toBlob(function(b){ b ? res(b) : rej(new Error('图片生成失败')); }, 'image/png');
+    else rej(new Error('浏览器不支持导出'));
+  });
+}
+function pickAndSave(blob, name){
+  return new Promise(function(resolve){
+    if (window.showSaveFilePicker) {
+      window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: 'PNG 图片', accept: { 'image/png': ['.png'] } }]
+      }).then(function(h){
+        return h.createWritable().then(function(w){
+          return w.write(blob).then(function(){ return w.close(); });
+        });
+      }).then(function(){ resolve('saved'); }, function(err){
+        if (err && (err.name === 'AbortError')) { resolve('cancel'); return; }
+        downloadBlob(blob, name); resolve('downloaded');
+      });
+      return;
+    }
+    downloadBlob(blob, name);
+    resolve('downloaded');
+  });
+}
+function downloadBlob(blob, name){
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 6000);
+}
+var shotting = false;
+function saveShot(){
+  var btn = document.getElementById('shotBtn');
+  if (shotting) return;
+  shotting = true;
+  if (btn) btn.classList.add('busy');
+  var blob;
+  blobOf(compoShot()).then(function(b){
+    blob = b;
+    return pickAndSave(blob, shotFileName());
+  }).then(function(r){
+    shotting = false;
+    if (btn) btn.classList.remove('busy');
+    if (r === 'saved') flash('已保存到你选的位置');
+    else if (r === 'downloaded') flash('已保存 · 看下载文件夹');
+  }).catch(function(e){
+    shotting = false;
+    if (btn) btn.classList.remove('busy');
+    flash('保存失败：' + (e && e.message ? e.message : e));
+  });
+}
+function placeShotBtn(){
+  var b = document.getElementById('shotBtn');
+  var h = document.querySelector('.hint');
+  if (!b || !h) return;
+  var top = h.getBoundingClientRect().top;
+  var gap = window.innerHeight - top + 10;
+  if (!isFinite(gap) || gap < 0) gap = 30;
+  b.style.bottom = Math.round(gap) + 'px';
+}
+placeShotBtn();
+window.addEventListener('resize', placeShotBtn);
+window.addEventListener('orientationchange', function(){ setTimeout(placeShotBtn, 220); });
+
+document.getElementById('shotBtn').addEventListener('click', saveShot);
+window.__shotDbg = { compo: compoShot, save: saveShot };  // 调试用
+
 function flash(txt){
   flashEl.textContent = txt;
   flashEl.classList.add('show');
