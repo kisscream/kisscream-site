@@ -435,10 +435,25 @@
 '  float d = 1.0 / (1.0 + p.z * 0.45);',
 '  gl_Position = vec4(p.xy * vec2(1.0 / uAspect, 1.0) * d, 0.0, 1.0);',
 '  gl_PointSize = clamp(uSize * aRand.y * d * uDpr, 1.0, 42.0);',
-'  vec3 cool = vec3(0.32,0.70,0.90);',
-'  vec3 warm = vec3(1.00,0.95,0.89);',
-'  vec3 col = mix(cool, warm, t);',
-'  col += vec3(1.00,0.40,0.14) * min(force, 1.6) * 0.85;',
+'  // 星河配色：位置 + 时间共同决定色相，整团颜色永远在缓慢流动',
+'  float hh = fract(uTime * 0.17 + pos.x * 0.24 - pos.y * 0.20 + aRand.z * 0.46 + length(aStart.xy) * 0.18);',
+'  float xp = hh * 4.0;',
+'  int gi = int(floor(xp));',
+'  float gf = fract(xp);',
+'  gf = gf * gf * (3.0 - 2.0 * gf);',
+'  vec3 g0 = vec3(0.18,0.07,0.46);',   // 深紫蓝（星云暗部）',
+'  vec3 g1 = vec3(0.55,0.17,0.90);',   // 紫',
+'  vec3 g2 = vec3(1.00,0.32,0.66);',   // 品红（星云亮部）',
+'  vec3 g3 = vec3(0.30,0.80,1.00);',   // 青蓝（电离气体）',
+'  vec3 g4 = vec3(1.00,0.93,0.84);',   // 恒星暖白',
+'  vec3 col;',
+'  if (gi <= 0) col = mix(g0, g1, gf);',
+'  else if (gi == 1) col = mix(g1, g2, gf);',
+'  else if (gi == 2) col = mix(g2, g3, gf);',
+'  else col = mix(g3, g4, gf);',
+'  col *= 1.45;',
+'  col = mix(col, vec3(1.00,0.96,0.92), 0.07);',
+'  col += vec3(1.00,0.42,0.80) * min(force, 1.6) * 0.55;',
 '  vColor = col;',
 '  float edgeFade = 0.34 + 0.66 * smoothstep(1.15, 0.15, length(aStart));',
 '  vAlpha = mix(0.030, 0.075, t) * edgeFade + force * 0.055;',
@@ -600,6 +615,222 @@
   var ptr = { x:0, y:0, tx:0, ty:0 };
   var pressed = false, autoDrive = true;
   function toWorld(cx, cy){ return { x:(cx / W * 2 - 1) * aspect, y:-(cy / H * 2 - 1) }; }
+
+  /* ============ 星座星象图：按住哪里，哪里浮现一张星图 ============ */
+  var CONST = (function(){
+    var MAXP = 5, MAXS = 12, MAXL = 78;
+    var pats = [
+      { s:[[-0.86,0.12,1.3,1],[-0.55,0.30,2.0,1.3],[-0.22,0.16,1.0,0.9],[0.12,0.34,2.2,1.4],[0.46,0.14,1.2,1.0],[0.74,0.38,1.5,1.1],[0.92,-0.04,2.4,1.5],[0.30,-0.32,1.0,0.8],[0.62,-0.54,1.6,1.1]],
+        e:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[4,7],[7,8],[3,7]] },
+      { s:[[-0.62,0.72,2.2,1.4],[-0.30,0.34,1.1,1.0],[-0.02,0.06,2.4,1.5],[0.28,-0.24,1.2,1.0],[0.58,-0.62,2.0,1.3],[-0.78,-0.22,1.5,1.1],[0.72,0.30,1.6,1.1],[-0.52,0.08,1.9,1.2],[0.42,0.16,1.9,1.2]],
+        e:[[0,1],[1,2],[2,3],[3,4],[7,1],[1,8],[8,3]] },
+      { s:[[-0.70,-0.46,1.4,1.0],[-0.34,-0.10,2.2,1.4],[0.02,0.20,1.2,1.0],[0.38,0.02,2.5,1.5],[0.76,-0.30,1.5,1.1],[-0.10,-0.64,1.8,1.2],[0.46,-0.66,1.9,1.2],[0.06,0.68,1.1,1.0]],
+        e:[[0,1],[1,2],[2,3],[3,4],[1,5],[5,6],[6,3],[2,7]] },
+      { s:[[-0.80,0.06,2.0,1.3],[-0.42,0.44,1.1,1.0],[-0.06,0.78,2.3,1.4],[0.34,0.42,1.2,1.0],[0.74,0.10,2.1,1.3],[0.30,-0.38,1.5,1.1],[-0.16,-0.72,1.9,1.2],[-0.56,-0.44,1.4,1.0],[0.04,0.04,1.0,0.8]],
+        e:[[0,1],[1,2],[2,3],[3,4],[0,8],[8,4],[8,6],[5,6],[7,0]] },
+      { s:[[-0.74,-0.38,1.3,1.0],[-0.38,0.26,2.0,1.3],[0.00,-0.08,1.1,1.0],[0.40,0.32,2.2,1.4],[0.80,-0.28,1.4,1.1],[0.16,0.74,1.6,1.1],[-0.20,-0.74,1.7,1.1]],
+        e:[[0,1],[1,2],[2,3],[3,4],[3,5],[0,6],[6,2]] },
+      { s:[[-0.66,0.56,2.4,1.5],[-0.30,0.06,1.1,1.0],[0.06,-0.30,2.0,1.3],[0.40,0.10,1.2,1.0],[0.78,0.52,2.4,1.5],[0.22,-0.76,1.4,1.0],[-0.52,-0.58,1.5,1.1]],
+        e:[[0,1],[1,2],[2,3],[3,4],[2,5],[2,6]] }
+    ];
+
+    var SV = [
+'#version 300 es',
+'precision highp float;',
+'in vec2 aPos;','in vec3 aCol;','in float aSize;','in float aA;',
+'uniform float uAspect;','uniform float uDpr;',
+'out vec3 vC;','out float vA;',
+'void main(){',
+'  gl_Position = vec4(aPos.x / uAspect, aPos.y, 0.0, 1.0);',
+'  gl_PointSize = clamp(aSize * uDpr, 1.5, 190.0);',
+'  vC = aCol; vA = aA;',
+'}'
+    ].join('\n');
+    var SF = [
+'#version 300 es',
+'precision mediump float;',
+'in vec3 vC;','in float vA;',
+'out vec4 fragColor;',
+'void main(){',
+'  vec2 uv = gl_PointCoord * 2.0 - 1.0;',
+'  float d2 = dot(uv, uv);',
+'  if (d2 > 1.0) discard;',
+'  float halo = pow(max(0.0, 1.0 - d2), 2.4);',
+'  float core = smoothstep(0.40, 0.0, d2);',
+'  float ax = smoothstep(0.88, 0.0, abs(uv.x)) * smoothstep(0.13, 0.0, abs(uv.y));',
+'  float ay = smoothstep(0.88, 0.0, abs(uv.y)) * smoothstep(0.13, 0.0, abs(uv.x));',
+'  float a = (halo * 0.60 + core * 0.95 + (ax + ay) * 0.34) * vA;',
+'  fragColor = vec4(vC * a, a);',
+'}'
+    ].join('\n');
+    var LV = [
+'#version 300 es',
+'precision highp float;',
+'in vec2 aPos;','in vec3 aCol;','in float aA;',
+'uniform float uAspect;',
+'out vec3 vC;','out float vA;',
+'void main(){',
+'  gl_Position = vec4(aPos.x / uAspect, aPos.y, 0.0, 1.0);',
+'  vC = aCol; vA = aA;',
+'}'
+    ].join('\n');
+    var LF = [
+'#version 300 es',
+'precision mediump float;',
+'in vec3 vC;','in float vA;',
+'out vec4 fragColor;',
+'void main(){ fragColor = vec4(vC * vA, vA); }'
+    ].join('\n');
+
+    function mk(vsSrc, fsSrc, attrs){
+      var p = gl.createProgram();
+      gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSrc));
+      gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSrc));
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('const link: ' + gl.getProgramInfoLog(p));
+      var o = { p: p, a: {}, u: {} };
+      for (var i = 0; i < attrs.length; i++) o.a[attrs[i]] = gl.getAttribLocation(p, attrs[i]);
+      o.u.uAspect = gl.getUniformLocation(p, 'uAspect');
+      o.u.uDpr = gl.getUniformLocation(p, 'uDpr');
+      return o;
+    }
+    var PS = mk(SV, SF, ['aPos','aCol','aSize','aA']);
+    var PL = mk(LV, LF, ['aPos','aCol','aA']);
+
+    var strideS = 7, strideL = 6;
+    var arrS = new Float32Array(MAXP * MAXS * strideS);
+    var arrL = new Float32Array(MAXP * MAXL * 2 * strideL);
+    var vaoS = gl.createVertexArray();
+    var vaoL = gl.createVertexArray();
+    var bufS = gl.createBuffer();
+    var bufL = gl.createBuffer();
+    (function setup(){
+      gl.bindVertexArray(vaoS);
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufS);
+      gl.bufferData(gl.ARRAY_BUFFER, arrS.byteLength, gl.DYNAMIC_DRAW);
+      var fs = strideS * 4;
+      gl.enableVertexAttribArray(PS.a.aPos);  gl.vertexAttribPointer(PS.a.aPos,  2, gl.FLOAT, false, fs, 0);
+      gl.enableVertexAttribArray(PS.a.aCol);  gl.vertexAttribPointer(PS.a.aCol,  3, gl.FLOAT, false, fs, 8);
+      gl.enableVertexAttribArray(PS.a.aSize); gl.vertexAttribPointer(PS.a.aSize, 1, gl.FLOAT, false, fs, 20);
+      gl.enableVertexAttribArray(PS.a.aA);    gl.vertexAttribPointer(PS.a.aA,    1, gl.FLOAT, false, fs, 24);
+      gl.bindVertexArray(vaoL);
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufL);
+      gl.bufferData(gl.ARRAY_BUFFER, arrL.byteLength, gl.DYNAMIC_DRAW);
+      var fl = strideL * 4;
+      gl.enableVertexAttribArray(PL.a.aPos); gl.vertexAttribPointer(PL.a.aPos, 2, gl.FLOAT, false, fl, 0);
+      gl.enableVertexAttribArray(PL.a.aCol); gl.vertexAttribPointer(PL.a.aCol, 3, gl.FLOAT, false, fl, 8);
+      gl.enableVertexAttribArray(PL.a.aA);   gl.vertexAttribPointer(PL.a.aA,   1, gl.FLOAT, false, fl, 20);
+      gl.bindVertexArray(null);
+    })();
+
+    var live = [], patIdx = 0;
+
+    function down(id, x, y, base){
+      for (var i = 0; i < live.length; i++) if (live[i].id === id) live.splice(i, 1);
+      if (live.length >= MAXP) live.shift();
+      live.push({ id:id, x:x, y:y, s:base*0.55, base:base, tgt:base, held:0, down:true,
+                  rot:Math.random()*6.283, pat:(patIdx++) % pats.length, seed:Math.random()*100 });
+    }
+    function move(id, x, y){
+      for (var i = 0; i < live.length; i++) if (live[i].id === id) { live[i].x = x; live[i].y = y; }
+    }
+    function up(id){
+      for (var i = 0; i < live.length; i++) if (live[i].id === id) { live[i].down = false; live[i].tgt = 0; }
+    }
+
+    function draw(t, dt){
+      for (var i = live.length - 1; i >= 0; i--) {
+        var o = live[i];
+        o.rot += dt * 0.05;
+        if (o.down) { o.held += dt; o.tgt = Math.min(1, o.base + o.held * 0.20); }
+        o.s += (o.tgt - o.s) * (1 - Math.exp(-dt * (o.down ? 5.0 : 2.4)));
+        if (!o.down && o.s <= 0.003) live.splice(i, 1);
+      }
+      if (!live.length) return;
+
+      var nS = 0, nL = 0, H2 = H * 0.5;
+      function pushS(x, y, r, g, b, size, a){
+        var o = nS * strideS;
+        arrS[o] = x; arrS[o+1] = y;
+        arrS[o+2] = r; arrS[o+3] = g; arrS[o+4] = b;
+        arrS[o+5] = size; arrS[o+6] = a;
+        nS++;
+      }
+      function pushL(x, y, r, g, b, a){
+        var o = nL * strideL;
+        arrL[o] = x; arrL[o+1] = y;
+        arrL[o+2] = r; arrL[o+3] = g; arrL[o+4] = b; arrL[o+5] = a;
+        nL++;
+      }
+
+      for (var q = 0; q < live.length; q++) {
+        var o = live[q], s = o.s;
+        if (s <= 0.003) continue;
+        var R = (0.20 + 0.34 * s) , Rpx = R * H2;
+        var pa = pats[o.pat];
+        var ca = Math.cos(o.rot), sa = Math.sin(o.rot);
+        var xs = [], ys = [];
+        for (var j = 0; j < pa.s.length; j++) {
+          var st = pa.s[j];
+          xs.push(o.x + (st[0] * ca - st[1] * sa) * R);
+          ys.push(o.y + (st[0] * sa + st[1] * ca) * R);
+        }
+        /* 先铺一层薄雾，让星图有「景观」的体积感 */
+        pushS(o.x, o.y, 0.34, 0.22, 0.62, Rpx * 2.35, s * 0.060);
+        /* 连线 */
+        for (var l = 0; l < pa.e.length && nL + 2 <= arrL.length / strideL; l++) {
+          var A2 = pa.e[l][0], B2 = pa.e[l][1];
+          var la = s * 0.44 * (0.75 + 0.25 * Math.sin(t * 1.6 + l * 1.1 + o.seed));
+          pushL(xs[A2], ys[A2], 0.60, 0.83, 1.00, la);
+          pushL(xs[B2], ys[B2], 0.60, 0.83, 1.00, la);
+        }
+        /* 外圈：极淡的一道环，星图的味道 */
+        for (var rg = 0; rg < 48 && nL + 2 <= arrL.length / strideL; rg++) {
+          var ra1 = o.rot + rg * (6.2832 / 48), ra2 = o.rot + (rg + 1) * (6.2832 / 48);
+          var rr = R * 1.04;
+          pushL(o.x + Math.cos(ra1) * rr, o.y + Math.sin(ra1) * rr * 0.96, 0.42, 0.62, 0.95, s * 0.055);
+          pushL(o.x + Math.cos(ra2) * rr, o.y + Math.sin(ra2) * rr * 0.96, 0.42, 0.62, 0.95, s * 0.055);
+        }
+        /* 星点 */
+        for (var k = 0; k < pa.s.length && nS + 1 <= arrS.length / strideS; k++) {
+          var s3 = pa.s[k];
+          var tw = 0.70 + 0.30 * Math.sin(t * 2.3 + k * 1.9 + o.seed * 3.1);
+          var a = s * 1.05 * s3[3] * tw;
+          var warm = Math.min(1, (s3[2] - 1.0) * 0.55);
+          pushS(xs[k], ys[k],
+                0.72 + 0.26 * warm, 0.86 + 0.09 * warm, 1.00 - 0.10 * warm,
+                (3.0 + s3[2] * 4.6) * (0.60 + 0.40 * s), a);
+        }
+      }
+      if (!nS && !nL) return;
+
+      gl.useProgram(PL.p);
+      gl.bindVertexArray(vaoL);
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufL);
+      gl.bufferData(gl.ARRAY_BUFFER, arrL.subarray(0, nL * strideL), gl.DYNAMIC_DRAW);
+      gl.uniform1f(PL.u.uAspect, aspect);
+      gl.drawArrays(gl.LINES, 0, nL);
+
+      gl.useProgram(PS.p);
+      gl.bindVertexArray(vaoS);
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufS);
+      gl.bufferData(gl.ARRAY_BUFFER, arrS.subarray(0, nS * strideS), gl.DYNAMIC_DRAW);
+      gl.uniform1f(PS.u.uAspect, aspect);
+      gl.uniform1f(PS.u.uDpr, DPR);
+      gl.drawArrays(gl.POINTS, 0, nS);
+      gl.bindVertexArray(null);
+    }
+
+    return { down:down, move:move, up:up, draw:draw };
+  })();
+
+  /* 按压面积：手机用接触面积（width/height），鼠标用按住时长补足 */
+  function pressArea(e){
+    var side = Math.max(e.width || 0, e.height || 0);
+    if (side > 1) return Math.max(0.34, Math.min(1, side / 40));
+    var pr = (e.pointerType === 'mouse') ? 0.5 : (e.pressure > 0 ? e.pressure : 0.5);
+    return 0.42 + pr * 0.46;
+  }
   function ensureFinger(id, e){
     var p = toWorld(e.clientX, e.clientY);
     var f = fingers.get(id);
@@ -611,12 +842,14 @@
     if (canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch(_){} }
     var f = ensureFinger(e.pointerId, e);
     f.power = 1; pressed = true; autoDrive = false;
+    CONST.down(e.pointerId, f.x, f.y, pressArea(e));
   });
   canvas.addEventListener('pointermove', function(e){
     var f = ensureFinger(e.pointerId, e);
     if (e.pointerType === 'mouse') { f.power = pressed ? 1 : Math.min(1, f.power + 0.35); }
     else if (pressed || f.power > 0) { f.power = 1; }
     if (e.pointerType === 'mouse') { ptr.tx = f.x; ptr.ty = f.y; }
+    CONST.move(e.pointerId, f.x, f.y);
   });
   function release(e){
     var f = fingers.get(e.pointerId);
@@ -625,14 +858,15 @@
     if (e.pointerType !== 'mouse') {
       fingers.forEach(function(v){ if (v.power > 0) pressed = true; });
     }
+    CONST.up(e.pointerId);
   }
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', release);
   canvas.addEventListener('pointerleave', function(e){
     var f = fingers.get(e.pointerId);
     if (f && e.pointerType === 'mouse') f.power = 0;
+    CONST.up(e.pointerId);
   });
-
   var running = true;
   if (window.IntersectionObserver) {
     new IntersectionObserver(function(es){
@@ -695,6 +929,7 @@
     gl.uniform1f(U.uBright, P.bright * brightMul * (COUNT >= 90000 ? 1.75 : 1.0));
     gl.drawArrays(gl.POINTS, 0, COUNT);
     gl.bindVertexArray(null);
+    CONST.draw(t, dt);
 
     fpsAcc += dt; fpsN++;
     if (dt > 0.026) slowFrames++;
