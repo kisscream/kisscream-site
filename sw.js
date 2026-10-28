@@ -2,13 +2,15 @@
    - 页面导航：网络优先 → 每次打开都拿最新 HTML（发版即时生效），断网回落缓存
    - 静态资源：缓存优先 + 后台静默更新（这次用旧的，下次自动换新）
    改了图片/图标不必手动改版本号，第二次打开就会自动更新 */
-const CACHE = 'kisscream-v6';
+const CACHE = 'kisscream-v7';
 const CORE = [
   './',
   './index.html',
   './football.html',
   './gesture.html',
   './aigc.html',
+  './diy.html',
+  './gk.js',
   './manifest.json',
   './assets/football.jpg',
   './icons/icon-192.png',

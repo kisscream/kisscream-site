@@ -140,6 +140,7 @@ header{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:
   <div class="chip desk">星云中心不动，手掌像在「扯」着一块</div>
   <div class="chip" id="fbChip" style="display:none"><em>无摄像头时：鼠标/手指 = 手掌</em></div>
 </div>
+<script src="./gk.js"></script>
 <script>
 (function(){
 'use strict';
@@ -176,6 +177,8 @@ var VS = [
 'uniform float uSize;',
 'uniform float uDpr;',
 'uniform float uCloudR;',
+'uniform float uFx;',      // 固有动画 id：0 = 无
+'uniform float uFxT;',     // 动画开始后经过的秒数
 'out vec3 vCol;',
 'out float vA;',
 'void main(){',
@@ -201,7 +204,45 @@ var VS = [
 '  vec2 txt = aFist + vec2(sin(uTime*0.9 + aSeed.y*6.2832),',
 '                          cos(uTime*0.8 + aSeed.z*6.2832)) * 0.0035;',
 '  vec2 p = mix(loc, txt, uMorph);',
-'  gl_Position = vec4(p.x / uAspect, p.y, 0.0, 1.0);',
+'  // ── 固有动画：固定时间轴，不跟手，播完自动归位 ──',
+'  vec2 pf = p;',
+'  float fxBoost = 1.0;',
+'  if (uFx > 0.5){',
+'    float T = uFxT;',
+'    float env = exp(-T * 2.2);',
+'    float rr = max(length(p), 0.001);',
+'    float ang = atan(p.y, p.x);',
+'    float s2 = step(0.5, fract(aSeed.y * 7.0));',
+'    if (uFx < 1.5){',
+'      // 1 光爆：径向脉冲外扩 + 高频抖动',
+'      float pulse = sin(min(T, 0.55) * 9.0) * env;',
+'      pf = p * (1.0 + 1.15 * pulse) + normalize(p) * 0.12 * env * sin(T * 14.0 + aSeed.x * 6.2832);',
+'    } else if (uFx < 2.5){',
+'      // 2 星环：收成内外两环，反向旋转',
+'      float ringR = uCloudR * (0.60 + 0.20 * s2);',
+'      float k = smoothstep(0.0, 0.20, T) * (1.0 - smoothstep(0.75, 1.35, T));',
+'      float sa = ang + T * (1.5 - 1.1 * s2);',
+'      pf = mix(p, vec2(cos(sa), sin(sa)) * ringR, k * 0.94);',
+'    } else if (uFx < 3.5){',
+'      // 3 漩涡：按半径差速拧转（内快外慢）',
+'      float sa = -T * (1.2 + 2.4 * (1.0 - rr / max(uCloudR, 0.001))) * env;',
+'      float c2 = cos(sa), n2 = sin(sa);',
+'      pf = vec2(c2 * p.x - n2 * p.y, n2 * p.x + c2 * p.y);',
+'    } else if (uFx < 4.5){',
+'      // 4 坍缩：吸到中心再弹回',
+'      float c1 = 1.0 - 0.94 * smoothstep(0.0, 0.26, T) * (1.0 - smoothstep(0.28, 1.10, T));',
+'      pf = p * c1;',
+'    } else if (uFx < 5.5){',
+'      // 5 涟漪：一圈圈从中心推开',
+'      pf = p * (1.0 + 0.44 * sin(rr * 11.0 - T * 9.0) * env);',
+'    } else {',
+'      // 6 极光：纵向波带 + 横向摆动',
+'      pf = p + vec2(0.0, 0.20 * sin(p.x * 3.4 + T * 2.6) * env)',
+'             + vec2(0.10 * sin(p.y * 2.2 + T * 1.7) * env, 0.0);',
+'    }',
+'    fxBoost = 1.0 + 0.65 * env;',
+'  }',
+'  gl_Position = vec4(pf.x / uAspect, pf.y, 0.0, 1.0);',
 '  float rad = length(aHome) / uCloudR;',
 '  float outer = smoothstep(0.26, 1.05, rad);',
 '  // 两段伪噪声：造丝状亮纹与暗缝，避免整团变成均匀噪点',
@@ -224,7 +265,7 @@ var VS = [
 '  nebCol = mix(nebCol, warm, smoothstep(0.55, 1.0, aCore));',
 '  vec3 txtCol = vec3(0.93, 0.96, 1.00);',
 '  vCol = mix(nebCol, txtCol, uMorph);',
-'  vA = alphaMul;',
+'  vA = alphaMul * fxBoost;',
 '}'
 ].join('\n');
 
@@ -261,7 +302,7 @@ if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
 gl.useProgram(prog);
 
 var U = {};
-['uAspect','uTime','uMorph','uHand','uPull','uPullR','uSize','uDpr','uCloudR','uBright'].forEach(function(n){
+['uAspect','uTime','uMorph','uHand','uPull','uPullR','uSize','uDpr','uCloudR','uBright','uFx','uFxT'].forEach(function(n){
   U[n] = gl.getUniformLocation(prog, n);
 });
 var A = {};
@@ -345,6 +386,16 @@ var aHome = new Float32Array(COUNT * 2);
 var aFist = new Float32Array(COUNT * 2);
 var aSeed = new Float32Array(COUNT * 3);
 var aCore = new Float32Array(COUNT);
+
+// 固有动画：固定时间轴，触发一次播一遍，播完自动归位
+var FX_DUR = [0, 1.35, 1.60, 1.50, 1.45, 1.55, 1.70];
+var fx = { id: 0, t: 0 };
+function playFx(id){
+  id = +id || 0;
+  if (id < 1 || id > 6) return;
+  fx.id = id; fx.t = 0;
+}
+window.playFx = playFx;
 
 function buildParticles(){
   var tmpl = nebula(Math.min(COUNT, 24000), NEB_R);
@@ -448,6 +499,23 @@ function onGesture(g){
   }
 }
 
+//==================== DIY 手势（本机教过的手势 → 固有动画） ====================
+var cg = { n: 0, last: -1e9, name: '' };
+function matchCustom(lm, now){
+  if (!window.GK || typeof GK.matchFlat !== 'function') return;
+  var m;
+  try { m = GK.matchFlat(GK.feats(lm)); } catch (e) { return; }
+  if (!m){ cg.n = 0; cg.name = ''; return; }
+  cg.name = m.name || '自定义';
+  if (m.d <= m.tol * 0.80) cg.n++; else cg.n = 0;
+  if (cg.n >= 3 && now - cg.last > 1400){
+    cg.last = now; cg.n = 0;
+    playFx(m.fx);
+    flash('你教的手势 · ' + cg.name + ' → ' + (GK.FX_NAMES[m.fx] || ''));
+  }
+}
+
+window.__feed = feedLandmarks; window.__mf = matchCustom; window.__fx = fx;
 function feedLandmarks(lm, handed){
   var r = classify(lm, handed);
   var now = performance.now();
@@ -463,6 +531,7 @@ function feedLandmarks(lm, handed){
   for (var i = 0; i < w.length; i++){ px += lm[w[i]].x; py += lm[w[i]].y; }
   px /= w.length; py /= w.length;
   setHand(1 - px, py);
+  matchCustom(lm, now);
   lmLast = lm; lmLastT = now;
   return r;
 }
@@ -603,6 +672,11 @@ function draw(){
   state.hand[0] += (state.handT[0] - state.hand[0]) * kh;
   state.hand[1] += (state.handT[1] - state.hand[1]) * kh;
 
+  if (fx.id > 0){
+    fx.t += dt;
+    if (fx.t > FX_DUR[fx.id]) { fx.id = 0; fx.t = 0; }
+  }
+
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.uniform1f(U.uAspect, aspect);
   gl.uniform1f(U.uTime, state.time);
@@ -614,6 +688,8 @@ function draw(){
   gl.uniform1f(U.uDpr, DPR);
   gl.uniform1f(U.uCloudR, NEB_R);
   gl.uniform1f(U.uBright, (isNarrow ? 1.75 : 1.45) * brightMul * (0.90 + 0.45 * state.morph));
+  gl.uniform1f(U.uFx, fx.id);
+  gl.uniform1f(U.uFxT, fx.t);
   gl.drawArrays(gl.POINTS, 0, COUNT);
 
   drawHandView(now);

@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>手势工作台 · KissCream</title>
+<meta name="theme-color" content="#05070a">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<style>
+  :root{ --bg:#05070a; --fg:#e2f0f8; --dim:#8b9aa3; --line:rgba(120,190,255,.14); --hot:#ff7a45; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{ margin:0; background:var(--bg); color:var(--fg);
+        font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,"PingFang SC","Microsoft YaHei",sans-serif; }
+  a{ color:#7fd0ff; text-decoration:none; }
+  .wrap{ max-width:920px; margin:0 auto; padding:14px 16px 70px; }
+  .top{ display:flex; align-items:center; gap:12px; padding:6px 0 12px; }
+  .top .back{ color:var(--dim); font-size:14px; }
+  .top .back:hover{ color:#fff; }
+  h1{ font-size:18px; margin:0; font-weight:600; letter-spacing:.3px; }
+  h1 em{ color:var(--hot); font-style:normal; }
+  .sub{ color:var(--dim); font-size:13px; margin:-4px 0 14px; }
+  .stage{ position:relative; border-radius:16px; overflow:hidden; background:#0a0f14;
+          border:1px solid var(--line); aspect-ratio:4/3; max-height:56vh; }
+  #cam{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+        transform:scaleX(-1); opacity:.5; }
+  #sk{ position:absolute; inset:0; width:100%; height:100%; }
+  .stage .cap{ position:absolute; left:10px; bottom:10px; font-size:12px; color:#cfe4f0;
+               background:rgba(4,8,12,.62); border:1px solid var(--line);
+               border-radius:999px; padding:3px 10px; }
+  .status{ display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 4px; }
+  .chip{ font-size:12px; color:var(--dim); border:1px solid var(--line); border-radius:999px;
+         padding:4px 10px; background:rgba(120,190,255,.04); }
+  .chip b{ color:var(--fg); font-weight:600; }
+  .chip.on b{ color:#7ff0a8; }
+  .chip.warn b{ color:#ffd166; }
+  .chip.err b{ color:#ff8080; }
+  .panel{ border:1px solid var(--line); background:rgba(255,255,255,.02);
+          border-radius:16px; padding:14px; margin:14px 0; }
+  .panel h2{ font-size:14px; margin:0 0 10px; font-weight:600; color:#cfe4f0; }
+  .panel h2 span{ color:var(--dim); font-weight:400; font-size:12px; margin-left:6px; }
+  #recBtn{ width:100%; padding:15px; border-radius:14px; font-size:16px; font-weight:600;
+           color:#ffdccb; border:1px solid rgba(255,122,69,.36);
+           background:linear-gradient(180deg,rgba(255,122,69,.20),rgba(255,122,69,.06));
+           font-family:inherit; cursor:pointer; transition:.12s; }
+  #recBtn:disabled{ opacity:.45; cursor:default; }
+  #recBtn.hold{ background:linear-gradient(180deg,rgba(255,122,69,.48),rgba(255,122,69,.18));
+                border-color:rgba(255,122,69,.8); color:#fff; }
+  .bar{ height:4px; border-radius:2px; background:rgba(255,255,255,.08); overflow:hidden; margin:10px 0 6px; }
+  .bar > i{ display:block; height:100%; width:0; background:var(--hot); transition:width .08s linear; }
+  .tip{ font-size:12.5px; color:var(--dim); }
+  .metrics{ display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin:12px 0 4px; }
+  .metric{ font-size:10.5px; color:var(--dim); text-align:center; line-height:1.3; }
+  .metric .barv{ height:36px; border-radius:5px; background:rgba(120,190,255,.08);
+                 position:relative; overflow:hidden; margin-bottom:4px; }
+  .metric .barv > i{ position:absolute; bottom:0; left:0; right:0;
+                     background:linear-gradient(180deg,#7fd0ff,#35607d); }
+  .row{ display:flex; gap:10px; align-items:center; margin:10px 0; }
+  .row label{ font-size:13px; color:var(--dim); min-width:52px; }
+  input[type=text]{ flex:1; min-width:0; font:inherit; color:var(--fg); background:rgba(255,255,255,.045);
+        border:1px solid var(--line); border-radius:10px; padding:9px 11px; }
+  input[type=text]:focus{ outline:none; border-color:rgba(255,122,69,.55); }
+  .fxgrid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .fxcell{ border:1px solid var(--line); border-radius:12px; padding:9px 6px; text-align:center;
+           font-size:13px; cursor:pointer; background:rgba(120,190,255,.03); transition:.12s; }
+  .fxcell small{ display:block; font-size:10.5px; color:var(--dim); margin-top:2px; }
+  .fxcell.sel{ border-color:var(--hot); background:rgba(255,122,69,.14); color:#ffd9c7; }
+  .fxcell.sel small{ color:#ffb08a; }
+  .actions{ display:flex; gap:10px; margin-top:12px; }
+  .btn{ flex:1; font:inherit; font-size:14px; padding:11px; border-radius:11px; cursor:pointer;
+        border:1px solid var(--line); background:rgba(255,255,255,.05); color:var(--fg); }
+  .btn.primary{ border-color:rgba(255,122,69,.5); background:rgba(255,122,69,.18); color:#ffdccb; font-weight:600; }
+  .btn:disabled{ opacity:.4; cursor:default; }
+  .card{ display:flex; gap:12px; align-items:center; border:1px solid var(--line);
+         border-radius:13px; padding:11px 12px; margin:9px 0; background:rgba(255,255,255,.02); }
+  .card .nm{ flex:1; min-width:0; }
+  .card .nm b{ display:block; font-size:14px; }
+  .card .nm small{ color:var(--dim); font-size:11.5px; }
+  .tag{ font-size:11px; color:#ffb08a; border:1px solid rgba(255,122,69,.32);
+        border-radius:999px; padding:2px 8px; white-space:nowrap; }
+  .mini{ font:inherit; font-size:12px; padding:6px 9px; border-radius:9px; cursor:pointer;
+         border:1px solid var(--line); background:rgba(255,255,255,.05); color:var(--fg); }
+  .empty{ color:var(--dim); font-size:13px; padding:10px 2px; }
+  #preview{ width:100%; height:158px; display:block; border-radius:12px;
+            background:radial-gradient(circle at 50% 52%, #0b131b, #05080c 70%); }
+  .livebar{ display:flex; gap:10px; align-items:center; font-size:12.5px; color:var(--dim); margin-top:8px; }
+  .livebar .meter{ flex:1; height:5px; border-radius:3px; background:rgba(255,255,255,.08); overflow:hidden; }
+  .livebar .meter > i{ display:block; height:100%; width:0; background:linear-gradient(90deg,#35607d,#7ff0a8); }
+  footer.foot{ color:#66757f; font-size:12px; margin-top:24px; line-height:1.85; }
+  @media (max-width:520px){
+    .metrics{ grid-template-columns:repeat(5,1fr); gap:4px; }
+    .fxgrid{ grid-template-columns:repeat(2,1fr); }
+    .fxcell small{ display:none; }
+  }
+
+  /* 桌面双栏：左相机 + 骨架，右操作面板 */
+  .wrap{ max-width:1180px; }
+  .cols{ display:grid; grid-template-columns:minmax(0,1.12fr) minmax(0,1fr); gap:16px; align-items:start; margin-top:14px; }
+  .colL,.colR{ display:flex; flex-direction:column; gap:10px; min-width:0; }
+  #preview{ display:block; width:100%; height:210px; border-radius:12px; background:#070b0f; }
+  .panel .sub2{ margin:0 0 8px; font-size:12px; color:#7d97a8; }
+  @media (max-width:900px){
+    .cols{ grid-template-columns:1fr; }
+    #preview{ height:168px; }
+    .wrap{ max-width:920px; }
+  }
+</style>
+</head>
+<body><div class="wrap">
+  <div class="top">
+    <a class="back" href="./index.html">← 返回</a>
+    <h1>手势<em>工作台</em></h1>
+  </div>
+  <p class="sub">把你想记的手势比给相机看，它会把这一刻的「手型指纹」记在本机；
+     以后无论在哪一页做出同一个手型，都会直接播放你绑定的那段固有动画。</p>
+
+  <div class="cols">
+    <div class="colL">
+      <section class="stage">
+        <video id="cam" playsinline muted autoplay></video>
+        <canvas id="sk"></canvas>
+        <div class="cap" id="stageCap">相机启动中…</div>
+      </section>
+
+      <div class="status">
+        <div class="chip" id="cCam">相机 <b>—</b></div>
+        <div class="chip" id="cMdl">模型 <b>—</b></div>
+        <div class="chip" id="cHand">手 <b>—</b></div>
+        <div class="chip" id="cGes">手势 <b>—</b></div>
+      </div>
+    </div>
+
+    <div class="colR">
+      <section class="panel">
+        <h2>1 · 采集<span>按住按钮，把手势比住 1.5 秒</span></h2>
+        <button id="recBtn" disabled>按住不放，比出你要记住的手势</button>
+        <div class="bar"><i id="recBar"></i></div>
+        <p class="tip" id="recTip">相机和模型都就绪后就能按。采集时会连续读取约 20 帧手部骨架，取中间值当模版。</p>
+      </section>
+
+      <section class="panel" id="resultPanel" style="display:none">
+        <h2>2 · 分析结果<span id="resMeta"></span></h2>
+        <div class="metrics" id="resMetrics"></div>
+        <div class="row"><label>名字</label><input type="text" id="gesName" maxlength="12" placeholder="给这个手势起个名，例：比个心"></div>
+        <div class="row" style="align-items:flex-start"><label style="padding-top:6px">动画</label>
+          <div class="fxgrid" id="fxGrid" style="flex:1"></div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="btnRedo">重录</button>
+          <button class="btn primary" id="btnSave">记住了</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>3 · 已记住的手势<span id="libMeta"></span></h2>
+        <div id="libList"><div class="empty">还没有手势。上面采集一个试试。</div></div>
+      </section>
+
+      <section class="panel">
+        <h2>4 · 现场试<span>比一下，命中就播放动画</span></h2>
+        <canvas id="preview"></canvas>
+        <div class="livebar">
+          <span id="liveTxt">等待手势…</span>
+          <div class="meter"><i id="liveBar"></i></div>
+          <button class="mini" id="btnPv">重放</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    画面只在你的浏览器里处理，不上传服务器；手势模版存在本机 localStorage，换设备/换浏览器要重新教。<br>
+    想在一个手势里换动画、改灵敏度，点下面卡片里的「改」。
+  </footer>
+</div><script src="./gk.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var video = $('cam'), sk = $('sk'), skc = sk.getContext('2d');
+  var DPR = Math.min(2, window.devicePixelRatio || 1);
+  var chip = function (id, cls, txt) {
+    var e = $(id); e.className = 'chip ' + (cls || '');
+    var b = e.querySelector('b'); if (b) b.textContent = txt;
+  };
+
+  var BONES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],
+               [9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+  var TIPS = [4,8,12,16,20], PALM = [0,1,5,9,13,17];
+
+  var landmarker = null, camOK = false, mdlOK = false;
+  var lm = null, lmT = 0, lastFeat = null;
+
+  function skResize() {
+    var w = sk.clientWidth || 320, h = sk.clientHeight || 240;
+    sk.width = Math.round(w * DPR); sk.height = Math.round(h * DPR);
+  }
+
+  function drawSkeleton(now) {
+    var w = sk.width, h = sk.height;
+    skc.clearRect(0, 0, w, h);
+    if (!lm || now - lmT > 500) return;
+    var xs = [], ys = [], i;
+    for (i = 0; i < 21; i++) { xs.push((1 - lm[i].x) * w); ys.push(lm[i].y * h); }
+    // 淡手掌底
+    skc.beginPath();
+    for (i = 0; i < PALM.length; i++) {
+      if (!i) skc.moveTo(xs[PALM[i]], ys[PALM[i]]); else skc.lineTo(xs[PALM[i]], ys[PALM[i]]);
+    }
+    skc.closePath();
+    skc.fillStyle = 'rgba(255,122,69,.10)'; skc.fill();
+    skc.lineCap = 'round'; skc.lineJoin = 'round';
+    skc.lineWidth = Math.max(2, w * 0.005);
+    skc.strokeStyle = 'rgba(150,205,255,.85)';
+    for (i = 0; i < BONES.length; i++) {
+      var a = BONES[i][0], b = BONES[i][1];
+      skc.beginPath(); skc.moveTo(xs[a], ys[a]); skc.lineTo(xs[b], ys[b]); skc.stroke();
+    }
+    for (i = 0; i < 21; i++) {
+      var tip = TIPS.indexOf(i) >= 0;
+      skc.beginPath(); skc.arc(xs[i], ys[i], w * (tip ? 0.011 : 0.007), 0, 6.2832);
+      skc.fillStyle = tip ? '#ff7a45' : 'rgba(226,240,248,.95)'; skc.fill();
+    }
+  }
+
+  // ---- 相机 ----
+  async function initCamera() {
+    chip('cCam', 'warn', '启动中');
+    try {
+      var stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+      camOK = true; chip('cCam', 'on', '已启动');
+      $('stageCap').textContent = '把手放进画面中间，放松一点';
+      return true;
+    } catch (e) {
+      camOK = false; chip('cCam', 'err', '不可用');
+      $('stageCap').textContent = '没有摄像头权限：' + (e && e.name || '出错');
+      $('recTip').textContent = '拿不到摄像头就没法采集手型。请在浏览器地址栏允许摄像头后刷新。';
+      return false;
+    }
+  }
+
+  // ---- 模型 ----
+  async function initModel() {
+    chip('cMdl', 'warn', '加载中');
+    try {
+      var vision = await import('./vendor/vision_bundle.js');
+      var files = await vision.FilesetResolver.forVisionTasks('./vendor/wasm');
+      var opts = function (delegate) {
+        return {
+          baseOptions: { modelAssetPath: './models/hand_landmarker.task', delegate: delegate },
+          runningMode: 'VIDEO', numHands: 1,
+          minHandDetectionConfidence: 0.55, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5
+        };
+      };
+      try { landmarker = await vision.HandLandmarker.createFromOptions(files, opts('GPU')); }
+      catch (e1) { landmarker = await vision.HandLandmarker.createFromOptions(files, opts('CPU')); }
+      mdlOK = true; chip('cMdl', 'on', '就绪');
+      return true;
+    } catch (e) {
+      mdlOK = false; chip('cMdl', 'err', '失败');
+      $('recTip').textContent = '手部模型加载失败：' + (e && e.message || e);
+      return false;
+    }
+  }
+
+  // ---- 检测循环 ----
+  var lastDet = 0, detTs = 0, miss = 0, detMs = 24;
+  function loop() {
+    requestAnimationFrame(loop);
+    var now = performance.now();
+    drawSkeleton(now);
+    if (!landmarker || !video.videoWidth || document.hidden) return;
+    var gap = miss >= 5 ? 150 : Math.max(33, detMs * 1.6);
+    if (now - lastDet < gap) return;
+    lastDet = now;
+    var t0 = performance.now(), res;
+    try {
+      detTs = Math.max(detTs + 1, Math.round(now));
+      res = landmarker.detectForVideo(video, detTs);
+    } catch (e) { return; }
+    detMs = detMs * 0.85 + (performance.now() - t0) * 0.15;
+    if (res && res.landmarks && res.landmarks.length) {
+      miss = 0; onLandmarks(res.landmarks[0]);
+    } else {
+      miss++; onNoHand();
+    }
+  }
+
+  function onLandmarks(L) {
+    lm = L; lmT = performance.now();
+    chip('cHand', 'on', '锁定');
+    var f = GK.feats(L);
+    lastFeat = f;
+    if (f && !rec.on) checkLive(f);
+    if (rec.on) rec.push(f);
+  }
+  function onNoHand() {
+    if (miss === 1) chip('cHand', 'warn', '寻找中');
+    if (miss > 4) lastFeat = null;
+  }  // ---- 采集 ----
+  var rec = { on: false, t0: 0, frames: [], push: function (f) {
+      if (!this.on || !f) return;
+      this.frames.push(f);
+      var p = Math.min(1, (performance.now() - this.t0) / REC_MS);
+      $('recBar').style.width = (p * 100).toFixed(0) + '%';
+    } };
+  var REC_MS = 1500, REC_MIN = 6;
+  var pending = null;   // 采集出来的待保存手势
+
+  var btn = $('recBtn');
+  function startRec() {
+    if (!(camOK && mdlOK) || rec.on) return;
+    rec.on = true; rec.t0 = performance.now(); rec.frames = [];
+    btn.classList.add('hot'); btn.textContent = '采集中…保持不动';
+    $('recBar').style.width = '0%';
+    clearTimeout(rec.timer);
+    rec.timer = setTimeout(stopRec, REC_MS + 60);
+  }
+  function stopRec() {
+    if (!rec.on) return;
+    rec.on = false; btn.classList.remove('hot'); btn.textContent = '按住不放，比出你要记住的手势';
+    var fr = rec.frames;
+    if (fr.length < REC_MIN) {
+      $('recTip').textContent = '只采到 ' + fr.length + ' 帧（至少要 ' + REC_MIN +
+        '）。把整个手掌放进画面，保持 1.5 秒再试。';
+      return;
+    }
+    // 多帧取中位数当模版，抗抖动
+    var med = [];
+    for (var d = 0; d < fr[0].length; d++) {
+      var col = fr.map(function (v) { return v[d]; }).sort(function (a, b) { return a - b; });
+      med.push(col[Math.floor(col.length / 2)]);
+    }
+    var spread = 0;
+    for (var i = 0; i < fr.length; i++) spread += GK.dist(fr[i], med);
+    spread = spread / fr.length;
+    var info = GK.describe(med);
+    pending = { v: med, spread: spread, frames: fr.length, info: info, fx: 1,
+                name: '', tol: GK.suggestTol(spread) };
+    showResult();
+  }
+  btn.addEventListener('pointerdown', function (e) { e.preventDefault(); startRec(); });
+  btn.addEventListener('pointerup', stopRec);
+  btn.addEventListener('pointercancel', stopRec);
+  btn.addEventListener('pointerleave', function () { if (rec.on) stopRec(); });
+
+  function showResult() {
+    $('resultPanel').style.display = '';
+    var i = pending.info;
+    $('resMeta').textContent = pending.frames + ' 帧 · 抖动 ' + pending.spread.toFixed(3);
+    var html = '';
+    $('resMetrics').innerHTML = i.rows.map(function (r) {
+      return '<div class="m"><span>' + r[0] + '</span><b>' + r[1] + '</b></div>';
+    }).join('');
+    $('gesName').value = i.autoName;
+    $('gesName').focus();
+    var g = $('fxGrid'); g.innerHTML = '';
+    FXS.forEach(function (f) {
+      var b = document.createElement('button');
+      b.className = 'fx' + (f.id === pending.fx ? ' on' : '');
+      b.innerHTML = '<i></i>' + f.name;
+      b.onclick = function () {
+        pending.fx = f.id;
+        Array.prototype.forEach.call(g.children, function (c) { c.classList.remove('on'); });
+        b.classList.add('on');
+        playPreview(f.id, $('gesName').value || i.autoName);
+      };
+      g.appendChild(b);
+    });
+    $('resultPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  $('btnRedo').onclick = function () { $('resultPanel').style.display = 'none'; pending = null; };
+  $('btnSave').onclick = function () {
+    if (!pending) return;
+    var nm = ($('gesName').value || pending.info.autoName).slice(0, 12);
+    GK.add({ feats: pending.v, name: nm, fx: pending.fx, tol: pending.tol, spread: pending.spread });
+    $('resultPanel').style.display = 'none';
+    $('recTip').textContent = '记住了：' + nm + '。现在做这个手型就会播放「' + fxName(pending.fx) + '」。';
+    pending = null; renderLib(); playPreview(GK.list().slice(-1)[0].fx, nm);
+  };  // ---- 固有动画（和 gesture.html 里的 shader 动画同号同名，这里做本地预览版）----
+  var FXS = [{ id: 1, name: '光爆' }, { id: 2, name: '星环' }, { id: 3, name: '漩涡' },
+             { id: 4, name: '坍缩' }, { id: 5, name: '涟漪' }, { id: 6, name: '极光' }];
+  function fxName(id) {
+    for (var i = 0; i < FXS.length; i++) if (FXS[i].id === id) return FXS[i].name;
+    return '光爆';
+  }
+  var pv = $('preview'), pvc = pv.getContext('2d'), pvDpr = DPR;
+  var pvS = { id: 1, t: 0, dur: 2000, ps: [], label: '', done: true };
+  function pvResize() {
+    var w = pv.clientWidth || 320, h = pv.clientHeight || 180;
+    pv.width = Math.round(w * pvDpr); pv.height = Math.round(h * pvDpr);
+  }
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+
+  function spawn(id) {
+    var w = pv.width, h = pv.height, s = Math.min(w, h), ps = [], i;
+    if (id === 1) {
+      for (i = 0; i < 190; i++) {
+        var a = rnd(0, 6.2832), sp = rnd(0.12, 0.66) * s;
+        ps.push({ a: a, sp: sp, r: rnd(0.8, 2.4), c: rnd(0, 1) });
+      }
+    } else if (id === 2) {
+      for (i = 0; i < 240; i++) {
+        var ring = i < 130 ? 0.24 : 0.38;
+        ps.push({ an: rnd(0, 6.2832), rr: ring * s * rnd(0.96, 1.04),
+                  spin: rnd(0.7, 1.5) * (i < 130 ? 1 : -1), r: rnd(0.7, 1.9), c: rnd(0, 1) });
+      }
+    } else if (id === 3) {
+      for (i = 0; i < 260; i++) {
+        ps.push({ an: rnd(0, 6.2832), rr: rnd(0.30, 0.52) * s,
+                  spin: rnd(1.1, 2.2), r: rnd(0.7, 1.8), c: rnd(0, 1) });
+      }
+    } else if (id === 4) {
+      for (i = 0; i < 240; i++) {
+        ps.push({ an: rnd(0, 6.2832), r0: rnd(0.34, 0.52) * s, dl: rnd(0, 0.25),
+                  r: rnd(0.8, 2.2), c: rnd(0, 1) });
+      }
+    } else if (id === 5) {
+      for (i = 0; i < 6; i++) ps.push({ d: i * 0.11 });
+    } else {
+      for (i = 0; i < 170; i++) {
+        ps.push({ x: rnd(0.10, 0.90), y: rnd(0, 1), vy: rnd(0.10, 0.34),
+                  ph: rnd(0, 6.2832), amp: rnd(0.02, 0.07), r: rnd(0.7, 1.7), c: rnd(0, 1) });
+      }
+      for (i = 0; i < 3; i++) ps.push({ band: true, d: i * 0.22, ph: rnd(0, 6.2832) });
+    }
+    return ps;
+  }
+
+  function playPreview(id, label) {
+    if (!pv.width) pvResize();
+    pvS.id = id; pvS.label = label || ''; pvS.t = 0; pvS.done = false;
+    pvS.dur = id === 5 ? 1800 : 2100;
+    pvS.ps = spawn(id);
+    $('liveTxt').textContent = '播放：' + fxName(id) + (label ? ' · ' + label : '');
+  }
+
+  function stepPv(dt) {
+    var w = pv.width, h = pv.height, cx = w / 2, cy = h / 2, mn = Math.min(w, h);
+    var S = pvS, u = Math.min(1, S.t / S.dur);
+    var fade = u > 0.74 ? (1 - u) / 0.26 : 1;
+    pvc.clearRect(0, 0, w, h);
+    var i, p, ax, ay, al, col;
+
+    if (S.id === 5) {
+      for (i = 0; i < S.ps.length; i++) {
+        var o = S.ps[i], uu = (S.t / S.dur - o.d) / 0.55;
+        if (uu <= 0 || uu >= 1) continue;
+        pvc.beginPath(); pvc.arc(cx, cy, uu * mn * 0.52, 0, 6.2832);
+        pvc.strokeStyle = 'rgba(159,214,255,' + ((1 - uu) * 0.7).toFixed(3) + ')';
+        pvc.lineWidth = Math.max(1.2, mn * 0.008 * (1 - uu) + 0.5);
+        pvc.stroke();
+      }
+      return;
+    }
+
+    if (S.id === 6) {
+      pvc.globalCompositeOperation = 'lighter';
+      for (i = 0; i < S.ps.length; i++) {
+        p = S.ps[i];
+        if (p.band) {
+          var yb = ((p.y0 === undefined) ? (p.y0 = cy) : p.y0);
+          var bu = (S.t / S.dur + p.d) % 1;
+          var yy = cy - mn * 0.42 + bu * mn * 0.84;
+          pvc.strokeStyle = 'rgba(120,235,200,' + (0.16 * fade).toFixed(3) + ')';
+          pvc.lineWidth = Math.max(1, mn * 0.006);
+          pvc.beginPath();
+          for (var t = 0; t <= 1.001; t += 0.05) {
+            var xx = cx + Math.sin(t * 5.2 + p.ph + S.t * 0.0016) * mn * 0.26 * (0.4 + t * 0.6);
+            var yyy = cy - mn * 0.40 + (bu + t * 0.16) * mn * 0.80;
+            if (!t) pvc.moveTo(xx, yyy); else pvc.lineTo(xx, yyy);
+          }
+          pvc.stroke();
+          continue;
+        }
+        p.y += p.vy * dt * 0.6;
+        if (p.y > 1.05) p.y -= 1.1;
+        ax = p.x * w + Math.sin(p.y * 6.0 + p.ph + S.t * 0.002) * w * p.amp;
+        ay = p.y * h;
+        col = p.c > 0.5 ? '255,140,90' : '120,235,200';
+        al = 0.55 * fade * (0.55 + 0.45 * Math.sin(p.y * 12 + S.t * 0.006 + p.ph));
+        pvc.fillStyle = 'rgba(' + col + ',' + Math.max(0, al).toFixed(3) + ')';
+        pvc.beginPath(); pvc.arc(ax, ay, p.r * pvDpr, 0, 6.2832); pvc.fill();
+      }
+      pvc.globalCompositeOperation = 'source-over';
+      return;
+    }
+
+    pvc.globalCompositeOperation = 'lighter';
+    for (i = 0; i < S.ps.length; i++) {
+      p = S.ps[i];
+      if (S.id === 1) {
+        var rad = p.sp * (u < 0.45 ? (u / 0.45) : (1 - (u - 0.45) / 0.55 * 0.55));
+        ax = cx + Math.cos(p.a) * rad; ay = cy + Math.sin(p.a) * rad;
+        al = 0.85 * fade * (0.35 + 0.65 * Math.sin(Math.PI * Math.min(1, u)));
+      } else if (S.id === 2) {
+        p.an += p.spin * dt;
+        ax = cx + Math.cos(p.an) * p.rr; ay = cy + Math.sin(p.an) * p.rr * 0.62;
+        al = 0.8 * fade;
+      } else if (S.id === 3) {
+        p.an += p.spin * dt * (1 + (1 - u) * 0.7);
+        p.rr *= (1 - dt * 0.42);
+        ax = cx + Math.cos(p.an) * p.rr; ay = cy + Math.sin(p.an) * p.rr;
+        al = 0.8 * fade;
+      } else {
+        var uu2 = Math.max(0, (u - p.dl) / (1 - p.dl));
+        var rr2 = uu2 < 0.5 ? p.r0 * (1 - uu2 * 2) : mn * 0.14 + (uu2 - 0.5) * 2 * mn * 0.30;
+        ax = cx + Math.cos(p.an) * rr2; ay = cy + Math.sin(p.an) * rr2;
+        al = 0.85 * fade;
+      }
+      col = (S.id === 1 && p.c > 0.62) ? '255,150,90' : '159,214,255';
+      pvc.fillStyle = 'rgba(' + col + ',' + Math.max(0, al).toFixed(3) + ')';
+      pvc.beginPath(); pvc.arc(ax, ay, p.r * pvDpr, 0, 6.2832); pvc.fill();
+    }
+    pvc.globalCompositeOperation = 'source-over';
+  }  // ---- 现场试：命中就播放 ----
+  var live = { n: 0, last: -1e9 };
+  var HOLD_MS = 1500;   // 命中提示/动画停留时间，期间不再抢字
+  function checkLive(f) {
+    var now = performance.now();
+    var holding = now - live.last < HOLD_MS;
+    var m = GK.matchFlat(f);
+    if (!m) {
+      live.n = 0;
+      if (!holding) { $('liveBar').style.width = '0%'; $('liveTxt').textContent = '等待手势…'; }
+      return;
+    }
+    var rel = Math.max(0, 1 - m.d / Math.max(1e-6, m.tol));
+    if (!holding) {
+      $('liveBar').style.width = (rel * 100).toFixed(0) + '%';
+      $('liveTxt').textContent = '接近「' + m.name + '」 ' + Math.round(rel * 100) + '%';
+    }
+    if (m.d <= m.tol * 0.80) live.n++; else live.n = 0;
+    if (live.n >= 3 && !holding) {
+      live.last = now; live.n = 0;
+      $('liveBar').style.width = '100%';
+      $('liveTxt').textContent = '命中：' + m.name + ' · ' + fxName(m.fx);
+      playPreview(m.fx, m.name);
+    }
+  }
+
+  // ---- 手势库 ----
+  function renderLib() {
+    var L = GK.list(), box = $('libList');
+    $('libMeta').textContent = L.length ? L.length + ' 个 · 存在本机' : '';
+    if (!L.length) {
+      box.innerHTML = '<div class="empty">还没有手势。上面采集一个试试。</div>';
+      return;
+    }
+    box.innerHTML = '';
+    L.forEach(function (it) {
+      var row = document.createElement('div');
+      row.className = 'item';
+      row.innerHTML = '<div class="nm">' + (it.name || '未命名') +
+        '<span>' + fxName(it.fx) + ' · 灵敏度 ' + it.tol.toFixed(2) + '</span></div>';
+      var play = document.createElement('button');
+      play.className = 'mini'; play.textContent = '预览';
+      play.onclick = function () { playPreview(it.fx, it.name); };
+      var chg = document.createElement('button');
+      chg.className = 'mini'; chg.textContent = '改动画';
+      chg.onclick = function () {
+        var i = 0;
+        for (var k = 0; k < FXS.length; k++) if (FXS[k].id === it.fx) i = k;
+        it.fx = FXS[(i + 1) % FXS.length].id;
+        GK.update(it.id, { fx: it.fx });
+        renderLib(); playPreview(it.fx, it.name);
+      };
+      var del = document.createElement('button');
+      del.className = 'mini danger'; del.textContent = '删';
+      del.onclick = function () {
+        if (!confirm('删掉「' + (it.name || '未命名') + '」？')) return;
+        GK.remove(it.id); renderLib();
+      };
+      row.appendChild(play); row.appendChild(chg); row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
+  // ---- 预览循环 ----
+  var lastPv = performance.now();
+  function tick() {
+    requestAnimationFrame(tick);
+    var now = performance.now(), dt = Math.min(0.05, (now - lastPv) / 1000);
+    lastPv = now;
+    if (!pv.width) pvResize();
+    if (!pvS.done) {
+      pvS.t += dt * 1000;
+      stepPv(dt);
+      if (pvS.t >= pvS.dur) { pvS.done = true; pvc.clearRect(0, 0, pv.width, pv.height); }
+    }
+  }
+
+  function boot() {
+    pvResize(); skResize(); renderLib();
+    window.addEventListener('resize', function () {
+      setTimeout(function () { pvResize(); skResize(); }, 90);
+    });
+    requestAnimationFrame(tick);
+    $('btnPv').onclick = function () {
+      playPreview(FXS[Math.floor(Math.random() * FXS.length)].id, 'KissCream');
+    };
+    $('gesName').addEventListener('change', function () {
+      if (pending && pvS.id) playPreview(pvS.id, $('gesName').value);
+    });
+    (async function () {
+      var a = await initCamera();
+      var b = await initModel();
+      if (a && b) { $('recBtn').disabled = false; loop(); }
+    })();
+  }
+
+  // ---- 自测（?selftest=1）：用合成骨架点跑通 指纹→记忆→命中 全链路 ----
+  function SYN(kind) {
+    var open = [[0.44,0.74,0.40,0.70,0.36,0.66,0.32,0.62],
+                [0.47,0.70,0.465,0.62,0.462,0.57,0.460,0.53],
+                [0.51,0.69,0.51,0.60,0.51,0.55,0.51,0.50],
+                [0.55,0.70,0.555,0.62,0.558,0.57,0.560,0.54],
+                [0.59,0.72,0.60,0.66,0.605,0.62,0.610,0.59]];
+    var out = [{ x: 0.50, y: 0.78, z: 0 }], f, j, p0, p1, p2, p3, vx, vy, L;
+    for (f = 0; f < 5; f++) {
+      var b = open[f];
+      p0 = { x: b[0], y: b[1] }; p1 = { x: b[2], y: b[3] };
+      p2 = { x: b[4], y: b[5] }; p3 = { x: b[6], y: b[7] };
+      if (kind === 'fist') {
+        vx = p0.x - p1.x; vy = p0.y - p1.y; L = Math.sqrt(vx * vx + vy * vy) || 1e-6;
+        vx /= L; vy /= L;
+        var q1 = { x: p1.x, y: p1.y };
+        var q2 = { x: q1.x + vx * 0.035, y: q1.y + vy * 0.035 };
+        var q3 = { x: q2.x + vx * 0.030, y: q2.y + vy * 0.030 };
+        p0 = { x: p0.x, y: p0.y }; p1 = q1; p2 = q2; p3 = q3;
+      }
+      out.push({ x: p0.x, y: p0.y, z: 0 }, { x: p1.x, y: p1.y, z: 0 },
+                { x: p2.x, y: p2.y, z: 0 }, { x: p3.x, y: p3.y, z: 0 });
+    }
+    return out;
+  }
+  function jit(lm, amp) {
+    return lm.map(function (p) { return { x: p.x + (Math.random() - 0.5) * amp, y: p.y + (Math.random() - 0.5) * amp, z: 0 }; });
+  }
+  function selftest() {
+    var R = {}, fail = [];
+    GK.clear();
+    var A = SYN('open'), B = SYN('fist');
+    var fA = GK.feats(A), fB = GK.feats(B);
+    R.dimA = fA && fA.length; R.dimB = fB && fB.length;
+    if (R.dimA !== 15) fail.push('指纹维度 ' + R.dimA);
+    R.dAB = +GK.dist(fA, fB).toFixed(3);
+    if (!(R.dAB > 0.30)) fail.push('张手/握拳区分度不足 ' + R.dAB);
+    var dA = GK.describe(fA), dB = GK.describe(fB);
+    R.nameA = dA.autoName; R.nameB = dB.autoName;
+    if (dA.autoName !== '张手') fail.push('张手识别成 ' + dA.autoName);
+    if (dB.autoName !== '拳头') fail.push('握拳识别成 ' + dB.autoName);
+    var tol = GK.suggestTol(0.02);
+    GK.add({ feats: fA, name: R.nameA, fx: 2, tol: tol, spread: 0.02 });
+    R.tol = tol;
+    var m1 = GK.matchFlat(fA);
+    R.hitSelf = m1 ? +(m1.d).toFixed(3) : null;
+    if (!m1) fail.push('自己存的手势匹配不上'); else if (m1.fx !== 2) fail.push('绑定动画丢失');
+    var m2 = GK.matchFlat(fB);
+    R.hitOther = m2 ? +(m2.d).toFixed(3) : null;
+    if (m2) fail.push('握拳误命中张手');
+    var ok = 0, tries = 12, i;
+    for (i = 0; i < tries; i++) if (GK.matchFlat(GK.feats(jit(A, 0.012)))) ok++;
+    R.noise = ok + '/' + tries;
+    if (ok < tries - 1) fail.push('抖动鲁棒性差 ' + R.noise);
+    // 现场试：喂合成点，看是否触发播报
+    $('liveTxt').textContent = '等待手势…';
+    for (i = 0; i < 5; i++) onLandmarks(A);
+    R.live = $('liveTxt').textContent;
+    if (!/播放|命中/.test(R.live)) fail.push('现场试没触发动画：' + R.live);
+    GK.clear(); renderLib();
+    R.pass = fail.length === 0; R.fail = fail;
+    document.title = 'DIYTEST ' + JSON.stringify(R);
+    console.log('DIYTEST ' + JSON.stringify(R));
+    return R;
+  }
+  if (location.search.indexOf('selftest=1') >= 0) {
+    setTimeout(function () { try { selftest(); } catch (e) { document.title = 'DIYTEST-ERR ' + (e && e.message); } }, 30);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
