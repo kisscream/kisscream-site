@@ -2078,25 +2078,25 @@
   ],
   "images": [
     {
-      "uri": "textures/TOYOTA_DB06_2025_A90_Final_Edition_WH_ref_unblend_baseColor.png"
+      "uri": "textures/TOYOTA_DB06_2025_A90_Final_Edition_WH_ref_unblend_baseColor.webp"
     },
     {
-      "uri": "textures/TOYOTA_DB06_2025_A90_Final_Edition_WH_Brake_baseColor.png"
+      "uri": "textures/TOYOTA_DB06_2025_A90_Final_Edition_WH_Brake_baseColor.webp"
     },
     {
-      "uri": "textures/PLSTE_baseColor.png"
+      "uri": "textures/PLSTE_baseColor.webp"
     },
     {
-      "uri": "textures/TOYOTA_DB06_2025_A90_Final_Edition_body_n_ref_blend_baseColor.png"
+      "uri": "textures/TOYOTA_DB06_2025_A90_Final_Edition_body_n_ref_blend_baseColor.webp"
     },
     {
-      "uri": "textures/glass_baseColor.png"
+      "uri": "textures/glass_baseColor.webp"
     },
     {
-      "uri": "textures/TOYOTA_DB06_2025_A90_Final_Edition_bonnet_n_ref_blend_baseColor.png"
+      "uri": "textures/TOYOTA_DB06_2025_A90_Final_Edition_bonnet_n_ref_blend_baseColor.webp"
     },
     {
-      "uri": "textures/TOYOTA_DB06_2025_A90_Final_Edition_punch_n_alpha_baseColor.png"
+      "uri": "textures/TOYOTA_DB06_2025_A90_Final_Edition_punch_n_alpha_baseColor.webp"
     }
   ],
   "materials": [
