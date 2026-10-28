@@ -960,7 +960,7 @@ function updateEngine(dt) {
   const r = engineRig;
   if (interior) interior.visible = state.seat;
   const iso = state.isolated === '发动机 B58';
-  const want = iso ? 1.72 : 1.0;
+  const want = iso ? 1.52 : 1.0;
   r.G.scale.setScalar(lerp(r.G.scale.x, want, Math.min(1, dt * 4)));
   r.spd = lerp(r.spd, (iso || revOn) ? 5.2 : 1, Math.min(1, dt * 2.4));
   r.ph += dt * r.spd * 7.2;
@@ -973,7 +973,7 @@ function updateEngine(dt) {
   // 发动机内部分件：被选中的那件沿自己的方向拉出
   for (const s of r.subs) {
     s.pull = lerp(s.pull, s.target, Math.min(1, dt * 6));
-    s.obj.position.copy(s.home).addScaledVector(s.dir, s.pull * s.dist * 0.62);
+    s.obj.position.copy(s.home).addScaledVector(s.dir, s.pull * s.dist * 0.42);
   }
 }
 
