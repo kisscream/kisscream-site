@@ -403,7 +403,7 @@ function loadModel(i = 0) {
     }
 
     buildParts(wrap);
-    buildLamps((parts.find((p) => /车身钣金/.test(p.name)) || {}).obj);
+    buildLamps();
     buildPlate();
     // buildInterior();  // 已换成 Sketchfab 真实内饰（loadInterior）
   // 车内视角专用：从风挡方向来的冷光，只把仪表台/方向盘勾出轮廓
@@ -552,6 +552,7 @@ function clearIsolate() {
   Engine.setRev(false);
   revOn = false;
   if ($('#btnRev')) $('#btnRev').classList.remove('on');
+  hideSubs();
 }
 function isolate(name) {
   const p = parts.find((x) => x.name === name);
@@ -565,10 +566,51 @@ function isolate(name) {
   const sz = new THREE.Box3().setFromObject(p.obj).getSize(new THREE.Vector3()).length();
   const d = Math.max(1.25, sz * 1.5);
   tweenCam(new THREE.Vector3(at.x + d * 0.5, at.y + d * 0.45, at.z + d * 0.8), at, 34);
-  if (name === '发动机 B58') { Engine.setRev(true); revOn = true; $('#btnRev')?.classList.add('on'); }
+  if (name === '发动机 B58') { Engine.setRev(true); revOn = true; $('#btnRev')?.classList.add('on'); showSubs(); }
+  else hideSubs();
   toast('单独展示：' + name + (p.note ? '（' + p.note + '）' : ''));
 }
 
+/* ---- 发动机内部分件栏（跟发动机独立页一样的 13 件） ---- */
+let subSel = null;
+function resetSubs() {
+  subSel = null;
+  if (engineRig && engineRig.subs) for (const s of engineRig.subs) s.target = 0;
+  document.querySelectorAll('#subList .part').forEach((e) => e.classList.remove('on'));
+}
+function subSelect(name) {
+  if (!engineRig || !engineRig.subs) return;
+  subSel = name;
+  for (const s of engineRig.subs) s.target = (s.name === name) ? 1 : 0;
+  document.querySelectorAll('#subList .part').forEach((e) => e.classList.toggle('on', e.dataset.name === name));
+  const s = engineRig.subs.find((x) => x.name === name);
+  if (s) toast('发动机内部：' + name + (s.note ? '（' + s.note + '）' : ''));
+}
+function buildSubList() {
+  const box = $('#subList');
+  if (!box || !engineRig || !engineRig.subs) return;
+  box.innerHTML = '';
+  for (const s of engineRig.subs) {
+    const d = document.createElement('div');
+    d.className = 'part';
+    d.dataset.name = s.name;
+    d.innerHTML = '<span>' + s.name + '</span><i>' + (s.note || '') + '</i>';
+    d.onclick = () => subSelect(s.name);
+    box.appendChild(d);
+  }
+  const all = $('#subAll');
+  if (all) all.onclick = () => { resetSubs(); toast('已合体：发动机回到完整状态'); };
+}
+function showSubs() {
+  buildSubList();
+  const el = $('#subs');
+  if (el) el.classList.add('show');
+}
+function hideSubs() {
+  const el = $('#subs');
+  if (el) el.classList.remove('show');
+  resetSubs();
+}
 /* ============================================================
    7 小窗预览
    ============================================================ */
@@ -803,7 +845,7 @@ function buildEngine() {
   G.position.set(-1.42, 0.33, 0);
   const ps = [];
   G.traverse(o => { if (o.userData && o.userData.piston) ps.push(o); });
-  engineRig = { G, pistons: ps, ph: 0, spd: 1 };
+  engineRig = { G, pistons: ps, subs: G.userData.subs || [], ph: 0, spd: 1 };
   carRoot.add(G);
   addPart('发动机 B58', G, '直列六缸 · 真机几何', new THREE.Vector3(-0.92, 0.38, 0).normalize(), 1.6);
 }
@@ -927,6 +969,11 @@ function updateEngine(dt) {
   for (let i = 0; i < r.pistons.length; i++) {
     const a = r.ph + (i % 3) * (Math.PI * 2 / 3);
     r.pistons[i].position.y = 0.145 + amp * Math.sin(a);
+  }
+  // 发动机内部分件：被选中的那件沿自己的方向拉出
+  for (const s of r.subs) {
+    s.pull = lerp(s.pull, s.target, Math.min(1, dt * 6));
+    s.obj.position.copy(s.home).addScaledVector(s.dir, s.pull * s.dist * 0.62);
   }
 }
 
@@ -1099,45 +1146,47 @@ scene.add(beamL, beamL.target, beamR, beamR.target);
 const headMats = [], tailMats = [];
 const lampGroup = new THREE.Group();
 carShell.add(lampGroup);
-function lampPlane(w, h, color, x, y, z, ry) {
-  const m = new THREE.MeshBasicMaterial({
-    color, transparent: true, opacity: 0, toneMapped: false, depthWrite: false,
-    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+/* 灯组发光体：复制车模自带的灯罩玻璃几何，整体缩进 3.5% 再加一层顶点色加法发光，
+   光就是从灯罩内部透出来的，而不是贴在车壳外的一块面片。
+   车头（−X）冷白，车尾（+X）红 —— 用顶点色在同一套几何里区分。 */
+function buildLamps() {
+  const lens = [];
+  carRoot.traverse((o) => {
+    if (o.isMesh && o.material && /lightglass/i.test(o.material.name || '')) lens.push(o);
   });
-  const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
-  p.position.set(x, y, z);
-  p.rotation.y = ry;
-  p.renderOrder = 3;
-  lampGroup.add(p);
-  return m;
-}
-/* 用射线打到车壳表面，灯组才能贴在车身上而不是飘在半空 */
-function buildLamps(bodyObj) {
-  if (!bodyObj) return;
-  const ray = new THREE.Raycaster();
-  const hit = (y, z, front) => {
-    ray.set(new THREE.Vector3(front ? -6 : 6, y, z), new THREE.Vector3(front ? 1 : -1, 0, 0));
-    const hs = ray.intersectObject(bodyObj, true);
-    return hs.length ? hs[0].point.x : null;
-  };
-  // 车头朝 −X
-  for (const z of [0.62, -0.62]) {
-    let x = hit(0.665, z, true);
-    if (x !== null) headMats.push(lampPlane(0.26, 0.100, 0xe8f8ff, x - 0.012, 0.665, z, -Math.PI / 2));
-    x = hit(0.590, z, true);
-    if (x !== null) headMats.push(lampPlane(0.22, 0.034, 0x8fe6ff, x - 0.012, 0.590, z, -Math.PI / 2));
+  const v = new THREE.Vector3();
+  for (const src of lens) {
+    const geo = src.geometry.clone();
+    const pos = geo.attributes.position;
+    const col = new Float32Array(pos.count * 3);
+    src.updateWorldMatrix(true, false);
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(src.matrixWorld);
+      const front = v.x < 0;
+      col[i * 3] = front ? 0.85 : 1.00;
+      col[i * 3 + 1] = front ? 0.95 : 0.10;
+      col[i * 3 + 2] = front ? 1.00 : 0.06;
+    }
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.computeBoundingBox();
+    const c = geo.boundingBox.getCenter(new THREE.Vector3());
+    geo.translate(-c.x, -c.y, -c.z);
+    geo.scale(0.965, 0.965, 0.965);
+    geo.translate(c.x, c.y, c.z);
+    const mat = new THREE.MeshBasicMaterial({
+      vertexColors: true, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+      toneMapped: false, side: THREE.DoubleSide,
+    });
+    const m = new THREE.Mesh(geo, mat);
+    src.parent.add(m);
+    m.position.copy(src.position);
+    m.quaternion.copy(src.quaternion);
+    m.scale.copy(src.scale);
+    m.renderOrder = 5;
+    headMats.push(mat);
   }
-  // 车尾朝 +X：贯穿灯带 + 两侧灯组
-  let xt = hit(0.930, 0, false);
-  if (xt !== null) tailMats.push(lampPlane(1.16, 0.048, 0xff2a2a, xt + 0.012, 0.930, 0, Math.PI / 2));
-  for (const z of [0.58, -0.58]) {
-    const x = hit(0.855, z, false);
-    if (x !== null) tailMats.push(lampPlane(0.31, 0.120, 0xff1a12, x + 0.012, 0.855, z, Math.PI / 2));
-    const x2 = hit(0.762, z, false);
-    if (x2 !== null) tailMats.push(lampPlane(0.10, 0.052, 0xff5a4a, x2 + 0.012, 0.762, z, Math.PI / 2));
-  }
-}
-const lampHalo = [new THREE.PointLight(0xcfeaff, 0, 7, 2), new THREE.PointLight(0xcf6a5a, 0, 6, 2)];
+}const lampHalo = [new THREE.PointLight(0xcfeaff, 0, 7, 2), new THREE.PointLight(0xcf6a5a, 0, 6, 2)];
 lampHalo[0].position.set(-2.35, 0.75, 0);
 lampHalo[1].position.set(2.35, 0.90, 0);
 lampGroup.add(lampHalo[0], lampHalo[1]);

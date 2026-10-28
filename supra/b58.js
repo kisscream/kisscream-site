@@ -312,13 +312,40 @@ function buildFlywheel() {
 }
 
 /* ── 对外接口 ── */
+/* 返回的 Group 里每个子零件都带 userData.subs 元信息，供“发动机内部分栏”使用 */
 export function buildB58() {
   const g = new THREE.Group();
   g.name = 'B58';
-  const pistonsG = buildPistons();
-  g.add(buildBlock(), buildHead(), buildCams(), buildValves(), buildPlugs(),
-        pistonsG, buildCrank(), buildPan(), buildIntake(), buildExhaust(),
-        buildTurbo(), buildTiming(), buildFlywheel());
+
+  const defs = [
+    ['缸体',     buildBlock(),     [0, 0, 0],       0.00, '整机骨架'],
+    ['缸盖',     buildHead(),      [0, 1, 0],       0.30, '燃烧室顶'],
+    ['凸轮轴',   buildCams(),      [0, 1, 0.2],     0.46, '进排气各一根'],
+    ['气门',     buildValves(),    [0, 0.9, 0],     0.38, '24 气门'],
+    ['火花塞',   buildPlugs(),     [0, 1, 0],       0.56, '每缸一支'],
+    ['活塞连杆', buildPistons(),   [0, 0.35, 1],    0.34, '往复运动'],
+    ['曲轴',     buildCrank(),     [0, -1, 0],      0.42, '把往复变旋转'],
+    ['油底壳',   buildPan(),       [0, -1, 0],      0.60, '润滑储油'],
+    ['进气歧管', buildIntake(),    [0, 0.5, 1],     0.48, '增压空气分配'],
+    ['排气歧管', buildExhaust(),   [0, 0.2, -1],    0.52, '废气汇集'],
+    ['涡轮',     buildTurbo(),     [0, -0.2, -1],   0.62, '废气驱动压气'],
+    ['正时链条', buildTiming(),    [-1, 0, 0],      0.44, '曲轴带凸轮轴'],
+    ['飞轮',     buildFlywheel(),  [1, 0, 0],       0.50, '输出扭矩'],
+  ];
+
+  g.userData.subs = defs.map(([name, obj, d, dist, note]) => {
+    obj.name = name;
+    g.add(obj);
+    return {
+      name, note, obj, dist,
+      dir: new THREE.Vector3(d[0], d[1], d[2]).normalize(),
+      home: obj.position.clone(),
+      homeRot: obj.rotation.clone(),
+      pull: 0, target: 0,
+    };
+  });
+
+  const pistonsG = defs[5][1];
   g.userData.pistons = pistonsG.userData.pistons || [];
   return g;
 }

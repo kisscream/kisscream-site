@@ -60,6 +60,15 @@
   .phead a { font-size: 10px; color: #6ef0ff; cursor: pointer; text-decoration: none; letter-spacing: .1em; }
   .phead a:hover { color: #fff; }
 
+  /* 发动机内部分件栏（点发动机时从左侧滑出） */
+  #subs { left: 18px; top: 334px; width: 238px; display: none; }
+  #subs.show { display: flex; animation: subIn .26s ease-out; }
+  @keyframes subIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+  #subs .card { display: flex; flex-direction: column; padding: 11px 11px 8px; max-height: calc(100vh - 420px); min-height: 140px; }
+  #subs #subList { overflow-y: auto; min-height: 0; flex: 1; }
+  #subs #subList::-webkit-scrollbar { width: 5px; }
+  #subs #subList::-webkit-scrollbar-thumb { background: rgba(160,130,255,.32); border-radius: 3px; }
+
   /* 右上角旋转小窗 */
   #mini { top: 18px; right: 18px; width: 232px; height: 148px; border-radius: 14px; overflow: hidden;
     border: 1px solid rgba(0,229,255,.22);
@@ -102,6 +111,7 @@
     #legend { display: none; }
     #views { display: none; }
     #partsWrap { right: 12px; bottom: 44px; width: 170px; height: 34vh; min-height: 170px; }
+  #subs { left: 10px; top: 208px; width: 168px; max-height: 40vh; }
     #foot { display: none; }
   }
 </style>
@@ -172,6 +182,13 @@
   <div class="card">
     <div class="phead"><b>零件 · 点击单独拉出</b><a id="partAll">全部</a></div>
     <div id="partList"></div>
+  </div>
+</div>
+
+<div class="hud" id="subs">
+  <div class="card">
+    <div class="phead"><b>发动机内部 · 点击拉出</b><a id="subAll">合体</a></div>
+    <div id="subList"></div>
   </div>
 </div>
 
