@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SUPRA · 赛博风洞</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #05040a; overflow: hidden;
+    font-family: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: #d8ecff; -webkit-font-smoothing: antialiased; }
+  #c { display: block; width: 100vw; height: 100vh; }
+  .scan { position: fixed; inset: 0; pointer-events: none; z-index: 5; opacity: .06;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,.5) 0 1px, rgba(0,0,0,0) 1px 4px);
+    mix-blend-mode: multiply; }
+  .vignette { position: fixed; inset: 0; pointer-events: none; z-index: 4;
+    background: radial-gradient(120% 90% at 50% 45%, rgba(0,0,0,0) 40%, rgba(2,1,6,.72) 100%); }
+
+  .hud { position: fixed; z-index: 10; }
+  #left { top: 18px; left: 18px; width: 232px; }
+  .card { background: linear-gradient(160deg, rgba(12,10,26,.86), rgba(8,7,18,.78));
+    border: 1px solid rgba(0,229,255,.22); border-radius: 14px; padding: 13px 14px;
+    backdrop-filter: blur(14px); box-shadow: 0 12px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(120,230,255,.12); }
+  .brand { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; }
+  .brand b { font-size: 19px; letter-spacing: .16em; font-weight: 800;
+    background: linear-gradient(92deg, #7cf7ff, #b18cff 55%, #ff5bd0);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .brand span { font-size: 10px; letter-spacing: .28em; color: #5d7f9c; }
+  .sub { font-size: 11px; color: #6f8aa6; letter-spacing: .06em; margin-bottom: 11px; }
+
+  .row { display: flex; gap: 6px; margin-bottom: 8px; }
+  button { flex: 1; cursor: pointer; font: inherit; font-size: 12px; padding: 8px 6px;
+    color: #9fc2dc; background: rgba(20,26,44,.7); border: 1px solid rgba(90,140,190,.28);
+    border-radius: 9px; transition: .18s; letter-spacing: .04em; }
+  button:hover { color: #eaf8ff; border-color: rgba(0,229,255,.55); background: rgba(0,120,160,.24); }
+  button.on { color: #041018; background: linear-gradient(120deg, #6ef0ff, #9d7bff);
+    border-color: transparent; font-weight: 700; box-shadow: 0 0 18px rgba(80,220,255,.45); }
+  .k { font-size: 10px; color: #52708c; letter-spacing: .18em; margin: 10px 0 6px; }
+
+  /* 右下角零件分栏（常驻） */
+  #partsWrap { right: 18px; bottom: 52px; width: 232px; height: 38vh; min-height: 210px; display: flex; }
+  #partsWrap .card { flex: 1; display: flex; flex-direction: column; padding: 11px 11px 8px; min-height: 0; }
+  #partList { overflow-y: auto; min-height: 0; flex: 1; padding-right: 2px; }
+  #partList::-webkit-scrollbar { width: 5px; }
+  #partList::-webkit-scrollbar-thumb { background: rgba(0,229,255,.28); border-radius: 3px; }
+  .part { display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    font-size: 12px; padding: 7px 9px; margin-bottom: 4px; border-radius: 8px; cursor: pointer;
+    color: #9db9d2; border: 1px solid transparent; transition: .15s; }
+  .part:hover { background: rgba(0,229,255,.08); border-color: rgba(0,229,255,.3); color: #eaf8ff; }
+  .part.on { background: rgba(120,90,255,.18); border-color: rgba(160,130,255,.6); color: #fff; }
+  .part i { font-style: normal; font-size: 10px; color: #4f6b85; white-space: nowrap; }
+  .phead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .phead b { font-size: 10px; letter-spacing: .18em; color: #52708c; font-weight: 600; }
+  .phead a { font-size: 10px; color: #6ef0ff; cursor: pointer; text-decoration: none; letter-spacing: .1em; }
+  .phead a:hover { color: #fff; }
+
+  /* 右上角旋转小窗 */
+  #mini { top: 18px; right: 18px; width: 232px; height: 148px; border-radius: 14px; overflow: hidden;
+    border: 1px solid rgba(0,229,255,.22);
+    background: linear-gradient(160deg, rgba(12,10,26,.92), rgba(8,7,18,.86));
+    box-shadow: 0 12px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(120,230,255,.12); }
+  #mini canvas { display: block; width: 100%; height: 100%; }
+  #mini .cap { position: absolute; left: 11px; bottom: 8px; font-size: 9px; letter-spacing: .2em; color: #5d7f9c; }
+  #mini .dot { position: absolute; right: 11px; top: 9px; width: 6px; height: 6px; border-radius: 50%;
+    background: #6ef0ff; box-shadow: 0 0 10px #6ef0ff; animation: blink 1.8s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+  /* 右侧视角 */
+  #views { right: 18px; top: 176px; width: 232px; }
+  #views .row { margin-bottom: 6px; }
+  #views .row:last-child { margin-bottom: 0; }
+
+  #legend { right: 18px; top: 324px; width: 232px; }
+  .bar { height: 7px; border-radius: 4px; margin: 7px 0 4px;
+    background: linear-gradient(90deg, #2a6bff, #21d4ff 28%, #35ff9e 52%, #ffe14a 76%, #ff3b3b); }
+  .lbl { display: flex; justify-content: space-between; font-size: 9px; color: #4f6b85; letter-spacing: .1em; }
+
+  #foot { right: 18px; bottom: 16px; text-align: right; font-size: 11px; line-height: 1.7; color: #58758f; }
+  #foot b { color: #8fd8f0; font-weight: 600; }
+  #stat { position: fixed; left: 18px; bottom: 16px; z-index: 10; font-size: 11px; color: #4c6a83; line-height: 1.6; }
+  #stat b { color: #7fd0e8; font-weight: 600; }
+  #toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(14px);
+    z-index: 12; padding: 9px 18px; border-radius: 999px; font-size: 12px; color: #d9f6ff;
+    background: rgba(10,20,34,.92); border: 1px solid rgba(0,229,255,.4); opacity: 0;
+    transition: .28s; pointer-events: none; white-space: nowrap; }
+  #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #err { position: fixed; left: 0; right: 0; bottom: 0; z-index: 999; display: none;
+    max-height: 42vh; overflow: auto; padding: 10px 14px; font: 12px/1.55 Consolas, "Courier New", monospace;
+    color: #ff9a9a; background: rgba(24,0,0,.92); border-top: 1px solid #ff4d4d; white-space: pre-wrap; }
+
+  @media (max-width: 860px) {
+    #mini { width: 168px; height: 108px; top: 12px; right: 12px; }
+    #left { width: 170px; top: 12px; left: 12px; }
+    .card { padding: 10px 11px; border-radius: 12px; }
+    .brand b { font-size: 16px; }
+    #legend { display: none; }
+    #views { display: none; }
+    #partsWrap { right: 12px; bottom: 44px; width: 170px; height: 34vh; min-height: 170px; }
+    #foot { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="scan"></div>
+<div class="vignette"></div>
+
+<div class="hud" id="left">
+  <div class="card">
+    <div class="brand"><b>SUPRA</b><span>A90</span></div>
+    <div class="sub">赛博风洞 · 可拆解交互</div>
+
+    <div class="k">模式</div>
+    <div class="row">
+      <button data-mode="show" class="on">展示</button>
+      <button data-mode="teardown">拆解</button>
+    </div>
+
+    <div class="k">视图</div>
+    <div class="row">
+      <button id="btnWind" class="on">风洞</button>
+      <button id="btnHeat">热力</button>
+    </div>
+    <div class="row">
+      <button id="btnLamp">车灯</button>
+      <button id="btnEngine">引擎</button>
+      <button id="btnRev">声浪</button>
+    </div>
+    <div class="row">
+      <button id="btnWing" class="on">尾翼</button>
+      <button id="btnAxes">坐标轴</button>
+      <button id="btnTurn" title="车头朝向 +90°">↻</button>
+    </div>
+  </div>
+</div>
+
+<div class="hud" id="mini">
+  <canvas id="mc"></canvas>
+  <span class="dot"></span>
+  <span class="cap">A90 · 旋转预览</span>
+</div>
+
+<div class="hud" id="views">
+  <div class="card" style="padding:11px">
+    <div class="k" style="margin:0 0 7px">视角</div>
+    <div class="row"><button data-view="top">俯视</button><button data-view="level">平视</button></div>
+    <div class="row"><button data-view="iso">45° 斜视</button></div>
+    <div class="row"><button data-view="seat">车内视角</button></div>
+  </div>
+</div>
+
+<div class="hud" id="legend">
+  <div class="card" style="padding:10px 11px">
+    <div class="lbl" style="margin-bottom:2px"><span>风速</span><span>m/s</span></div>
+    <div class="bar"></div>
+    <div class="lbl"><span>0</span><span>42</span></div>
+  </div>
+</div>
+
+<div class="hud" id="partsWrap">
+  <div class="card">
+    <div class="phead"><b>零件 · 点击单独拉出</b><a id="partAll">全部</a></div>
+    <div id="partList"></div>
+  </div>
+</div>
+
+<div id="stat"></div>
+<div id="foot">
+  拖拽旋转 · 滚轮缩放<br>
+  <b>展示模式只在水平面转</b>，拆解模式可任意角度
+</div>
+<div id="toast"></div>
+<div id="err"></div>
+<script>
+(function () {
+  function show(tag, msg) {
+    var el = document.getElementById('err');
+    if (!el) return;
+    el.style.display = 'block';
+    el.textContent += tag + ' ' + msg + '\n';
+  }
+  window.addEventListener('error', function (e) {
+    var f = e.filename ? ' @' + String(e.filename).split('/').pop() + ':' + e.lineno : '';
+    show('[JS]', (e.message || e.error || 'unknown') + f);
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    show('[Promise]', (r && (r.message || r)) + '');
+  });
+})();
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./_lib/three/three.module.js",
+    "three/addons/": "./_lib/three/addons/"
+  }
+}
+</script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
