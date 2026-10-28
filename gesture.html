@@ -118,6 +118,35 @@ header{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:
 #boot .row2{display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap}
 #bootAgain{position:fixed;right:14px;top:62px;z-index:35;display:none}
 #bootAgain.on{display:block}
+/* ===== 手势图：左上角实时显示 + 24 款图集 ===== */
+#hsCard{display:flex;align-items:center;gap:9px;padding:8px 9px;margin:0 0 8px;border-radius:12px;
+  background:linear-gradient(180deg,rgba(30,52,74,.72),rgba(18,30,44,.72));
+  border:1px solid rgba(120,190,240,.20);cursor:pointer;transition:border-color .18s,transform .18s}
+#hsCard:hover{border-color:rgba(140,215,255,.45);transform:translateY(-1px)}
+#hsEmoji{font-size:30px;line-height:1;filter:drop-shadow(0 0 8px rgba(120,210,255,.45))}
+#hsWrap{display:flex;flex-direction:column;gap:1px;min-width:0}
+#hsName{font-size:12.5px;font-weight:600;color:#e8f6ff;white-space:nowrap}
+#hsSub{font-size:10.5px;color:#7fa8c4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hsArrow{font-size:15px;color:#8fd8ff;margin-left:auto}
+#hsGrid{position:fixed;inset:0;z-index:60;display:none;padding:26px 16px;overflow:auto;
+  background:rgba(6,10,16,.88);backdrop-filter:blur(8px)}
+#hsGrid.on{display:block}
+#hsGrid h3{margin:0 0 4px;font-size:15px;color:#eaf7ff;font-weight:600;letter-spacing:.02em}
+#hsGrid p{margin:0 0 16px;font-size:11.5px;color:#7fa8c4}
+#hsCells{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;max-width:760px;margin:0 auto}
+.hsCell{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px;border-radius:10px;
+  background:rgba(24,40,58,.72);border:1px solid rgba(120,190,240,.14);transition:.16s}
+.hsCell em{font-size:23px;font-style:normal;line-height:1}
+.hsCell span{font-size:10px;color:#93b8d0;text-align:center;line-height:1.2}
+.hsCell.on{background:rgba(46,96,140,.92);border-color:rgba(150,225,255,.75);box-shadow:0 0 0 1px rgba(150,225,255,.35),0 6px 18px rgba(60,160,230,.25)}
+.hsCell.on span{color:#eaf8ff}
+#hsGrid .x{position:sticky;top:0;float:right;font-size:13px;color:#a8cfe6;background:rgba(20,34,48,.9);
+  border:1px solid rgba(120,190,240,.28);border-radius:9px;padding:5px 11px;cursor:pointer}
+@media (max-width:560px){
+  #hsCells{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #hsEmoji{font-size:26px}
+  #hsName{font-size:11.5px}
+}
 </style>
 </head>
 <body>
@@ -143,6 +172,14 @@ header{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:
 </header>
 
 <div class="panel">
+  <div id="hsCard" title="点开看全部 24 款手势">
+    <div id="hsEmoji">🖐</div>
+    <div id="hsWrap">
+      <b id="hsName">等待手部</b>
+      <span id="hsSub">把手放进画面</span>
+    </div>
+    <span id="hsArrow">›</span>
+  </div>
   <h4>交互状态</h4>
   <div class="row"><span><i class="dot" id="dCam"></i>摄像头</span><b id="tCam">未启动</b></div>
   <div class="row"><span><i class="dot" id="dMdl"></i>手部模型</span><b id="tMdl">待加载</b></div>
@@ -590,6 +627,7 @@ function matchCustom(lm, now){
 window.__feed = feedLandmarks; window.__mf = matchCustom; window.__fx = fx;
 window.__dbg = function(){ return { handSh: state.handSh, tight: state.tight, handTh: state.handTh, lm: Array.prototype.slice.call(lmW, 0, 8) }; };
 function feedLandmarks(lm, handed){
+  try { hsShow(hsClass(lm)); } catch (e) {}
   var r = classify(lm, handed);
   var now = performance.now();
   if (r.g === ges.last) ges.stable++;
@@ -1233,6 +1271,123 @@ if (q.get('selftest') === '1'){
     }
   } catch (e) {}
 })();
+</script>
+<div id="hsGrid">
+  <div class="x" id="hsClose">收起 ✕</div>
+  <h3>手势图集 · 24 款</h3>
+  <p>识别到的手势会在左上角亮起；点任意格子可以试播一次对应命名。</p>
+  <div id="hsCells"></div>
+</div>
+<script>
+//==================== 手势图：24 款（12 种指型 × 上/下朝向） ====================
+var HS_PAT = [
+  { p: '',      e: '✊', n: '握拳' },
+  { p: 'T',     e: '👍', n: '大拇指' },
+  { p: 'I',     e: '☝️', n: '一指禅' },
+  { p: 'IM',    e: '✌️', n: '剪刀手' },
+  { p: 'IMR',   e: '🖖', n: '三指' },
+  { p: 'IMRP',  e: '🖐', n: '四指' },
+  { p: 'TIMRP', e: '✋', n: '张开' },
+  { p: 'IP',    e: '🤘', n: '摇滚' },
+  { p: 'TP',    e: '🤙', n: '六' },
+  { p: 'TIP',   e: '🤟', n: '爱你' },
+  { p: 'OK',    e: '👌', n: 'OK' },
+  { p: 'PINCH', e: '🤏', n: '捏' }
+];
+var HS_BITS = { OK: 'TI', PINCH: 'TI' };
+var HSET = [];
+(function(){
+  for (var i = 0; i < HS_PAT.length; i++){
+    HSET.push({ k: HS_PAT[i].p + '|u', p: i, o: 0, e: HS_PAT[i].e, n: HS_PAT[i].n + ' · 朝上' });
+    HSET.push({ k: HS_PAT[i].p + '|d', p: i, o: 1, e: HS_PAT[i].e, n: HS_PAT[i].n + ' · 朝下' });
+  }
+})();
+var hsCur = '';
+function hsBits(key){ return HS_BITS[key] || key; }
+function hsDist(a, b){
+  var all = 'TIMRP', d = 0;
+  for (var i = 0; i < 5; i++){ if (a.indexOf(all[i]) >= 0 !== b.indexOf(all[i]) >= 0) d++; }
+  return d;
+}
+function hsClass(lm){
+  if (!lm || lm.length < 21) return null;
+  function nv(x1, y1, x2, y2){
+    var dx = x2 - x1, dy = y2 - y1, L = Math.sqrt(dx*dx + dy*dy) || 1e-6;
+    return [dx / L, dy / L];
+  }
+  function str(a, b, c){
+    var u = nv(lm[a].x, lm[a].y, lm[b].x, lm[b].y);
+    var v = nv(lm[b].x, lm[b].y, lm[c].x, lm[c].y);
+    return u[0]*v[0] + u[1]*v[1];
+  }
+  var f = [];
+  for (var i = 0; i < 4; i++) f.push(str(5 + i*4, 6 + i*4, 8 + i*4) > 0.34);
+  var thumb = str(2, 3, 4) > 0.34;
+  var span = Math.sqrt(Math.pow(lm[9].x - lm[0].x, 2) + Math.pow(lm[9].y - lm[0].y, 2)) || 1e-6;
+  var dTI = Math.sqrt(Math.pow(lm[4].x - lm[8].x, 2) + Math.pow(lm[4].y - lm[8].y, 2)) / span;
+  var key;
+  if (dTI < 0.46 && !f[1] && !f[2] && !f[3] && thumb){ key = f[0] ? 'PINCH' : 'OK'; }
+  else {
+    key = '';
+    if (thumb) key += 'T';
+    if (f[0]) key += 'I';
+    if (f[1]) key += 'M';
+    if (f[2]) key += 'R';
+    if (f[3]) key += 'P';
+  }
+  var ori = (lm[9].y < lm[0].y) ? 0 : 1;
+  // 先精确，再取指型最接近的一款（差 1 根指头也算命中，但标注「近似」）
+  var best = -1, bd = 9, exact = false;
+  for (var q = 0; q < HS_PAT.length; q++){
+    var d = hsDist(key, hsBits(HS_PAT[q].p));
+    if (d === 0){ best = q; exact = true; break; }
+    if (d < bd){ bd = d; best = q; }
+  }
+  var ok = exact || bd <= 1;
+  var ent = null;
+  if (ok) for (var z = 0; z < HSET.length; z++) if (HSET[z].p === best && HSET[z].o === ori) ent = HSET[z];
+  return { key: key, ok: ok, exact: exact, dist: bd, ori: ori, ent: ent,
+           ext: (thumb?1:0) + (f[0]?1:0) + (f[1]?1:0) + (f[2]?1:0) + (f[3]?1:0) };
+}
+var hsE, hsN, hsS, hsA, hsGrid, hsCells;
+function hsInit(){
+  hsE = document.getElementById('hsEmoji'); hsN = document.getElementById('hsName');
+  hsS = document.getElementById('hsSub'); hsA = document.getElementById('hsArrow');
+  hsGrid = document.getElementById('hsGrid'); hsCells = document.getElementById('hsCells');
+  if (!hsCells) return;
+  var html = '';
+  for (var i = 0; i < HSET.length; i++){
+    html += '<div class="hsCell" data-k="' + HSET[i].k + '"><em>' + HSET[i].e + '</em><span>' + HSET[i].n + '</span></div>';
+  }
+  hsCells.innerHTML = html;
+  var card = document.getElementById('hsCard');
+  if (card) card.addEventListener('click', function(){ hsGrid.classList.add('on'); });
+  var cl = document.getElementById('hsClose');
+  if (cl) cl.addEventListener('click', function(){ hsGrid.classList.remove('on'); });
+  if (hsGrid) hsGrid.addEventListener('click', function(ev){ if (ev.target === hsGrid) hsGrid.classList.remove('on'); });
+}
+function hsShow(r){
+  if (!hsE) return;
+  if (!r){ hsE.textContent = '🖐'; hsN.textContent = '等待手部'; hsS.textContent = '把手放进画面'; hsA.textContent = ''; return; }
+  if (!r.ok || !r.ent){
+    hsE.textContent = '🖐'; hsN.textContent = '未识别'; hsS.textContent = '指型 ' + (r.key || '空');
+    hsA.textContent = r.ori ? '↓' : '↑';
+    var o0 = hsCells && hsCells.querySelector('.hsCell.on'); if (o0) o0.classList.remove('on'); hsCur = '';
+    return;
+  }
+  var e = r.ent;
+  hsE.textContent = e.e;
+  hsN.textContent = (r.exact ? '' : '≈ ') + e.n;
+  hsS.textContent = '伸展 ' + r.ext + '/5' + (r.exact ? '' : ' · 近似') + (e.p === 10 ? ' · 成环' : (e.p === 11 ? ' · 相捏' : ''));
+  hsA.textContent = r.ori ? '↓' : '↑';
+  if (hsCur !== e.k){
+    var o = hsCells && hsCells.querySelector('.hsCell.on'); if (o) o.classList.remove('on');
+    var ne = hsCells && hsCells.querySelector('.hsCell[data-k="' + e.k + '"]'); if (ne) ne.classList.add('on');
+    hsCur = e.k;
+  }
+}
+window.__hs = function(){ return { cur: hsCur, n: HSET.length }; };
+hsInit();
 </script>
 </body>
 </html>
