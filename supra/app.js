@@ -49,6 +49,7 @@ controls.autoRotateSpeed = 0.5;
 const state = {
   mode: 'show',        // show | teardown
   wind: true, heat: false, axes: false,
+  speed: 18,           // 风速 m/s（滑杆调节，18 为基准）
   explode: 0, explodeTarget: 0,
   isolated: null,
   seat: false, seatYaw: 0,
@@ -102,7 +103,7 @@ sun.shadow.bias = -0.0007;
 scene.add(sun);
 
 const rimC = new THREE.PointLight(0x00e5ff, 30, 18, 2); rimC.position.set(-3.2, 2.2, 2.8); scene.add(rimC);
-const rimM = new THREE.PointLight(0xff2bd6, 26, 18, 2); rimM.position.set(3.4, 1.9, -3.0); scene.add(rimM);
+const rimM = new THREE.PointLight(0xff2bd6, 13, 16, 2); rimM.position.set(3.4, 2.3, -3.0); scene.add(rimM);
 const rimV = new THREE.PointLight(0x7b5cff, 20, 20, 2); rimV.position.set(0, 3.6, -4.2); scene.add(rimV);
 const studio = new THREE.DirectionalLight(0xffffff, 0); studio.position.set(4.5, 5.5, 4.0); scene.add(studio);
 const topL = new THREE.DirectionalLight(0xeaf6ff, 2.4); topL.position.set(-3.5, 6.0, 5.5); scene.add(topL);
@@ -156,6 +157,52 @@ frame.position.y = TUN.H / 2;
 wind.add(frame);
 
 
+
+// 碳纤维斜纹贴图（程序生成，当 bumpMap 用）
+function makeCarbonTexture() {
+  const S = 128, n = 8, cell = S / n;
+  const c = document.createElement('canvas'); c.width = c.height = S;
+  const g = c.getContext('2d');
+  g.fillStyle = '#0e0e10'; g.fillRect(0, 0, S, S);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const hi = ((x + y) % 4 < 2) ? 1 : 0;
+      const base = 22 + hi * 26;
+      g.fillStyle = `rgb(${base},${base},${base + 3})`;
+      g.fillRect(x * cell, y * cell, cell, cell);
+      g.strokeStyle = `rgba(255,255,255,${0.05 + hi * 0.07})`;
+      g.lineWidth = 1;
+      for (let k = 2; k < cell; k += 3) {
+        g.beginPath(); g.moveTo(x * cell + k, y * cell); g.lineTo(x * cell + k, y * cell + cell); g.stroke();
+      }
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(30, 30);
+  t.anisotropy = 4;
+  return t;
+}
+const carbonTex = makeCarbonTexture();
+function carbonize(m) {
+  if (!m || m.__carbon) return m;
+  const phys = new THREE.MeshPhysicalMaterial({
+    map: m.map || null,
+    color: m.color ? m.color.clone() : new THREE.Color(0x0b0b0e),
+    metalness: 0.42,
+    roughness: 0.36,
+    clearcoat: 1.0,
+    clearcoatRoughness: 0.07,
+    envMapIntensity: 1.9,
+    bumpMap: carbonTex,
+    bumpScale: 0.016,
+    side: m.side,
+    transparent: m.transparent,
+    opacity: m.opacity,
+  });
+  phys.__carbon = true;
+  return phys;
+}
 
 // 地面刻度 + 中线
 const markMat = new THREE.MeshBasicMaterial({ color: 0x25c6ff, transparent: true, opacity: 0.5 });
@@ -304,9 +351,10 @@ function buildParts(root) {
     if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1);
     dir.normalize();
     if (label === '引擎盖') dir.set(dir.x * 0.6, 0.8, 0).normalize();
-    if (label === '玻璃') dir.set(dir.x * 0.5, 1, 0).normalize();
+    if (label === '玻璃') dir.set(0, 1, 0);
     if (label === '车身钣金') dir.set(0, 0.9, 0);
-    const dist = label === '车身钣金' ? 0.9 : 1.45;
+    // 玻璃是透明的，飞太远会留下"大窟窿"，只轻轻抬一点
+    const dist = label === '车身钣金' ? 0.35 : label === '玻璃' ? 0.16 : label === '引擎盖' ? 0.85 : 1.28;
     addPart(label, g, '', dir, dist);
   }
   window.__dbg.parts = parts;
@@ -342,13 +390,27 @@ function loadModel(i = 0) {
       }
     });
     state.source = 'model';
+    // 车身 / 机盖 / 后视镜外壳换成碳纤维：2×2 斜纹 bumpMap + 清漆层
+    for (const p of parts) {
+      if (!/车身钣金|引擎盖|后视镜/.test(p.name)) continue;
+      p.obj.traverse((o) => {
+        if (!o.isMesh) return;
+        const arr = Array.isArray(o.material) ? o.material : [o.material];
+        const out = arr.map((m) => carbonize(m));
+        o.material = Array.isArray(o.material) ? out : out[0];
+      });
+    }
 
     buildParts(wrap);
+    buildLamps((parts.find((p) => /车身钣金/.test(p.name)) || {}).obj);
     buildPlate();
-    buildInterior();
+    // buildInterior();  // 已换成 Sketchfab 真实内饰（loadInterior）
   // 车内视角专用：从风挡方向来的冷光，只把仪表台/方向盘勾出轮廓
   seatRim = new THREE.DirectionalLight(0x7fe4ff, 0); seatRim.position.set(-4, 1.4, -1.2); scene.add(seatRim);
     buildEngine();
+    buildChassis();
+    // 内饰 4.8MB：先让主场景跑起来，空闲 2.2s 再后台拉，进车内视角时也会按需补拉
+    setTimeout(loadInterior, 2200);
     updateBodyBox();
     buildMiniCar();
     rebuildPartList();
@@ -418,11 +480,11 @@ function setView(name) {
     controls.target.set(SEAT_POS.x - 1, SEAT_POS.y, SEAT_POS.z);
     eyeLight.intensity = 0.85;
     if (seatRim) seatRim.intensity = 2.6;
-    // 车壳隐藏，只留下引擎盖和后视镜 —— 于是画面里往前看是引擎盖 + 风洞
+    // 车壳保留（顶棚/A 柱靠它），只摘掉玻璃；内饰是独立零件，正常显示
     for (const p of parts) p.obj.visible = !/玻璃/.test(p.name);
     if (typeof carShell !== 'undefined') carShell.visible = true;
-    interior.visible = false;
-    if (interior) interior.visible = true;
+    if (typeof interior !== 'undefined' && interior) interior.visible = false;
+    loadInterior();   // 模型还没拉完时，进车内立即补拉
     if (engineRig) engineRig.G.visible = false;
     toast('车内视角：左右拖动 → 水平环视内饰');
     return;
@@ -432,7 +494,7 @@ function setView(name) {
     controls.enabled = true;
     camera.fov = 38; camera.updateProjectionMatrix();
     for (const p of parts) p.obj.visible = true;
-    if (interior) interior.visible = false;
+    if (typeof interior !== 'undefined' && interior) interior.visible = false;
   }
   eyeLight.intensity = 0;
   tweenCam(v.pos, v.target, 38);
@@ -782,10 +844,142 @@ function buildEngine() {
   const l2 = new THREE.PointLight(0x35d6ff, 6, 2.6, 2); l2.position.set(-0.35, 0.1, -0.35); G.add(l2);
   const l3 = new THREE.PointLight(0xff7ad0, 3.5, 2.2, 2); l3.position.set(0.4, -0.05, 0.3); G.add(l3);
 
+  // ---- 细节件：涡轮 / 排气歧管 / 进气箱 / 机油盖 / 机油尺 / 皮带 / 冷却液壶 ----
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xc3ccd8, roughness: 0.16, metalness: 1 });
+  // 涡轮增压器（缸体左侧后方）+ 蜗壳 + 废气旁通
+  add(new THREE.TorusGeometry(0.085, 0.030, 10, 20), alu, L * 0.28, -0.03, -W / 2 - 0.10, 0, Math.PI / 2);
+  add(new THREE.CylinderGeometry(0.058, 0.058, 0.11, 16), chrome, L * 0.28, -0.03, -W / 2 - 0.19, 0, Math.PI / 2);
+  add(new THREE.CylinderGeometry(0.026, 0.026, 0.30, 12), chrome, L * 0.28, 0.10, -W / 2 - 0.22, 0, 0.5);
+  add(new THREE.CylinderGeometry(0.020, 0.020, 0.22, 10), darkm, L * 0.10, 0.16, -W / 2 - 0.16, 0, 1.1);
+  // 排气歧管：六根等长管汇到一根总管
+  for (let i = 0; i < 6; i++) {
+    add(new THREE.CylinderGeometry(0.014, 0.014, 0.16, 8), chrome, bores[i], -H / 2 - 0.02, -W / 2 - 0.04, Math.PI / 2, 0);
+  }
+  add(new THREE.CylinderGeometry(0.026, 0.026, 0.60, 12), chrome, 0, -H / 2 - 0.10, -W / 2 - 0.07, 0, Math.PI / 2);
+  // 进气箱 + 节气门
+  add(new THREE.BoxGeometry(0.30, 0.11, 0.16), darkm, -L * 0.30, 0.30, W / 2 + 0.10);
+  add(new THREE.CylinderGeometry(0.032, 0.032, 0.09, 12), alu, -L * 0.30 + 0.14, 0.30, W / 2 + 0.04, 0, Math.PI / 2);
+  // 机油加注口盖 / 机油尺
+  add(new THREE.CylinderGeometry(0.030, 0.030, 0.024, 14), chrome, -L * 0.34, 0.425, 0.06);
+  add(new THREE.BoxGeometry(0.012, 0.10, 0.012), glow, L * 0.16, 0.42, -0.07);
+  // 前端皮带 + 张紧轮
+  const belt = add(new THREE.TorusGeometry(0.062, 0.008, 6, 22), darkm, L / 2 + 0.03, 0.02, 0, 0, Math.PI / 2);
+  belt.scale.set(1, 1.5, 1);
+  add(new THREE.CylinderGeometry(0.024, 0.024, 0.022, 12), alu, L / 2 + 0.03, -0.055, 0.045, 0, Math.PI / 2);
+  // 冷却液壶（半透明白）
+  add(new THREE.BoxGeometry(0.16, 0.13, 0.10), new THREE.MeshStandardMaterial({
+    color: 0xdfe9f2, roughness: 0.35, metalness: 0.1, transparent: true, opacity: 0.55,
+  }), -L * 0.52, 0.06, W / 2 + 0.12);
+
   G.position.set(-1.42, 0.40, 0);
   engineRig = { G, pistons, rods, tw, pul, ph: 0, spd: 1 };
   carRoot.add(G);
   addPart('发动机 B58', G, '直列六缸 · 剖视', new THREE.Vector3(-0.92, 0.38, 0).normalize(), 1.6);
+}
+
+// 底盘：承载式车身地板 + 纵梁 + 前后副车架 + 传动轴 + 后差 + 排气 + 油箱
+function buildChassis() {
+  const G = new THREE.Group();
+  G.name = 'chassis';
+  const steel = new THREE.MeshStandardMaterial({ color: 0x4a525c, roughness: 0.45, metalness: 0.88 });
+  const rail = new THREE.MeshStandardMaterial({ color: 0x333b45, roughness: 0.5, metalness: 0.8 });
+  const plate = new THREE.MeshStandardMaterial({ color: 0x23282f, roughness: 0.72, metalness: 0.35 });
+  const pipe = new THREE.MeshStandardMaterial({ color: 0x8d93a0, roughness: 0.28, metalness: 1 });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x15171b, roughness: 0.9, metalness: 0.1 });
+  const glow = new THREE.MeshBasicMaterial({ color: 0x35d6ff });
+  const add = (geo, mat, x, y, z, ry, rz) => {
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(x, y, z);
+    if (ry) m.rotation.y = ry;
+    if (rz) m.rotation.z = rz;
+    G.add(m); return m;
+  };
+  // 地板
+  add(new THREE.BoxGeometry(2.60, 0.035, 1.42), plate, 0, 0.205, 0);
+  // 两根纵梁
+  for (const z of [0.56, -0.56]) add(new THREE.BoxGeometry(3.90, 0.11, 0.10), rail, -0.05, 0.185, z);
+  // 横梁
+  for (const x of [-1.42, -0.55, 0.30, 1.10, 1.72]) add(new THREE.BoxGeometry(0.075, 0.085, 1.16), rail, x, 0.185, 0);
+  // 前后副车架
+  add(new THREE.BoxGeometry(0.62, 0.13, 0.98), steel, -1.62, 0.165, 0);
+  add(new THREE.BoxGeometry(0.52, 0.13, 0.86), steel, 1.74, 0.165, 0);
+  // 传动轴（后驱）+ 十字节
+  add(new THREE.CylinderGeometry(0.043, 0.043, 1.46, 14), pipe, 0.22, 0.205, 0, 0, Math.PI / 2);
+  for (const x of [-0.52, 0.95]) add(new THREE.CylinderGeometry(0.062, 0.062, 0.05, 12), steel, x, 0.205, 0, 0, Math.PI / 2);
+  // 后差速器 + 半轴
+  add(new THREE.SphereGeometry(0.13, 16, 12), steel, 1.66, 0.215, 0);
+  for (const z of [0.34, -0.34]) add(new THREE.CylinderGeometry(0.033, 0.033, 0.30, 12), pipe, 1.66, 0.215, z, 0, 0);
+  for (const z of [0.62, -0.62]) add(new THREE.CylinderGeometry(0.028, 0.028, 0.32, 10), pipe, 1.66, 0.215, z, 0, 0);
+  // 排气：前段 → 中段 → 消音器 → 双尾喉
+  add(new THREE.CylinderGeometry(0.040, 0.040, 1.72, 12), pipe, -0.90, 0.135, -0.30, 0, Math.PI / 2);
+  add(new THREE.CylinderGeometry(0.044, 0.044, 1.30, 12), pipe, 0.62, 0.128, -0.34, 0, Math.PI / 2);
+  add(new THREE.BoxGeometry(0.62, 0.17, 0.34), steel, 1.48, 0.135, -0.36);
+  for (const z of [-0.24, -0.48]) add(new THREE.CylinderGeometry(0.048, 0.052, 0.16, 12), pipe, 1.86, 0.135, z, 0, Math.PI / 2);
+  // 油箱
+  add(new THREE.BoxGeometry(0.58, 0.20, 0.86), plate, 1.16, 0.175, 0.02);
+  // 悬挂下摆臂（前后各一对）
+  for (const x of [-1.62, 1.70]) {
+    for (const z of [0.58, -0.58]) add(new THREE.BoxGeometry(0.30, 0.055, 0.11), steel, x, 0.185, z * 0.72, 0, 0);
+  }
+  // 稳定杆
+  add(new THREE.CylinderGeometry(0.018, 0.018, 1.20, 10), pipe, -1.50, 0.245, 0, 0, 0);
+  // 几处发光点，和 B58 的青色呼应
+  for (const x of [-1.62, 1.70]) add(new THREE.CylinderGeometry(0.020, 0.020, 0.02, 10), glow, x, 0.30, 0.40, 0, Math.PI / 2);
+  const gl = new THREE.PointLight(0x35d6ff, 2.6, 2.6, 2); gl.position.set(0.2, 0.30, 0); G.add(gl);
+
+  carRoot.add(G);
+  addPart('底盘', G, '承载式 · 纵梁/副车架/传动轴', new THREE.Vector3(0, -1, 0), 0.95);
+}
+
+/* 内饰：从 Sketchfab 的 MK5 A90 里只取内饰件（Leather/Alcantara/Carpet/Monitor/Screen），
+   该模型长轴在 Z、车头朝 +Z，需要绕 Y 转 −90° 并对齐到本车坐标系。 */
+let interiorRig = null;
+let interiorLoading = false;
+function loadInterior() {
+  if (interiorRig || interiorLoading) return;
+  interiorLoading = true;
+  new GLTFLoader().load('./model/interior_slim/scene.gltf', (g) => {
+    const src = g.scene;
+    const G = new THREE.Group();
+    G.name = 'interior';
+    src.updateMatrixWorld(true);
+    let kept = 0;
+    src.traverse((o) => {
+      if (!o.isMesh) return;
+      const arr = Array.isArray(o.material) ? o.material : [o.material];
+      const names = arr.map((m) => (m && m.name) || '');
+      let ok = names.some((n) => /Leather|Alcantara|Carpet|Monitor|Screen/i.test(n));
+      if (!ok && names.every((n) => /BlackGloss/i.test(n))) {
+        const bb = new THREE.Box3().setFromObject(o);
+        const s = bb.getSize(new THREE.Vector3());
+        const c = bb.getCenter(new THREE.Vector3());
+        ok = Math.max(s.x, s.y, s.z) < 0.62 && c.y > 0.25 && c.y < 1.2 && Math.abs(c.z) < 1.15;
+      }
+      if (ok) { kept++; } else o.visible = false;
+    });
+    G.add(src);
+    G.rotation.y = -Math.PI / 2;
+    G.scale.setScalar(0.88);
+    G.position.set(0.28, 0, 0);
+    G.visible = true;
+    carRoot.add(G);
+    interiorRig = { G };
+    // 内饰材质压暗：皮革/织物本来就该是深色，不然品红轮廓灯一打就发粉
+    G.traverse((o) => {
+      if (!o.isMesh) return;
+      const arr = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of arr) {
+        if (!m) continue;
+        if (m.color) m.color.multiplyScalar(0.42);
+        if ('envMapIntensity' in m) m.envMapIntensity = 0.42;
+        if ('roughness' in m) m.roughness = Math.min(1, (m.roughness ?? 0.7) + 0.2);
+        m.needsUpdate = true;
+      }
+    });
+    addPart('内饰', G, '座椅 / 仪表台 / 门板 / 地毯', new THREE.Vector3(0.35, 1, 0).normalize(), 1.15);
+    rebuildPartList();
+    console.log('[interior] kept', kept, 'meshes');
+  }, undefined, (e) => console.warn('[interior] load failed:', e && e.message));
 }
 
 function updateEngine(dt) {
@@ -932,6 +1126,22 @@ $('#btnHeat').onclick = () => {
   $('#btnHeat').classList.toggle('on', state.heat);
   toast(state.heat ? '流速热力着色' : '回到白色风线');
 };
+/* 风速滑杆：0 = 静止，45 m/s = 飓风级 */
+const wSpeed = $('#wspeed'), wSpeedV = $('#wsv');
+function applySpeed(v) {
+  state.speed = v;
+  if (wSpeedV) wSpeedV.textContent = v;
+  if (wSpeed && +wSpeed.value !== v) wSpeed.value = v;
+  if (v === 0) toast('风速 0 m/s · 流场静止');
+}
+if (wSpeed) {
+  wSpeed.oninput = () => {
+    applySpeed(+wSpeed.value);
+    if (+wSpeed.value === 0) wSpeed.onchange = null;
+  };
+  wSpeed.onchange = () => toast('风速 ' + state.speed + ' m/s');
+  applySpeed(+wSpeed.value);
+}
 $('#btnAxes').onclick = () => {
   state.axes = !state.axes;
   $('#btnAxes').classList.toggle('on', state.axes);
@@ -956,6 +1166,56 @@ const beamR = new THREE.SpotLight(0xd8f0ff, 0, 22, 0.42, 0.5, 1.6);
 beamL.position.set(-2.0, 0.62, 0.62); beamR.position.set(-2.0, 0.62, -0.62);
 beamL.target.position.set(-8, 0.2, 0.9); beamR.target.position.set(-8, 0.2, -0.9);
 scene.add(beamL, beamL.target, beamR, beamR.target);
+
+/* 车身上的灯组：大灯（冷白 LED）+ 尾灯（红色贯穿灯带）。
+   Supra A90 的尾灯是一整条贯穿式灯带，所以除了两侧灯组还补了一条横条。 */
+const headMats = [], tailMats = [];
+const lampGroup = new THREE.Group();
+carShell.add(lampGroup);
+function lampPlane(w, h, color, x, y, z, ry) {
+  const m = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0, toneMapped: false, depthWrite: false,
+    blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+  });
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m);
+  p.position.set(x, y, z);
+  p.rotation.y = ry;
+  p.renderOrder = 3;
+  lampGroup.add(p);
+  return m;
+}
+/* 用射线打到车壳表面，灯组才能贴在车身上而不是飘在半空 */
+function buildLamps(bodyObj) {
+  if (!bodyObj) return;
+  const ray = new THREE.Raycaster();
+  const hit = (y, z, front) => {
+    ray.set(new THREE.Vector3(front ? -6 : 6, y, z), new THREE.Vector3(front ? 1 : -1, 0, 0));
+    const hs = ray.intersectObject(bodyObj, true);
+    return hs.length ? hs[0].point.x : null;
+  };
+  // 车头朝 −X
+  for (const z of [0.62, -0.62]) {
+    let x = hit(0.665, z, true);
+    if (x !== null) headMats.push(lampPlane(0.26, 0.100, 0xe8f8ff, x - 0.012, 0.665, z, -Math.PI / 2));
+    x = hit(0.590, z, true);
+    if (x !== null) headMats.push(lampPlane(0.22, 0.034, 0x8fe6ff, x - 0.012, 0.590, z, -Math.PI / 2));
+  }
+  // 车尾朝 +X：贯穿灯带 + 两侧灯组
+  let xt = hit(0.930, 0, false);
+  if (xt !== null) tailMats.push(lampPlane(1.16, 0.048, 0xff2a2a, xt + 0.012, 0.930, 0, Math.PI / 2));
+  for (const z of [0.58, -0.58]) {
+    const x = hit(0.855, z, false);
+    if (x !== null) tailMats.push(lampPlane(0.31, 0.120, 0xff1a12, x + 0.012, 0.855, z, Math.PI / 2));
+    const x2 = hit(0.762, z, false);
+    if (x2 !== null) tailMats.push(lampPlane(0.10, 0.052, 0xff5a4a, x2 + 0.012, 0.762, z, Math.PI / 2));
+  }
+}
+const lampHalo = [new THREE.PointLight(0xcfeaff, 0, 7, 2), new THREE.PointLight(0xcf6a5a, 0, 6, 2)];
+lampHalo[0].position.set(-2.35, 0.75, 0);
+lampHalo[1].position.set(2.35, 0.90, 0);
+lampGroup.add(lampHalo[0], lampHalo[1]);
+carShell.add(lampGroup);
+
 $('#btnLamp').onclick = () => {
   lampOn = !lampOn; lampPhase = 0;
   $('#btnLamp').classList.toggle('on', lampOn);
@@ -1002,23 +1262,27 @@ addEventListener('pointerup', () => { seatDragX = null; });
 const clock = new THREE.Clock();
 let t = 0, fpsAcc = 0, fpsN = 0, fpsShow = 0;
 
+let flowT = 0;
 function updateFlow(dt) {
+  const f = (state.speed ?? 18) / 18;                 // 风速倍数：0 = 完全静止
+  flowT += dt * f;
+  const glowF = 0.30 + 0.70 * Math.min(1, (state.speed ?? 18) / 30);
   const span = TUN.xIn - TUN.xOut;
   const step = span / (NP - 1);
-  const shift = (t * 7.0) % step;
+  const shift = (flowT * 7.0) % step;
   for (const { L, g } of laneLines) {
     const pos = g.attributes.position.array;
     const col = g.attributes.color.array;
     for (let j = 0; j < NP; j++) {
       const raw = j * step + shift + L.ph * span;
       const x = TUN.xIn - (raw % span);
-      const y = L.y + liftAt(x, L.z) + Math.sin(x * 1.5 + t * 3.2 + L.ph * 9.4) * 0.025;
+      const y = L.y + liftAt(x, L.z) + Math.sin(x * 1.5 + flowT * 3.2 + L.ph * 9.4) * 0.025;
       pos[j * 3] = x; pos[j * 3 + 1] = y; pos[j * 3 + 2] = L.z;
       const sp = speedAt(x, L.z);
       // 行进光带：亮斑沿 −X 方向流动，波长约 7 个单位
       // 两端淡出，别让线条在画面里硬生生截断
       const edge = clamp((5.0 - Math.abs(x)) / 1.8, 0, 1);
-      const pulse = edge * (0.28 + 0.72 * Math.pow(0.5 + 0.5 * Math.cos(x * 0.85 + t * 6.5 + L.ph * 6.283), 2.0));
+      const pulse = edge * (0.24 + 0.76 * Math.pow(0.5 + 0.5 * Math.cos(x * 0.85 + flowT * 6.5 + L.ph * 6.283), 2.0)) * glowF;
       const c = state.heat ? heatAt(sp) : [0.92, 0.97, 1.0];
       col[j * 3] = c[0] * pulse;
       col[j * 3 + 1] = c[1] * pulse;
@@ -1069,9 +1333,17 @@ function animate() {
   if (lampOn) {
     lampPhase = Math.min(1, lampPhase + dt * 1.9);
     const fl = lampPhase < 1 ? 0.25 + 0.75 * Math.abs(Math.sin(lampPhase * 10.5)) : 1;
-    beamL.intensity = beamR.intensity = 32 * fl * (0.35 + 0.65 * lampPhase);
+    const li = fl * (0.35 + 0.65 * lampPhase);
+    beamL.intensity = beamR.intensity = 32 * li;
+    for (const m of headMats) m.opacity = li;
+    for (const m of tailMats) m.opacity = li * 0.92;
+    lampHalo[0].intensity = 9 * li;
+    lampHalo[1].intensity = 6 * li;
   } else {
     beamL.intensity = beamR.intensity = 0;
+    for (const m of headMats) m.opacity = 0;
+    for (const m of tailMats) m.opacity = 0;
+    lampHalo[0].intensity = lampHalo[1].intensity = 0;
   }
 
   renderer.render(scene, camera);
