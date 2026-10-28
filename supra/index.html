@@ -17,6 +17,12 @@
     background: radial-gradient(120% 90% at 50% 45%, rgba(0,0,0,0) 40%, rgba(2,1,6,.72) 100%); }
 
   .hud { position: fixed; z-index: 10; }
+  #home { top: 18px; left: 50%; transform: translateX(-50%); }
+  #home a { display: inline-block; font-size: 11.5px; letter-spacing: .12em; text-decoration: none;
+    color: #9fe9ff; padding: 6px 13px; border-radius: 999px;
+    background: rgba(8,10,22,.62); border: 1px solid rgba(0,229,255,.30);
+    backdrop-filter: blur(10px); transition: .2s; }
+  #home a:hover { color: #fff; border-color: rgba(0,229,255,.75); box-shadow: 0 0 18px rgba(0,229,255,.35); }
   #left { top: 18px; left: 18px; width: 232px; }
   .card { background: linear-gradient(160deg, rgba(12,10,26,.86), rgba(8,7,18,.78));
     border: 1px solid rgba(0,229,255,.22); border-radius: 14px; padding: 13px 14px;
@@ -104,6 +110,8 @@
 <canvas id="c"></canvas>
 <div class="scan"></div>
 <div class="vignette"></div>
+
+<div class="hud" id="home"><a href="../">← 返回首页</a></div>
 
 <div class="hud" id="left">
   <div class="card">

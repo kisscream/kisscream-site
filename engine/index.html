@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>B58 · 直列六缸发动机拆解</title>
+<style>
+  :root {
+    --cy: #37e2ff; --vi: #a06bff; --am: #ffb454; --rd: #ff5f6d;
+    --bg0: #04060c; --bg1: #080c16;
+    --line: rgba(55,226,255,.22); --txt: #cfe8f7; --dim: #6b8aa3;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg0); overflow: hidden;
+    font-family: "HarmonyOS Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    color: var(--txt); }
+  canvas#c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+  .vignette { position: fixed; inset: 0; pointer-events: none; z-index: 2;
+    background: radial-gradient(ellipse at 50% 48%, transparent 38%, rgba(0,0,0,.72) 100%); }
+  .scan { position: fixed; inset: 0; pointer-events: none; z-index: 3; opacity: .16;
+    background: repeating-linear-gradient(to bottom, rgba(120,220,255,.10) 0 1px, transparent 1px 3px); }
+
+  .hud { position: fixed; z-index: 10; }
+
+  /* ── 左上品牌 ── */
+  #brand { top: 20px; left: 22px; }
+  .card { background: linear-gradient(160deg, rgba(10,14,26,.88), rgba(6,9,18,.80));
+    border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+    backdrop-filter: blur(14px); box-shadow: 0 16px 44px rgba(0,0,0,.6), inset 0 1px 0 rgba(120,230,255,.12); }
+  .title { display: flex; align-items: baseline; gap: 9px; }
+  .title b { font-size: 21px; letter-spacing: .1em; font-weight: 800;
+    background: linear-gradient(92deg, #7cf7ff, #b18cff 60%, #ff7ad9);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .title span { font-size: 10px; letter-spacing: .3em; color: #5d7f9c; }
+  .sub { font-size: 11px; color: var(--dim); letter-spacing: .05em; margin-top: 4px; }
+
+  /* ── 左侧部件栏 ── */
+  #parts { top: 132px; left: 22px; width: 218px; max-height: calc(100vh - 260px); overflow: auto; }
+  #parts::-webkit-scrollbar { width: 5px; }
+  #parts::-webkit-scrollbar-thumb { background: rgba(55,226,255,.28); border-radius: 4px; }
+  .lbl { font-size: 9.5px; letter-spacing: .26em; color: #4d6b85; margin: 0 0 8px 2px; }
+  .pitem { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 9px;
+    cursor: pointer; font-size: 12px; color: #a9c6db; transition: .16s; border: 1px solid transparent; }
+  .pitem:hover { background: rgba(55,226,255,.09); color: #e6f7ff; }
+  .pitem.on { background: rgba(55,226,255,.16); border-color: rgba(55,226,255,.5); color: #fff;
+    box-shadow: 0 0 16px rgba(55,226,255,.22) inset; }
+  .pitem i { width: 6px; height: 6px; border-radius: 50%; background: #2c4356; flex: 0 0 auto; }
+  .pitem.on i { background: var(--cy); box-shadow: 0 0 8px var(--cy); }
+  .pitem .tag { margin-left: auto; font-size: 9px; color: #4d6b85; letter-spacing: .04em; }
+
+  /* ── 右侧详情 ── */
+  #info { top: 132px; right: 22px; width: 268px; }
+  #info .nm { font-size: 15px; font-weight: 700; color: #eaf9ff; letter-spacing: .02em; }
+  #info .nm em { display: block; font-style: normal; font-size: 9.5px; letter-spacing: .22em;
+    color: #4d6b85; margin-top: 3px; }
+  #info .fn { font-size: 12px; line-height: 1.7; color: #9dbdd4; margin: 11px 0 12px; }
+  #info .sp { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; font-size: 11.5px;
+    border-top: 1px solid rgba(55,226,255,.14); padding-top: 11px; }
+  #info .sp b { font-weight: 600; color: #7fa0b8; }
+  #info .sp span { color: var(--cy); font-variant-numeric: tabular-nums; }
+
+  /* ── 整机参数 ── */
+  #spec { right: 22px; bottom: 96px; width: 268px; }
+  #spec .row { display: flex; justify-content: space-between; font-size: 11.5px; padding: 4px 0; }
+  #spec .row b { font-weight: 600; color: #7fa0b8; }
+  #spec .row span { color: #d9f4ff; font-variant-numeric: tabular-nums; }
+  #spec .hl { color: var(--am) !important; }
+
+  /* ── 底部控制 ── */
+  #bar { left: 50%; transform: translateX(-50%); bottom: 22px; display: flex; align-items: center;
+    gap: 14px; padding: 11px 18px; border-radius: 999px; }
+  #bar .k { font-size: 10px; letter-spacing: .2em; color: #4d6b85; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 210px; height: 3px;
+    border-radius: 3px; background: linear-gradient(90deg, var(--cy), var(--vi)); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px;
+    border-radius: 50%; background: #eafcff; box-shadow: 0 0 12px var(--cy); cursor: pointer; }
+  .btn { font-size: 11.5px; letter-spacing: .06em; color: #a9c6db; background: rgba(55,226,255,.07);
+    border: 1px solid rgba(55,226,255,.24); border-radius: 999px; padding: 7px 13px; cursor: pointer;
+    transition: .16s; font-family: inherit; }
+  .btn:hover { color: #fff; border-color: rgba(55,226,255,.6); background: rgba(55,226,255,.15); }
+  .btn.on { color: #04121a; background: linear-gradient(92deg, #7cf7ff, #59c8ff); border-color: transparent;
+    box-shadow: 0 0 18px rgba(55,226,255,.45); }
+  #back { top: 20px; right: 22px; }
+  #back a { display: inline-block; font-size: 11.5px; letter-spacing: .1em; text-decoration: none;
+    color: #9fe9ff; padding: 6px 13px; border-radius: 999px; background: rgba(8,10,22,.62);
+    border: 1px solid rgba(55,226,255,.30); backdrop-filter: blur(10px); transition: .2s; }
+  #back a:hover { color: #fff; border-color: rgba(55,226,255,.75); box-shadow: 0 0 18px rgba(55,226,255,.35); }
+
+  #toast { left: 50%; transform: translateX(-50%); bottom: 86px; font-size: 11.5px; letter-spacing: .05em;
+    color: #bff2ff; background: rgba(6,12,22,.86); border: 1px solid rgba(55,226,255,.26);
+    padding: 7px 15px; border-radius: 999px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+
+  @media (max-width: 900px) {
+    #parts { top: auto; bottom: 92px; left: 12px; right: 12px; width: auto; max-height: 108px;
+      display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 8px; }
+    #parts .lbl { display: none; }
+    .pitem { flex: 0 0 auto; border: 1px solid rgba(55,226,255,.18); background: rgba(10,14,26,.8); }
+    #info, #spec { display: none; }
+    #brand { left: 12px; top: 12px; }
+    .title b { font-size: 17px; }
+    #back { right: 12px; top: 12px; }
+    #bar { bottom: 12px; gap: 9px; padding: 8px 12px; }
+    input[type=range] { width: 96px; }
+    .btn { padding: 6px 10px; font-size: 10.5px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="scan"></div>
+<div class="vignette"></div>
+
+<div class="hud" id="brand">
+  <div class="card">
+    <div class="title"><b>B58</b><span>INLINE-6</span></div>
+    <div class="sub">3.0L 直列六缸 · 涡轮增压 · 可拆解</div>
+  </div>
+</div>
+
+<div class="hud" id="back"><a href="../">← 返回首页</a></div>
+
+<div class="hud card" id="parts">
+  <div class="lbl">部件 · PARTS</div>
+</div>
+
+<div class="hud card" id="info">
+  <div class="nm">整机<em>BMW B58B30</em></div>
+  <div class="fn">点击左侧部件，或直接点模型上的零件，查看它的功能与参数。</div>
+  <div class="sp" id="speclist"></div>
+</div>
+
+<div class="hud card" id="spec">
+  <div class="row"><b>排量</b><span>2998 cc</span></div>
+  <div class="row"><b>缸径 × 行程</b><span>82.0 × 94.6 mm</span></div>
+  <div class="row"><b>压缩比</b><span>11.0 : 1</span></div>
+  <div class="row"><b>最大功率</b><span class="hl">250 kW / 6000 rpm</span></div>
+  <div class="row"><b>最大扭矩</b><span class="hl">500 N·m / 1600–4500 rpm</span></div>
+  <div class="row"><b>红线转速</b><span>7000 rpm</span></div>
+</div>
+
+<div class="hud" id="toast"></div>
+
+<div class="hud card" id="bar">
+  <span class="k">拆解</span>
+  <input id="slider" type="range" min="0" max="100" value="0">
+  <button class="btn" id="btnAuto">自动旋转</button>
+  <button class="btn" id="btnDemo">拆解演示</button>
+  <button class="btn" id="btnReset">复位</button>
+</div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "./_lib/three/three.module.js",
+    "three/addons/": "./_lib/three/addons/"
+} }
+</script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
