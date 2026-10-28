@@ -135,9 +135,9 @@ header{position:fixed;top:0;left:0;right:0;height:56px;display:flex;align-items:
 </div>
 
 <div class="hint">
-  <div class="chip"><k>张开</k> 一大团 <em>星云</em>，手靠近哪边就拉过去</div>
-  <div class="chip"><k>握拳</k> 全部粒子聚成 <em>KissCream</em></div>
-  <div class="chip desk">星云中心不动，手掌像在「扯」着一块</div>
+  <div class="chip"><k>张开</k> 粒子铺成你的 <em>手形</em>，跟着手一起动</div>
+  <div class="chip"><k>握拳</k> 收拢成一只 <em>发光的拳头</em></div>
+  <div class="chip desk">粒子排在你 21 个手部关键点上 · 双击画面切 KissCream 文字</div>
   <div class="chip" id="fbChip" style="display:none"><em>无摄像头时：鼠标/手指 = 手掌</em></div>
 </div>
 <script src="./gk.js"></script>
@@ -168,6 +168,13 @@ var VS = [
 'in vec2 aFist;',        // KissCream 文字坐标
 'in vec3 aSeed;',
 'in float aCore;',       // 星云核心度 0..1
+'in vec2 aPair;',        // 手形：该粒子所属骨架段的两个关键点编号
+'in float aT;',          // 沿骨架段的参数 0..1
+'in vec2 aLat;',         // 相对骨骼粗细的横向散开量
+'uniform vec2 uLm[21];', // 手部 21 点（世界坐标）
+'uniform float uHandSh;',// 手形权重 0..1
+'uniform float uTight;', // 聚合度：握拳 1 / 张开 0
+'uniform float uHandTh;', // 骨骼粗细（世界单位，随手的远近自动缩放）
 'uniform float uAspect;',
 'uniform float uTime;',
 'uniform float uMorph;',
@@ -200,10 +207,25 @@ var VS = [
 '  loc += hdir * (dot(loc, hdir) * hw * 0.26);',          // 沿手方向轻微拉伸
 '  loc += vec2(-hdir.y, hdir.x) * (hw * 0.10) * sin(uTime*1.7 + aSeed.x*6.2832);',
 
+'  // ── 手形：粒子排在 21 点骨架上，随手的姿势实时变形 ──',
+'  vec2 hp = loc;',
+'  if (uHandSh > 0.001){',
+'    vec2 pa = uLm[int(aPair.x + 0.5)];',
+'    vec2 pb = uLm[int(aPair.y + 0.5)];',
+'    vec2 sg = pb - pa;',
+'    float sl = length(sg);',
+'    vec2 ud = sl > 1e-4 ? sg / sl : vec2(0.0, 1.0);',
+'    vec2 nv = vec2(-ud.y, ud.x);',
+'    float th = uHandTh * mix(2.60, 1.05, uTight);',
+'    hp = pa + sg * aT + nv * (aLat.y * th) + ud * (aLat.x * th * 0.85);',
+'    hp += vec2(sin(uTime*1.15 + aSeed.x*6.2832), cos(uTime*0.95 + aSeed.y*6.2832))',
+'          * (0.004 + 0.013 * (1.0 - uTight));',
+'  }',
+'  vec2 locH = mix(loc, hp, uHandSh);',
 '  // 文字：轻微呼吸抖动，固定在屏幕中心',
 '  vec2 txt = aFist + vec2(sin(uTime*0.9 + aSeed.y*6.2832),',
 '                          cos(uTime*0.8 + aSeed.z*6.2832)) * 0.0035;',
-'  vec2 p = mix(loc, txt, uMorph);',
+'  vec2 p = mix(locH, txt, uMorph);',
 '  // ── 固有动画：固定时间轴，不跟手，播完自动归位 ──',
 '  vec2 pf = p;',
 '  float fxBoost = 1.0;',
@@ -254,8 +276,10 @@ var VS = [
 '  float sizeMulN = (0.52 + 0.26*aSeed.z + 0.30*aCore + 0.62*outer) * mix(1.0, 5.0, puff);',
 '  float alphaMulN = (0.34 + 0.18*aSeed.z + 0.26*aCore) * (1.0 - 0.22*outer) * nz',
 '                    * mix(1.0, 0.085, puff);',
+'  sizeMulN *= mix(1.0, 1.30, uHandSh * uTight);',
 '  float sizeMul = mix(sizeMulN, 0.62 + 0.62*aSeed.z, uMorph);',
 '  gl_PointSize = uSize * uDpr * sizeMul;',
+'  alphaMulN *= mix(0.80, 1.60, uHandSh * uTight);',
 '  float alphaMul = mix(alphaMulN, 0.34 + 0.34*aSeed.z, uMorph);',
 '  // 配色：核心暖白 → 中层蓝白 → 外晕淡紫',
 '  vec3 warm = vec3(1.00, 0.80, 0.60);',
@@ -263,6 +287,8 @@ var VS = [
 '  vec3 cold = vec3(0.42, 0.50, 1.00);',
 '  vec3 nebCol = mix(cold, mid, smoothstep(0.0, 0.42, aCore));',
 '  nebCol = mix(nebCol, warm, smoothstep(0.55, 1.0, aCore));',
+'  vec3 handCol = vec3(0.58, 0.90, 1.00);',
+'  nebCol = mix(nebCol, handCol, uHandSh * (0.34 + 0.34 * uTight));',
 '  vec3 txtCol = vec3(0.93, 0.96, 1.00);',
 '  vCol = mix(nebCol, txtCol, uMorph);',
 '  vA = alphaMul * fxBoost;',
@@ -302,11 +328,11 @@ if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
 gl.useProgram(prog);
 
 var U = {};
-['uAspect','uTime','uMorph','uHand','uPull','uPullR','uSize','uDpr','uCloudR','uBright','uFx','uFxT'].forEach(function(n){
+['uAspect','uTime','uMorph','uHand','uPull','uPullR','uSize','uDpr','uCloudR','uBright','uFx','uFxT','uLm','uHandSh','uTight','uHandTh'].forEach(function(n){
   U[n] = gl.getUniformLocation(prog, n);
 });
 var A = {};
-['aHome','aFist','aSeed','aCore'].forEach(function(n){ A[n] = gl.getAttribLocation(prog, n); });
+['aHome','aFist','aSeed','aCore','aPair','aT','aLat'].forEach(function(n){ A[n] = gl.getAttribLocation(prog, n); });
 
 gl.disable(gl.DEPTH_TEST);
 gl.enable(gl.BLEND);
@@ -377,7 +403,8 @@ function sampleText(text, maxW, maxH){
 
 //==================== 粒子数据 ====================
 var state = { morph: 0, morphT: 0, time: 0,
-              hand: [0, 0], handT: [0, 0], pull: 0, pullT: 0, lastHand: -1e9, hasHand: false };
+              hand: [0, 0], handT: [0, 0], pull: 0, pullT: 0, lastHand: -1e9, hasHand: false,
+              handSh: 0, tight: 0, handTh: 0.032 };
 var ges = { last: 'unknown', stable: 0, fired: 0, mode: 'scatter' };
 
 var texFist = sampleText('KissCream', 1.86, 0.62);
@@ -386,6 +413,9 @@ var aHome = new Float32Array(COUNT * 2);
 var aFist = new Float32Array(COUNT * 2);
 var aSeed = new Float32Array(COUNT * 3);
 var aCore = new Float32Array(COUNT);
+var aPair = new Float32Array(COUNT * 2);   // 手形：骨架段两端的关键点编号
+var aTf   = new Float32Array(COUNT);       // 沿骨架段的参数
+var aLat  = new Float32Array(COUNT * 2);   // 横向散开量
 
 // 固有动画：固定时间轴，触发一次播一遍，播完自动归位
 var FX_DUR = [0, 1.35, 1.60, 1.50, 1.45, 1.55, 1.70];
@@ -398,6 +428,8 @@ function playFx(id){
 window.playFx = playFx;
 
 function buildParticles(){
+  var FSG = BONES;                                   // 手指 21 段
+  var PSG = [[0,1],[0,5],[0,9],[0,13],[0,17]];       // 掌心 5 条辐条
   var tmpl = nebula(Math.min(COUNT, 24000), NEB_R);
   for (var i = 0; i < COUNT; i++){
     var p = tmpl[i % tmpl.length];
@@ -415,6 +447,13 @@ function buildParticles(){
     aSeed[i*3]   = Math.random();
     aSeed[i*3+1] = Math.random();
     aSeed[i*3+2] = Math.random();
+    // 手形：62% 落在手指骨段，38% 落在掌心辐条（横向铺得更宽，填满手掌）
+    var hPalm = ((i * 0.7548776662) % 1) > 0.62;
+    var hSeg = hPalm ? PSG[(i * 7) % PSG.length] : FSG[(i * 13) % FSG.length];
+    aPair[i*2] = hSeg[0]; aPair[i*2+1] = hSeg[1];
+    aTf[i] = Math.random();
+    aLat[i*2]   = gauss() * (hPalm ? 0.62 : 0.34);
+    aLat[i*2+1] = gauss() * (hPalm ? 1.15 : 0.60);
   }
 
   function buf(arr, loc, size){
@@ -428,6 +467,9 @@ function buildParticles(){
   buf(aFist, A.aFist, 2);
   buf(aSeed, A.aSeed, 3);
   buf(aCore, A.aCore, 1);
+  buf(aPair, A.aPair, 2);
+  buf(aTf, A.aT, 1);
+  buf(aLat, A.aLat, 2);
 }
 
 //==================== 视口 ====================
@@ -491,11 +533,11 @@ function flash(txt){
 
 function onGesture(g){
   if (g === 'fist' && ges.mode !== 'text'){
-    ges.mode = 'text'; state.morphT = 1;
-    flash('握拳 · 聚合成字');
-  } else if (g === 'open' && ges.mode !== 'scatter'){
-    ges.mode = 'scatter'; state.morphT = 0;
-    flash('张开 · 星云跟随手掌');
+    ges.mode = 'tight'; state.morphT = 0;
+    flash('握拳 · 粒子收拢成拳形');
+  } else if (g === 'open' && ges.mode !== 'loose'){
+    ges.mode = 'loose'; state.morphT = 0;
+    flash('张开 · 粒子铺开成手形');
   }
 }
 
@@ -516,6 +558,7 @@ function matchCustom(lm, now){
 }
 
 window.__feed = feedLandmarks; window.__mf = matchCustom; window.__fx = fx;
+window.__dbg = function(){ return { handSh: state.handSh, tight: state.tight, handTh: state.handTh, lm: Array.prototype.slice.call(lmW, 0, 8) }; };
 function feedLandmarks(lm, handed){
   var r = classify(lm, handed);
   var now = performance.now();
@@ -546,6 +589,38 @@ function setHand(nx, ny){
   state.handT[1] = Math.max(-my, Math.min(my, wy));
   state.lastHand = performance.now();
   state.hasHand = true;
+}
+
+//==================== 手形：21 点 → 世界坐标（自动定尺 + 软钳位） ====================
+var lmW = new Float32Array(42);
+function buildHandWorld(lm, now){
+  var sm = null;
+  try { sm = smoothLm(now); } catch (e) { sm = lm; }
+  if (!sm || sm.length < 21) sm = lm;
+  if (!sm || sm.length < 21) return 0;
+  var i, xs = new Array(21), ys = new Array(21);
+  for (i = 0; i < 21; i++){
+    xs[i] = ((1 - sm[i].x) * 2 - 1) * aspect;   // 镜像：像照镜子一样跟手
+    ys[i] = -(sm[i].y * 2 - 1);
+  }
+  var w5 = [0, 5, 9, 13, 17], cx = 0, cy = 0;
+  for (i = 0; i < 5; i++){ cx += xs[w5[i]]; cy += ys[w5[i]]; }
+  cx /= 5; cy /= 5;
+  var span = 0.02;
+  for (i = 0; i < 21; i++){
+    var d = Math.sqrt((xs[i]-cx)*(xs[i]-cx) + (ys[i]-cy)*(ys[i]-cy));
+    if (d > span) span = d;
+  }
+  var target = isNarrow ? 0.50 : 0.60;   // 手形在世界坐标里的半径
+  var sc = target / span;
+  var mx = Math.max(0.15, aspect * 0.78), my = 0.62;
+  var ccx = Math.max(-mx, Math.min(mx, cx));
+  var ccy = Math.max(-my, Math.min(my, cy));
+  for (i = 0; i < 21; i++){
+    lmW[i*2]   = ccx + (xs[i] - cx) * sc;
+    lmW[i*2+1] = ccy + (ys[i] - cy) * sc;
+  }
+  return target * 0.052;   // 骨骼粗细（世界单位）
 }
 
 //==================== hand view ====================
@@ -672,6 +747,16 @@ function draw(){
   state.hand[0] += (state.handT[0] - state.hand[0]) * kh;
   state.hand[1] += (state.handT[1] - state.hand[1]) * kh;
 
+  // 手形：手在 → 逐渐长成手形；手丢了 → 缓缓化回星云
+  var freshH = (now - state.lastHand) < 700;
+  var hTh = 0;
+  if (freshH && lmLast) hTh = buildHandWorld(lmLast, now);
+  var khs = 1 - Math.exp(-dt * (freshH ? 6.0 : 3.2));
+  state.handSh += ((freshH && hTh > 0 ? 1 : 0) - state.handSh) * khs;
+  if (freshH && hTh > 0) state.handTh += (hTh - state.handTh) * khs;
+  var tgtT = ges.last === 'fist' ? 1 : (ges.last === 'open' ? 0 : 0.45);
+  state.tight += (tgtT - state.tight) * (1 - Math.exp(-dt * 4.0));
+
   if (fx.id > 0){
     fx.t += dt;
     if (fx.t > FX_DUR[fx.id]) { fx.id = 0; fx.t = 0; }
@@ -690,6 +775,10 @@ function draw(){
   gl.uniform1f(U.uBright, (isNarrow ? 1.75 : 1.45) * brightMul * (0.90 + 0.45 * state.morph));
   gl.uniform1f(U.uFx, fx.id);
   gl.uniform1f(U.uFxT, fx.t);
+  gl.uniform2fv(U.uLm, lmW);
+  gl.uniform1f(U.uHandSh, state.handSh * (1 - state.morph));
+  gl.uniform1f(U.uTight, state.tight);
+  gl.uniform1f(U.uHandTh, state.handTh > 0 ? state.handTh : (isNarrow ? 0.026 : 0.032));
   gl.drawArrays(gl.POINTS, 0, COUNT);
 
   drawHandView(now);
@@ -715,8 +804,13 @@ canvas.addEventListener('pointerdown', function(e){
   setHand(e.clientX / window.innerWidth, e.clientY / window.innerHeight);
     mousePt = { x: e.clientX / window.innerWidth, y: e.clientY / window.innerHeight, t: performance.now() };
   // 兜底：点一下 = 握拳，再点 = 张开
-  onGesture(ges.mode === 'scatter' ? 'fist' : 'open');
+  onGesture(ges.mode === 'tight' ? 'open' : 'fist');
 });
+canvas.addEventListener('dblclick', function(){
+  state.morphT = state.morphT > 0.5 ? 0 : 1;
+  flash(state.morphT > 0.5 ? 'KissCream 文字' : '手形粒子');
+});
+
 //==================== 摄像头 + MediaPipe ====================
 var elD = { cam: document.getElementById('dCam'), mdl: document.getElementById('dMdl'),
             hand: document.getElementById('dHand') };
@@ -894,13 +988,28 @@ function selftest(){
   console.log('[selftest] fist =>', JSON.stringify(rFist));
   console.log('[selftest] classify =', ok ? 'PASS' : 'FAIL');
 
-  // 完整链路：握拳 → 字；张开 → 星云
+  // 完整链路：握拳 → 紧贴合手形；张开 → 松铺手形
   onGesture('fist');
-  var morphFist = state.morphT, modeFist = ges.mode;
+  var modeFist = ges.mode;
   onGesture('open');
-  var morphOpen = state.morphT, modeOpen = ges.mode;
-  console.log('[selftest] fist -> morphT', morphFist, 'mode', modeFist);
-  console.log('[selftest] open -> morphT', morphOpen, 'mode', modeOpen);
+  var modeOpen = ges.mode;
+  console.log('[selftest] fist -> mode', modeFist);
+  // 手形映射：21 点 → 世界坐标（自动定尺 / 镜像 / 钳位）
+  var bakL = lmLast, bakT2 = lmLastT;
+  lmLast = make(true); lmLastT = performance.now();
+  var thH = buildHandWorld(lmLast, performance.now());
+  lmLast = bakL; lmLastT = bakT2;
+  var hx0 = 1e9, hx1 = -1e9, hy0 = 1e9, hy1 = -1e9, hfin = true;
+  for (var q = 0; q < 21; q++){
+    if (!isFinite(lmW[q*2]) || !isFinite(lmW[q*2+1])) hfin = false;
+    hx0 = Math.min(hx0, lmW[q*2]); hx1 = Math.max(hx1, lmW[q*2]);
+    hy0 = Math.min(hy0, lmW[q*2+1]); hy1 = Math.max(hy1, lmW[q*2+1]);
+  }
+  var spanW = Math.max(hx1 - hx0, hy1 - hy0);
+  var tgtW = isNarrow ? 0.50 : 0.60;
+  var hmOK = hfin && spanW > tgtW * 1.0 && spanW < tgtW * 2.3 && thH > 0.005;
+  console.log('[selftest] handmap span', spanW.toFixed(3), 'th', thH.toFixed(4), '=>', hmOK ? 'PASS' : 'FAIL');
+  console.log('[selftest] open -> mode', modeOpen);
 
   // 牵引：手的屏幕位置 → 世界坐标（并且星云重心必须留在原点）
   setHand(0.88, 0.5);
@@ -952,7 +1061,7 @@ function selftest(){
     lmLast = bak; lmLastT = bakT;
   } catch (e) { hvOK = false; hvMsg = e && e.message; }
   console.log('[selftest] handview =', hvOK ? 'PASS' : 'FAIL ' + hvMsg);
-  var all = ok && nebOK && bandOK && handOK && centOK && hvOK && morphFist === 1 && morphOpen === 0;
+  var all = ok && nebOK && bandOK && handOK && centOK && hvOK && hmOK && modeFist === 'tight' && modeOpen === 'loose';
   console.log('[selftest] ALL =', all ? 'PASS' : 'FAIL');
   document.title = 'SELFTEST ' + (all ? 'PASS' : 'FAIL');
 }
