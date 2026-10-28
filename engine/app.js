@@ -591,6 +591,13 @@ function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
   state.t += dt;
 
+  // 首帧渲染完成后收掉启动遮罩
+  if (!window.__booted) {
+    window.__booted = true;
+    const b = document.getElementById('boot');
+    if (b) { b.classList.add('off'); setTimeout(() => b.remove(), 600); }
+  }
+
   // 演示：0-1 自动展开再收回
   if (state.demo) {
     const ph = (state.t * 0.32) % 2;

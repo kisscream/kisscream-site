@@ -92,6 +92,21 @@
     padding: 7px 15px; border-radius: 999px; opacity: 0; transition: opacity .3s; pointer-events: none; }
   #toast.show { opacity: 1; }
 
+  /* 启动遮罩 */
+  #boot { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
+    background: radial-gradient(ellipse at 50% 45%, #0a1522 0%, #04060c 70%);
+    transition: opacity .5s; }
+  #boot.off { opacity: 0; pointer-events: none; }
+  .boot-card { text-align: center; }
+  .boot-card .ring { width: 46px; height: 46px; margin: 0 auto 16px; border-radius: 50%;
+    border: 2px solid rgba(55,226,255,.18); border-top-color: var(--cy);
+    animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .boot-card .t { font-size: 13px; letter-spacing: .08em; color: #bfefff; }
+  .boot-card .t b { animation: dot 1.2s steps(2) infinite; }
+  @keyframes dot { 50% { opacity: .2; } }
+  .boot-card .s { font-size: 11px; color: #4d6b85; margin-top: 8px; letter-spacing: .04em; }
+
   @media (max-width: 900px) {
     #parts { top: auto; bottom: 92px; left: 12px; right: 12px; width: auto; max-height: 108px;
       display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 8px; }
@@ -111,6 +126,14 @@
 <canvas id="c"></canvas>
 <div class="scan"></div>
 <div class="vignette"></div>
+
+<div class="hud" id="boot">
+  <div class="boot-card">
+    <div class="ring"></div>
+    <div class="t">正在加载 B58 三维模型<b>…</b></div>
+    <div class="s">首次打开需要下载 three.js 与几何数据，约 2 MB</div>
+  </div>
+</div>
 
 <div class="hud" id="brand">
   <div class="card">
