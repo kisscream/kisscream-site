@@ -43,8 +43,22 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;-webki
   box-shadow:inset 0 0 0 1px rgba(255,228,184,.15)}
 .card3.hot{border-color:rgba(255,236,180,.98);box-shadow:0 0 0 2px rgba(255,226,150,.5),
   0 22px 52px rgba(255,200,120,.4)}
+
+/* 实体蛋糕入场：从粒子态「结」成实体 */
+@keyframes mbIn{
+  0%{opacity:0;transform:scale(.93);filter:blur(6px)}
+  55%{opacity:1;filter:blur(1.5px)}
+  100%{opacity:1;transform:scale(1);filter:blur(0)}
+}
+.solidIn{animation:mbIn 1.25s cubic-bezier(.16,.9,.3,1) forwards}
+/* 蜡烛暖光呼吸 */
+@keyframes mbBloom{
+  0%,100%{opacity:.55;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.06)}
+}
 </style>
 </head>
+
 <body>
 <canvas id="c"></canvas>
 <div id="vig"></div>
@@ -680,34 +694,114 @@ function candleScreens() {
 function buildSolid() {
   if (SOLID) return;
   var bx = cakeBox();
-  SOLID = mkEl('position:absolute;z-index:3;opacity:0;transition:opacity 1.6s;pointer-events:none;' +
-    'left:' + bx.left + 'px;top:' + bx.top + 'px;width:' + bx.w + 'px;height:' + bx.h + 'px;');
-  SOLID.innerHTML =
-    // 底盘（椭圆）
-    '<div style="position:absolute;left:-2%;right:-2%;bottom:2%;height:9%;border-radius:50%;' +
-      'background:radial-gradient(50% 60% at 50% 40%,#3b2416,#1a0e08 70%);opacity:.95;filter:blur(.6px)"></div>' +
-    // 蛋糕体：巧克力渐变 + 圆角
-    '<div style="position:absolute;left:9%;right:9%;top:17%;bottom:11%;' +
-      'border-radius:10px 10px 22px 22px / 6px 6px 16px 16px;' +
-      'background:linear-gradient(96deg,#2c170d 0%,#5d3319 14%,#8a5734 34%,#96603a 50%,#6b3d21 70%,#38200f 88%,#241208 100%);' +
-      'box-shadow:inset 0 10px 26px rgba(255,205,150,.13),inset 0 -26px 40px rgba(0,0,0,.62),0 18px 34px rgba(0,0,0,.5)"></div>' +
-    // 顶部奶油：椭圆 + 微微鼓起的穹顶
-    '<div style="position:absolute;left:8%;right:8%;top:8%;height:26%;border-radius:50%;' +
-      'background:radial-gradient(52% 64% at 50% 42%,#fff8ea,#f0dcbd 58%,#d3b28a 88%,#b9956d);' +
-      'box-shadow:inset 0 -10px 18px rgba(150,110,70,.35),0 8px 20px rgba(0,0,0,.45)"></div>' +
-    // 奶油边缘的一圈小卷
-    '<div style="position:absolute;left:8%;right:8%;top:26%;height:9%;' +
-      'background:repeating-linear-gradient(90deg,rgba(255,246,228,.95) 0 9px,rgba(232,205,170,.55) 9px 15px);' +
-      'border-radius:0 0 60% 60% / 0 0 100% 100%;opacity:.9;filter:blur(.4px)"></div>' +
-    // 高光
-    '<div style="position:absolute;left:6%;right:6%;top:10%;height:22%;' +
-      'background:radial-gradient(50% 120% at 50% 0%,rgba(255,248,232,.95),rgba(244,226,198,.42) 46%,transparent 74%);' +
-      'border-radius:50%"></div>' +
-    // 一根蜡烛
-    '<div style="position:absolute;left:47.4%;top:-6%;width:5.2%;height:26%;' +
-      'background:linear-gradient(90deg,#c8a173,#fdf3e0 34%,#f6e6cc 62%,#bb9469);' +
-      'border-radius:3px 3px 2px 2px;box-shadow:0 2px 6px rgba(0,0,0,.45)"></div>' +
-    '<div style="position:absolute;left:49.4%;top:-9.5%;width:1.2%;height:4%;background:#2a1a10;border-radius:1px"></div>';
+  var left = bx.left - bx.w * 0.10, top = bx.top - bx.h * 0.30;
+  var w = bx.w * 1.20, h = bx.h * 1.46;
+  SOLID = mkEl('position:absolute;z-index:3;opacity:0;pointer-events:none;' +
+    'transform-origin:50% 92%;transform:scale(.93);filter:blur(6px);will-change:transform,opacity,filter;' +
+    'left:' + left + 'px;top:' + top + 'px;width:' + w + 'px;height:' + h + 'px;');
+
+  // ── 实体蛋糕（SVG 分层：盘子/裙边/蛋糕体/奶油滴/顶面/奶油球/樱桃）
+  var S = [];
+  S.push('<svg viewBox="0 0 300 260" preserveAspectRatio="xMidYMid meet" ' +
+    'style="position:absolute;inset:0;width:100%;height:100%;overflow:visible;display:block">');
+  S.push('<defs>' +
+    '<linearGradient id="mBody" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#fbf1da"/><stop offset=".30" stop-color="#f2dfba"/>' +
+      '<stop offset=".72" stop-color="#dcbb8b"/><stop offset="1" stop-color="#b5905c"/></linearGradient>' +
+    '<linearGradient id="mBodySide" x1="0" y1="0" x2="1" y2="0">' +
+      '<stop offset="0" stop-color="#7d5c39" stop-opacity=".34"/><stop offset=".18" stop-color="#ffffff" stop-opacity="0"/>' +
+      '<stop offset=".55" stop-color="#ffffff" stop-opacity=".14"/><stop offset=".86" stop-color="#8a6942" stop-opacity=".20"/>' +
+      '<stop offset="1" stop-color="#6f4f30" stop-opacity=".42"/></linearGradient>' +
+    '<linearGradient id="mCream" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#fffefa"/><stop offset=".6" stop-color="#fdf6e6"/><stop offset="1" stop-color="#ecd8b4"/></linearGradient>' +
+    '<radialGradient id="mTop" cx="0.40" cy="0.28" r="0.82">' +
+      '<stop offset="0" stop-color="#fffefb"/><stop offset=".46" stop-color="#fdf6e7"/>' +
+      '<stop offset=".82" stop-color="#f2e0c1"/><stop offset="1" stop-color="#dcc09a"/></radialGradient>' +
+    '<linearGradient id="mBoard" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="#f0d3a2"/><stop offset=".4" stop-color="#d6a76b"/>' +
+      '<stop offset="1" stop-color="#96683a"/></linearGradient>' +
+    '<radialGradient id="mCherry" cx="0.34" cy="0.28" r="0.74">' +
+      '<stop offset="0" stop-color="#ff9d8c"/><stop offset=".42" stop-color="#e33e33"/>' +
+      '<stop offset="1" stop-color="#8a100e"/></radialGradient>' +
+    '<radialGradient id="mGlow" cx="0.5" cy="0.5" r="0.5">' +
+      '<stop offset="0" stop-color="#ffdca6" stop-opacity=".50"/><stop offset=".5" stop-color="#ffa95f" stop-opacity=".16"/>' +
+      '<stop offset="1" stop-color="#ff7a30" stop-opacity="0"/></radialGradient>' +
+    '<filter id="mSoft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5"/></filter>' +
+    '</defs>');
+  S.push('<ellipse cx="150" cy="243" rx="134" ry="18" fill="#120804" opacity=".55" filter="url(#mSoft)"/>');
+  S.push('<ellipse cx="150" cy="96" rx="104" ry="70" fill="url(#mGlow)"/>');
+  S.push('<ellipse cx="150" cy="228" rx="140" ry="28" fill="url(#mBoard)"/>');
+  S.push('<ellipse cx="150" cy="223" rx="131" ry="24" fill="#f7dcae" opacity=".38"/>');
+  var k;
+  for (k = 0; k < 30; k++) {
+    var t = k / 29, ang = Math.PI * (1.03 + t * 0.94);
+    var px = 150 + Math.cos(ang) * 138, py = 229 + Math.sin(ang) * 27;
+    S.push('<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="8.6" fill="#f7e6c8"/>');
+    S.push('<circle cx="' + (px - 1.8).toFixed(1) + '" cy="' + (py - 2.6).toFixed(1) + '" r="4.6" fill="#fffdf7" opacity=".92"/>');
+  }
+  S.push('<path d="M18 96 L282 96 L276 208 Q150 236 24 208 Z" fill="url(#mBody)"/>');
+  S.push('<path d="M18 96 L282 96 L276 208 Q150 236 24 208 Z" fill="url(#mBodySide)"/>');
+  S.push('<ellipse cx="102" cy="152" rx="30" ry="50" fill="#fffef9" opacity=".15" filter="url(#mSoft)"/>');
+  S.push('<ellipse cx="150" cy="97" rx="48" ry="14" fill="#ffd9a0" opacity=".20" filter="url(#mSoft)"/>');
+  S.push('<path d="M24 194 Q150 222 276 194 L276 208 Q150 236 24 208 Z" fill="#6b4c2b" opacity=".17" filter="url(#mSoft)"/>');
+  var sc = ['#ff8fb1', '#8fd3ff', '#ffd166', '#9be7a3', '#c8a2ff', '#fff1a8'];
+  for (k = 0; k < 54; k++) {
+    var sx = 34 + Math.random() * 232, sy = 118 + Math.random() * 74;
+    var col = sc[(Math.random() * sc.length) | 0];
+    var rot = (Math.random() * 180) | 0;
+    S.push('<rect x="' + sx.toFixed(1) + '" y="' + sy.toFixed(1) + '" width="5.2" height="1.9" rx=".95" fill="' + col +
+      '" opacity="' + (0.5 + Math.random() * 0.45).toFixed(2) + '" transform="rotate(' + rot + ' ' + sx.toFixed(1) + ' ' + sy.toFixed(1) + ')"/>');
+  }
+  S.push('<ellipse cx="150" cy="96" rx="132" ry="30" fill="url(#mTop)"/>');
+  var drips = [[30, 34], [58, 54], [86, 30], [114, 60], [142, 38], [170, 58], [198, 32], [226, 52], [254, 36], [276, 26]];
+  for (k = 0; k < drips.length; k++) {
+    var dx = drips[k][0], dl = drips[k][1], dw = 17 + (k % 3) * 3;
+    var d = 'M' + (dx - dw / 2) + ' 92 L' + (dx - dw / 2) + ' ' + (98 + dl) +
+      ' Q' + (dx - dw / 2) + ' ' + (110 + dl) + ' ' + dx + ' ' + (110 + dl) +
+      ' Q' + (dx + dw / 2) + ' ' + (110 + dl) + ' ' + (dx + dw / 2) + ' ' + (98 + dl) +
+      ' L' + (dx + dw / 2) + ' 92 Z';
+    S.push('<path d="' + d + '" fill="url(#mCream)"/>');
+    S.push('<path d="' + d + '" fill="#b18f63" opacity=".14"/>');
+  }
+  S.push('<path d="M18 92 Q150 132 282 92 L282 100 Q150 140 18 100 Z" fill="url(#mCream)"/>');
+  S.push('<ellipse cx="150" cy="93" rx="128" ry="26" fill="none" stroke="#fffdf6" stroke-width="2" opacity=".30"/>');
+  var dollops = [[106, 82, 17], [150, 76, 19], [194, 82, 17]];
+  for (k = 0; k < dollops.length; k++) {
+    var cx2 = dollops[k][0], cy2 = dollops[k][1], r2 = dollops[k][2];
+    S.push('<ellipse cx="' + cx2 + '" cy="' + (cy2 + r2 * 0.55) + '" rx="' + r2 * 1.08 + '" ry="' + r2 * 0.62 + '" fill="url(#mCream)"/>');
+    S.push('<ellipse cx="' + cx2 + '" cy="' + cy2 + '" rx="' + r2 * 0.94 + '" ry="' + r2 * 0.8 + '" fill="url(#mCream)"/>');
+    S.push('<circle cx="' + (cx2 - r2 * 0.3) + '" cy="' + (cy2 - r2 * 0.36) + '" r="' + r2 * 0.3 + '" fill="#fffdf9" opacity=".85"/>');
+    S.push('<circle cx="' + cx2 + '" cy="' + (cy2 - r2 * 0.98) + '" r="' + r2 * 0.48 + '" fill="url(#mCherry)"/>');
+    S.push('<circle cx="' + (cx2 - r2 * 0.18) + '" cy="' + (cy2 - r2 * 1.16) + '" r="' + r2 * 0.15 + '" fill="#fff7f1" opacity=".9"/>');
+    S.push('<path d="M' + cx2 + ' ' + (cy2 - r2 * 1.34) + ' q4 -9 10 -10" stroke="#3f2a12" stroke-width="1.7" fill="none" stroke-linecap="round"/>');
+  }
+  var dots = [[66, 100], [126, 106], [176, 104], [232, 100], [96, 112], [206, 112]];
+  for (k = 0; k < dots.length; k++) {
+    var qx = dots[k][0], qy = dots[k][1];
+    S.push('<ellipse cx="' + qx + '" cy="' + qy + '" rx="9.4" ry="7" fill="url(#mCream)"/>');
+    S.push('<circle cx="' + qx + '" cy="' + (qy - 5.4) + '" r="3.8" fill="url(#mCherry)"/>');
+  }
+  S.push('</svg>');
+  SOLID.innerHTML = S.join('');
+
+  // ── 蜡烛：对齐粒子蜡烛的落焰点，让火焰正好在烛芯上
+  var cs = candleScreens()[0];
+  if (cs) {
+    var cakeTopY = toPx(0, CAKE.top).y;
+    var cH = Math.max(26, cakeTopY - cs.y);
+    var cw = Math.max(10, Math.min(22, h * 0.048));
+    var cnd = mkEl('position:absolute;left:' + (cs.x - left - cw / 2) + 'px;top:' + (cs.y - top - 2) + 'px;' +
+      'width:' + cw + 'px;height:' + cH + 'px;border-radius:' + (cw * 0.3) + 'px ' + (cw * 0.3) + 'px 2px 2px;' +
+      'background:repeating-linear-gradient(0deg,#ffd4e2 0 ' + (cH * 0.10).toFixed(1) + 'px,#fff5f8 ' +
+      (cH * 0.10).toFixed(1) + 'px ' + (cH * 0.20).toFixed(1) + 'px);' +
+      'box-shadow:inset ' + (cw * 0.3) + 'px 0 0 rgba(0,0,0,.10),inset ' + (-cw * 0.26) + 'px 0 0 rgba(255,255,255,.6),0 1px 4px rgba(0,0,0,.4)');
+    SOLID.appendChild(cnd);
+  }
+  // ── 暖光闪烁（覆盖整块蛋糕，呼吸感）
+  var bl = mkEl('position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;' +
+    'background:radial-gradient(42% 40% at 50% 26%,rgba(255,214,150,.30),rgba(255,150,70,.10) 55%,transparent 78%);' +
+    'animation:mbBloom 3.6s ease-in-out infinite');
+  SOLID.appendChild(bl);
   STAGE3.appendChild(SOLID);
 }
 
@@ -736,7 +830,13 @@ function igniteAll() {
     buildSolid();
     P.warm = 1;
     P.bright = 1.0;
-    if (SOLID) SOLID.style.opacity = '1';
+    if (SOLID) { SOLID.classList.add('solidIn'); }
+    var b0 = performance.now(), bFrom = P.bright;
+    (function fadeParticles() {
+      var k2 = Math.min(1, (performance.now() - b0) / 900);
+      P.bright = bFrom + (0.03 - bFrom) * k2;
+      if (k2 < 1) requestAnimationFrame(fadeParticles);
+    })();
     for (var j = 0; j < 3; j++) setTimeout(function () { firework(W * rnd(0.2, 0.8), H * rnd(0.1, 0.35), rnd(200, 300), 1); }, j * 320);
     setTimeout(startKnife, 1900);
   }, 500);
@@ -1000,7 +1100,6 @@ addEventListener('pointerup', function (e) {
     if (i >= 0) openCard(i);
   }
 });
-</script>
-<script>boot();</script>
+</script><script>boot();</script>
 </body>
 </html>
