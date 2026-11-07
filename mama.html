@@ -1059,8 +1059,9 @@ function buildWall() {
   for (var i = 0; i < CARDS_N; i++) {
     var d = document.createElement('div');
     d.className = 'card3';
+    if (NARROW) { d.style.width = '110px'; d.style.height = '78px'; }
     d.style.opacity = '0';
-    d.style.left = (-100) + 'px'; d.style.top = (-71) + 'px';
+    d.style.left = (NARROW ? -55 : -100) + 'px'; d.style.top = (NARROW ? -39 : -71) + 'px';
     d.innerHTML = cardHTML(i);
     wall.appendChild(d);
     CARD.items.push({ el: d, i: i });
@@ -1093,7 +1094,7 @@ function startWall() {
 }
 
 function layout(rot) {
-  var r = NARROW ? 172 : 430;
+  var r = NARROW ? 140 : 430;
   for (var i = 0; i < CARD.items.length; i++) {
     var it = CARD.items[i];
     if (CARD.mode === 'ring') {
@@ -1112,8 +1113,8 @@ function layout(rot) {
       var cols = NARROW ? 2 : 4;
       var rows = CARDS_N / cols;
       var col = i % cols, row = (i / cols) | 0;
-      var gx = (col - (cols - 1) / 2) * (NARROW ? 172 : 340);
-      var gy = (row - (rows - 1) / 2) * (NARROW ? 142 : 210);
+      var gx = (col - (cols - 1) / 2) * (NARROW ? 110 : 340);
+      var gy = (row - (rows - 1) / 2) * (NARROW ? 96 : 210);
       var tilt = NARROW ? 0 : (col - 1.5) * -7;
       it.el.style.transform = 'translate3d(' + gx.toFixed(1) + 'px,' + gy.toFixed(1) + 'px,0) ' +
         'rotateY(' + tilt + 'deg) scale(' + (NARROW ? 0.82 : 1.2) + ')';
