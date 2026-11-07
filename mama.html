@@ -56,10 +56,34 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;-webki
   0%,100%{opacity:.55;transform:scale(1)}
   50%{opacity:1;transform:scale(1.06)}
 }
+
+/* 照片墙阶段：深空星场（在 canvas 之上、卡片之下） */
+#sky{position:fixed;inset:-14%;z-index:3;pointer-events:none;opacity:0;
+  transition:opacity 1.8s ease;will-change:transform,opacity;
+  background-image:
+    radial-gradient(1.5px 1.5px at 18% 24%,rgba(255,255,255,.95),transparent),
+    radial-gradient(1.1px 1.1px at 62% 71%,rgba(206,224,255,.85),transparent),
+    radial-gradient(1.3px 1.3px at 84% 38%,rgba(255,236,206,.8),transparent),
+    radial-gradient(1px 1px at 33% 86%,rgba(255,255,255,.7),transparent),
+    radial-gradient(1.7px 1.7px at 47% 12%,rgba(255,255,255,.9),transparent),
+    radial-gradient(1px 1px at 92% 78%,rgba(190,214,255,.7),transparent);
+  background-size:230px 230px,310px 310px,420px 420px,180px 180px,540px 540px,260px 260px;
+  background-repeat:repeat,repeat,repeat,repeat,repeat,repeat;
+  animation:skyDrift 150s linear infinite}
+#sky::after{content:'';position:absolute;inset:0;
+  background-image:radial-gradient(2.6px 2.6px at 27% 41%,rgba(255,255,255,.95),transparent),
+    radial-gradient(2.2px 2.2px at 73% 19%,rgba(255,240,214,.9),transparent),
+    radial-gradient(2.4px 2.4px at 55% 79%,rgba(214,228,255,.9),transparent);
+  background-size:680px 680px,880px 880px,760px 760px;
+  animation:skyTwinkle 7s ease-in-out infinite alternate}
+body.skyon #sky{opacity:1}
+@keyframes skyDrift{from{transform:translate3d(0,0,0) scale(1.04)}to{transform:translate3d(-160px,110px,0) scale(1.04)}}
+@keyframes skyTwinkle{from{opacity:.55}to{opacity:1}}
 </style>
 </head>
 
 <body>
+<div id="sky"></div>
 <canvas id="c"></canvas>
 <div id="vig"></div>
 <div id="stage"></div>
@@ -531,6 +555,7 @@ function frame(now) {
 
   drawFW(rdt);
   if (typeof updateHands === 'function') updateHands(rdt);
+  if (typeof tickWall === 'function') tickWall(rdt);
   requestAnimationFrame(frame);
 }
 
@@ -667,10 +692,7 @@ function updateHands(dt) {
       FLAME.style.left = h.tip.x + 'px'; FLAME.style.top = h.tip.y + 'px';
     } else FLAME.style.opacity = '0';
   }
-  if (CURSOR) {
-    if (h && CARD.on) { CURSOR.style.opacity = '1'; CURSOR.style.left = h.tip.x + 'px'; CURSOR.style.top = h.tip.y + 'px'; }
-    else CURSOR.style.opacity = '0';
-  }
+  if (CURSOR) CURSOR.style.opacity = '0';
   if (typeof onHand === 'function') onHand(h, dt);
 }
 </script>
@@ -1048,9 +1070,11 @@ function buildWall() {
 function startWall() {
   buildWall();
   CARD.on = true;
+  CARD.vel = 0; CARD.hasX = false; CARD.hot = -1; CARD.lastX = 0;
+  document.body.classList.add('skyon');
   T.stage = 'wall';
   setTarget(ringPts(), 1.8);
-  P.size = 1.0; P.bright = 0.9;
+  P.size = 0.86; P.bright = 0.52;
   hint('<span class="chip">双手向外扩散 · 展开照片墙</span>');
   for (var i = 0; i < CARD.items.length; i++) {
     var el0 = CARD.items[i].el;
@@ -1082,7 +1106,7 @@ function layout(rot) {
       var diss = Math.abs(ang) > 82;
       it.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + (Math.sin(rad * 2) * 14).toFixed(1) +
         'px,' + z.toFixed(1) + 'px) rotateY(' + (-ang * 0.42).toFixed(1) + 'deg) scale(' + sc.toFixed(3) + ')';
-      it.el.style.opacity = diss ? '0' : (0.32 + 0.68 * ((z + r) / (2 * r))).toFixed(3);
+      it.el.style.opacity = diss ? '0' : (0.52 + 0.48 * ((z + r) / (2 * r))).toFixed(3);
       it.el.style.zIndex = String(100 + Math.round(diss ? -999 : z));
     } else {
       var cols = NARROW ? 2 : 4;
@@ -1105,7 +1129,7 @@ function expandGrid() {
   T.stage = 'grid';
   layout(0);
   boom(0.8);
-  hint('<span class="chip">手掌横划转动 · 食指悬停点上 · 捏合打开</span>');
+  hint('<span class="chip">手掌左右移动 · 转动照片星环</span>');
 }
 
 function openCard(i) {
@@ -1145,23 +1169,29 @@ function onHandWall(h, dt) {
     var dist = Math.hypot(a.palm.x - b.palm.x, a.palm.y - b.palm.y);
     if (dist > Math.min(W, H) * 0.30 && CARD.mode === 'ring') { expandGrid(); CARD.cool = 900; }
   }
-  if (!h) { CARD.hot = -1; return; }
-  // 横划旋转
-  var vx = (h.tip.x - (CARD.lastX || h.tip.x));
-  CARD.lastX = h.tip.x;
-  if (Math.abs(vx) > 3) CARD.rotT -= vx * 1.1;
-  if (CARD.mode === 'ring') {
-    CARD.rot += (CARD.rotT - CARD.rot) * Math.min(1, dt * 9);
-    layout(CARD.rot);
+  if (!h) { CARD.hasX = false; CARD.hot = -1; return; }
+  // 只用手掌横向位移驱动「公转」，不做任何拾取/点击
+  var px = h.palm.x;
+  if (CARD.hasX) {
+    var vx = px - CARD.lastX;
+    if (Math.abs(vx) < 1.6) vx = 0;
+    CARD.vel = CARD.vel * 0.60 + vx * 1.20;
+    CARD.rotT -= vx * 1.05;
   }
-  // 悬停高亮 + 捏合打开
-  var idx = pickCard(h.tip.x, h.tip.y);
-  if (idx !== CARD.hot) {
-    if (CARD.hot >= 0 && CARD.items[CARD.hot]) CARD.items[CARD.hot].el.classList.remove('hot');
-    CARD.hot = idx;
-    if (idx >= 0) CARD.items[idx].el.classList.add('hot');
+  CARD.lastX = px;
+  CARD.hasX = true;
+}
+
+// 每帧平滑推进旋转（与手是否有数据无关；丢手后按惯性滑行）
+function tickWall(dt) {
+  if (!CARD.on || CARD.mode !== 'ring') return;
+  if (!CARD.hasX) {
+    CARD.rotT -= CARD.vel * 0.55;
+    CARD.vel *= Math.pow(0.34, dt * 3.0);
+    if (Math.abs(CARD.vel) < 0.02) CARD.vel = 0;
   }
-  if (idx >= 0 && h.pinch && CARD.cool <= 0) { openCard(idx); CARD.cool = 1400; }
+  CARD.rot += (CARD.rotT - CARD.rot) * (1 - Math.exp(-10.5 * dt));
+  layout(CARD.rot);
 }
 
 // 鼠标/触屏兜底（没有摄像头或调试用）
