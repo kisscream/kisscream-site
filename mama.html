@@ -95,7 +95,7 @@ body.skyon #sky{opacity:1}
 var CV = document.getElementById('c');
 var STAGE3 = document.getElementById('stage');
 var HINT = document.getElementById('hint');
-var NARROW = Math.min(innerWidth, innerHeight) < 820;
+var NARROW = innerWidth < 820;
 var COUNT = NARROW ? 78000 : 200000;
 var DPR = Math.min(NARROW ? 2 : 1.75, devicePixelRatio || 1);
 var gl = CV.getContext('webgl2', { antialias: true, alpha: false, preserveDrawingBuffer: true })
@@ -1054,15 +1054,15 @@ function buildWall() {
   if (CARD.wall) return;
   var wall = document.createElement('div');
   wall.style.cssText = 'position:absolute;left:50%;top:50%;width:0;height:0;' +
-    'perspective:1100px;transform-style:preserve-3d';
+    'perspective:1600px;transform-style:preserve-3d';
   STAGE3.appendChild(wall);
   CARD.wall = wall;
   for (var i = 0; i < CARDS_N; i++) {
     var d = document.createElement('div');
     d.className = 'card3';
-    if (NARROW) { d.style.width = '110px'; d.style.height = '78px'; }
+    d.style.width = NARROW ? '132px' : '300px'; d.style.height = NARROW ? '94px' : '214px';
     d.style.opacity = '0';
-    d.style.left = (NARROW ? -55 : -100) + 'px'; d.style.top = (NARROW ? -39 : -71) + 'px';
+    d.style.left = (NARROW ? -66 : -150) + 'px'; d.style.top = (NARROW ? -47 : -107) + 'px';
     d.innerHTML = cardHTML(i);
     wall.appendChild(d);
     CARD.items.push({ el: d, i: i });
@@ -1100,7 +1100,7 @@ function startWall() {
 }
 
 function layout(rot) {
-  var r = NARROW ? 140 : 430;
+  var r = NARROW ? 160 : 520;
   for (var i = 0; i < CARD.items.length; i++) {
     var it = CARD.items[i];
     if (CARD.mode === 'ring') {
@@ -1108,10 +1108,10 @@ function layout(rot) {
       var rad = a * Math.PI / 180;
       var ang = ((a % 360) + 540) % 360 - 180;
       var z = Math.cos(rad) * r;
-      var x = Math.sin(rad) * r * 1.25;
-      var sc = 0.52 + 0.32 * ((z + r) / (2 * r));
+      var x = Math.sin(rad) * r * (NARROW ? 0.98 : 1.05);
+      var sc = 0.62 + 0.28 * ((z + r) / (2 * r));
       var diss = Math.abs(ang) > 82;
-      it.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + (Math.sin(rad * 2) * 14).toFixed(1) +
+      it.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + (Math.sin(rad * 2) * 22).toFixed(1) +
         'px,' + z.toFixed(1) + 'px) rotateY(' + (-ang * 0.42).toFixed(1) + 'deg) scale(' + sc.toFixed(3) + ')';
       it.el.style.opacity = diss ? '0' : (0.52 + 0.48 * ((z + r) / (2 * r))).toFixed(3);
       it.el.style.zIndex = String(100 + Math.round(diss ? -999 : z));
@@ -1119,11 +1119,11 @@ function layout(rot) {
       var cols = NARROW ? 2 : 4;
       var rows = CARDS_N / cols;
       var col = i % cols, row = (i / cols) | 0;
-      var gx = (col - (cols - 1) / 2) * (NARROW ? 110 : 340);
-      var gy = (row - (rows - 1) / 2) * (NARROW ? 96 : 210);
+      var gx = (col - (cols - 1) / 2) * (NARROW ? 152 : 352);
+      var gy = (row - (rows - 1) / 2) * (NARROW ? 112 : 246);
       var tilt = NARROW ? 0 : (col - 1.5) * -7;
       it.el.style.transform = 'translate3d(' + gx.toFixed(1) + 'px,' + gy.toFixed(1) + 'px,0) ' +
-        'rotateY(' + tilt + 'deg) scale(' + (NARROW ? 0.82 : 1.2) + ')';
+        'rotateY(' + tilt + 'deg) scale(' + (NARROW ? 0.86 : 0.96) + ')';
       it.el.style.opacity = '1';
       it.el.style.zIndex = '200';
     }
@@ -1136,7 +1136,7 @@ function expandGrid() {
   T.stage = 'grid';
   layout(0);
   boom(0.8);
-  hint('<span class="chip">双手向外扩散 · 展开照片墙</span>');
+  hint('<span class="chip">双手握拳 · 回到 3D 照片墙</span>');
 }
 
 function openCard(i) {
@@ -1224,7 +1224,7 @@ addEventListener('pointerup', function (e) {
 <script>
 "use strict";
 // ── 照片墙外圈：粒子光环（独立 program；暖金色，与蓝紫星场区分） ──
-var RING = { rot: 0, spd: 8.5, on: 0, n: NARROW ? 1500 : 2800, prog: null, buf: null, u: {}, loc: -1, ready: false };
+var RING = { rot: 0, spd: 8.5, on: 0, n: NARROW ? 3200 : 6400, prog: null, buf: null, u: {}, loc: -1, ready: false };
 var RVS = [
 "attribute vec3 aR;",
 "uniform float uRot, uRp, uBand, uTilt, uHalfW, uHalfH, uPP, uTime, uDpr, uSize, uOn;",
@@ -1294,31 +1294,48 @@ function drawRing(rdt) {
   gl.bindBuffer(gl.ARRAY_BUFFER, RING.buf);
   gl.enableVertexAttribArray(RING.loc);
   gl.vertexAttribPointer(RING.loc, 3, gl.FLOAT, false, 0, 0);
-  gl.uniform1f(u.uRot, RING.rot);
-  gl.uniform1f(u.uRp, NARROW ? 140 : 430);
-  gl.uniform1f(u.uBand, NARROW ? 20 : 26);
-  gl.uniform1f(u.uTilt, NARROW ? 0.58 : 0.42);
   gl.uniform1f(u.uHalfW, W * 0.5);
   gl.uniform1f(u.uHalfH, H * 0.5);
-  gl.uniform1f(u.uPP, 1100);
+  gl.uniform1f(u.uPP, 1600);
   gl.uniform1f(u.uTime, P.time);
   gl.uniform1f(u.uDpr, DPR);
-  gl.uniform1f(u.uSize, NARROW ? 2.2 : 2.9);
-  gl.uniform1f(u.uOn, RING.on);
-  gl.drawArrays(gl.POINTS, 0, RING.n);
+  for (var pass = 0; pass < 2; pass++) {
+    gl.uniform1f(u.uRot, RING.rot * (pass ? 0.86 : 1) + (pass ? 0.9 : 0));
+    gl.uniform1f(u.uRp, (NARROW ? 160 : 520) * (pass ? 1.16 : 1));
+    gl.uniform1f(u.uBand, (NARROW ? 22 : 30) * (pass ? 1.4 : 1));
+    gl.uniform1f(u.uTilt, (NARROW ? 0.60 : 0.45) * (pass ? 1.12 : 1));
+    gl.uniform1f(u.uSize, (NARROW ? 2.2 : 2.9) * (pass ? 0.82 : 1));
+    gl.uniform1f(u.uOn, RING.on * (pass ? 0.5 : 1));
+    gl.drawArrays(gl.POINTS, 0, RING.n);
+  }
   rebindMain();
 }
 
 // ── 手掌横划 → 角速度飞轮（惯性 + 阻尼，绕固定竖轴公转） ──
 CARD.anim = false; CARD.w = 0; CARD.vS = 0; CARD.vT = 0;
 
+function collapseRing() {
+  if (CARD.mode !== 'grid') return;
+  CARD.mode = 'ring';
+  T.stage = 'wall';
+  CARD.w = 0; CARD.vS = 0; CARD.vT = 0; CARD.hasX = false;
+  layout(CARD.rot);
+  boom(0.5);
+  hint('<span class="chip">手掌左右划，照片墙跟着转</span>');
+}
+window.__mb = window.__mb || {}; window.__mb.collapseRing = collapseRing;
+
 function onHandWall(h, dt) {
   if (CARD.cool > 0) CARD.cool -= dt * 1000;
   if (!CARD.on) return;
-  if (HK.hands.length >= 2) {
+  var fists = 0;
+  for (var fi = 0; fi < HK.hands.length; fi++) if (HK.hands[fi].fist) fists++;
+  // 双手握拳 → 从网格折回 3D 环形（握拳期间不触发向外扩散，避免来回跳）
+  if (CARD.mode === 'grid' && fists >= 2 && CARD.cool <= 0) { collapseRing(); CARD.cool = 1200; return; }
+  if (HK.hands.length >= 2 && fists === 0) {
     var a0 = HK.hands[0], b0 = HK.hands[1];
     var dist = Math.hypot(a0.palm.x - b0.palm.x, a0.palm.y - b0.palm.y);
-    if (dist > Math.min(W, H) * 0.30 && CARD.mode === "ring") { expandGrid(); CARD.cool = 900; }
+    if (dist > Math.min(W, H) * 0.30 && CARD.mode === "ring" && CARD.cool <= 0) { expandGrid(); CARD.cool = 1200; }
   }
   if (!h) { CARD.hasX = false; CARD.hot = -1; return; }
   var px = h.palm.x;
