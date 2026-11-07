@@ -646,15 +646,47 @@ async function startHands() {
       'transform:scaleX(-1);pointer-events:none';
     document.body.appendChild(v);
     HK.video = v;
-    var st = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+    var st = await openCam(function (n) {
+      hint('<span class="chip">摄像头被其他程序占用 · 关掉微信/会议的视频后自动重连 · 第 ' + n + ' 次</span>');
+    });
     v.srcObject = st;
     await v.play();
     HK.ready = true;
     hint('<span class="chip">识别已开启 · 把手指靠近烛芯</span>');
   } catch (e) {
-    console.warn('hands init failed:', e && e.message);
-    hint('<span class="chip">手势未启动 · 请用「启动.cmd」打开并允许摄像头</span>');
+    var nm = (e && e.name) || 'Error';
+    console.warn('hands init failed:', nm, e && e.message);
+    if (nm === 'NotAllowedError' || nm === 'SecurityError') {
+      hint('<span class="chip">摄像头被拒绝 · 点地址栏左侧的锁图标 → 摄像头 → 允许，然后刷新</span>');
+    } else if (nm === 'NotFoundError' || nm === 'OverconstrainedError') {
+      hint('<span class="chip">没找到摄像头 · 检查摄像头是否插好或被禁用</span>');
+    } else if (nm === 'NotReadableError' || nm === 'AbortError' || nm === 'TrackStartError') {
+      hint('<span class="chip">摄像头一直被占用 · 关掉微信/会议软件的视频后刷新页面</span>');
+    } else {
+      hint('<span class="chip">手势未启动 · ' + nm + ' · 请允许摄像头后刷新</span>');
+    }
     HK.started = false;
+  }
+}
+
+async function openCam(onTry) {
+  for (var i = 1; i <= 9; i++) {
+    try {
+      try {
+        return await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+      } catch (e1) {
+        if (e1 && (e1.name === 'OverconstrainedError' || e1.name === 'TypeError')) {
+          return await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+        throw e1;
+      }
+    } catch (e) {
+      var nm = (e && e.name) || '';
+      var busy = (nm === 'NotReadableError' || nm === 'AbortError' || nm === 'TrackStartError');
+      if (!busy || i >= 9) throw e;
+      if (onTry) onTry(i);
+      await new Promise(function (r) { setTimeout(r, 2500); });
+    }
   }
 }
 
