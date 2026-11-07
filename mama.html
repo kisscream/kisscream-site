@@ -79,18 +79,6 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;-webki
 body.skyon #sky{opacity:1}
 @keyframes skyDrift{from{transform:translate3d(0,0,0) scale(1.04)}to{transform:translate3d(-160px,110px,0) scale(1.04)}}
 @keyframes skyTwinkle{from{opacity:.55}to{opacity:1}}
-/* ============ 照片墙阶段：外围粒子光环（暖金，刻意区别于冷白星场） ============ */
-#aura{position:absolute;left:50%;top:50%;width:0;height:0;z-index:3;opacity:0;perspective:2200px;transform-style:preserve-3d;pointer-events:none;transition:opacity 1.5s ease}
-body.wallon #aura{opacity:1}
-#aura .rg{position:absolute;left:0;top:0;width:0;height:0;transform-style:preserve-3d}
-#aura i{position:absolute;left:0;top:0;display:block;border-radius:50%;background:radial-gradient(circle,rgba(255,242,214,1) 0%,rgba(255,190,112,.9) 45%,rgba(255,150,60,0) 74%);box-shadow:0 0 9px rgba(255,196,128,.78);will-change:transform}
-@keyframes auraSpin{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
-@keyframes auraTwinkle{0%,100%{opacity:var(--o,.85)}50%{opacity:.3}}
-
-/* ============ 手势指引文字 ============ */
-#guide{position:fixed;left:0;right:0;z-index:7;text-align:center;pointer-events:none;bottom:calc(max(18px,env(safe-area-inset-bottom)) + 48px);opacity:0;transform:translateY(12px);transition:opacity .9s ease,transform .9s cubic-bezier(.2,.8,.2,1)}
-body.wallon #guide{opacity:1;transform:translateY(0)}
-#guide b{display:inline-block;padding:8px 18px;border-radius:999px;font-weight:400;font-size:13px;letter-spacing:.14em;color:#ffe8c8;border:1px solid rgba(255,204,140,.42);background:rgba(36,25,17,.6);box-shadow:0 10px 30px rgba(0,0,0,.45),inset 0 0 22px rgba(255,186,110,.16);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 </style>
 </head>
 
@@ -101,7 +89,6 @@ body.wallon #guide{opacity:1;transform:translateY(0)}
 <div id="stage"></div>
 <div id="top">MOM &middot; HAPPY BIRTHDAY</div>
 <div id="hint"></div>
-<div id="guide"><b>手掌左右划，照片墙跟着转</b></div>
 <div id="cardModal"><span class="x">&times;</span><img alt=""><div class="cap"></div></div>
 <script>
 'use strict';
@@ -565,6 +552,7 @@ function frame(now) {
   gl.clearColor(0.015, 0.02, 0.045, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.drawArrays(gl.POINTS, 0, COUNT);
+  if (typeof drawRing === 'function') drawRing(rdt);
 
   drawFW(rdt);
   if (typeof updateHands === 'function') updateHands(rdt);
@@ -1084,14 +1072,13 @@ function buildWall() {
 function startWall() {
   buildWall();
   CARD.on = true;
-  CARD.vel = 0; CARD.drive = 0; CARD.hasX = false; CARD.hot = -1; CARD.lastX = 0; CARD.lastT = performance.now();
-  buildAura();
+  CARD.vel = 0; CARD.hasX = false; CARD.hot = -1; CARD.lastX = 0;
+  CARD.anim = true; CARD.w = 0; CARD.vS = 0; CARD.vT = 0;
   document.body.classList.add('skyon');
-  document.body.classList.add('wallon');
   T.stage = 'wall';
   setTarget(ringPts(), 1.8);
   P.size = 0.86; P.bright = 0.52;
-  hint('<span class="chip">双手向外扩散 · 展开照片墙</span>');
+  hint('<span class="chip">手掌左右划，照片墙跟着转</span>');
   for (var i = 0; i < CARD.items.length; i++) {
     var el0 = CARD.items[i].el;
     el0.style.transition = 'none';
@@ -1104,47 +1091,16 @@ function startWall() {
         (70 * j) + 'ms, opacity .8s linear ' + (40 + 70 * j) + 'ms';
     }
     layout(0);
+    setTimeout(function () {
+      for (var qq = 0; qq < CARD.items.length; qq++) CARD.items[qq].el.style.transition = 'none';
+      CARD.anim = false;
+    }, 1700);
   });
   window.__mb.expandGrid = expandGrid;
 }
 
-/* 外围粒子光环：三条不同半径/转速的轨道，纯 CSS3D 自转（零逐帧开销） */
-var AURA = { el: null };
-
-function buildAura() {
-  if (AURA.el) return;
-  var el = document.createElement('div');
-  el.id = 'aura';
-  STAGE3.appendChild(el);
-  AURA.el = el;
-  var base = NARROW ? 150 : 480;
-  var specs = [
-    { r: base * 1.18, n: NARROW ? 54 : 96, sz: [2.2, 4.4], dur: 76, rev: false, o: 0.95, y: NARROW ? 14 : 24 },
-    { r: base * 1.38, n: NARROW ? 30 : 52, sz: [1.6, 3.0], dur: 112, rev: true, o: 0.58, y: NARROW ? 20 : 34 },
-    { r: base * 0.90, n: NARROW ? 22 : 36, sz: [1.4, 2.6], dur: 54, rev: false, o: 0.5, y: NARROW ? 10 : 18 }
-  ];
-  for (var s = 0; s < specs.length; s++) {
-    var sp = specs[s];
-    var rg = document.createElement('div');
-    rg.className = 'rg';
-    rg.style.animation = 'auraSpin ' + sp.dur + 's linear infinite' + (sp.rev ? ' reverse' : '');
-    for (var i = 0; i < sp.n; i++) {
-      var a = (i / sp.n) * 360 + rnd(-3, 3);
-      var d = document.createElement('i');
-      var sz = rnd(sp.sz[0], sp.sz[1]);
-      d.style.width = sz.toFixed(1) + 'px';
-      d.style.height = sz.toFixed(1) + 'px';
-      d.style.setProperty('--o', (sp.o * rnd(0.55, 1)).toFixed(2));
-      d.style.transform = 'rotateY(' + a.toFixed(2) + 'deg) translateZ(' + sp.r.toFixed(0) + 'px) translateY(' + (Math.sin(a * Math.PI / 180 * 3) * sp.y).toFixed(1) + 'px)';
-      d.style.animation = 'auraTwinkle ' + rnd(2.4, 6).toFixed(2) + 's ease-in-out ' + rnd(0, 3).toFixed(2) + 's infinite';
-      rg.appendChild(d);
-    }
-    el.appendChild(rg);
-  }
-}
-
 function layout(rot) {
-  var r = NARROW ? 150 : 500;
+  var r = NARROW ? 140 : 430;
   for (var i = 0; i < CARD.items.length; i++) {
     var it = CARD.items[i];
     if (CARD.mode === 'ring') {
@@ -1152,10 +1108,11 @@ function layout(rot) {
       var rad = a * Math.PI / 180;
       var ang = ((a % 360) + 540) % 360 - 180;
       var z = Math.cos(rad) * r;
-      var x = Math.sin(rad) * r;
+      var x = Math.sin(rad) * r * 1.25;
       var sc = 0.52 + 0.32 * ((z + r) / (2 * r));
       var diss = Math.abs(ang) > 82;
-      it.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,0,' + z.toFixed(1) + 'px) rotateY(' + (-ang * 0.42).toFixed(1) + 'deg) scale(' + sc.toFixed(3) + ')';
+      it.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + (Math.sin(rad * 2) * 14).toFixed(1) +
+        'px,' + z.toFixed(1) + 'px) rotateY(' + (-ang * 0.42).toFixed(1) + 'deg) scale(' + sc.toFixed(3) + ')';
       it.el.style.opacity = diss ? '0' : (0.52 + 0.48 * ((z + r) / (2 * r))).toFixed(3);
       it.el.style.zIndex = String(100 + Math.round(diss ? -999 : z));
     } else {
@@ -1179,7 +1136,7 @@ function expandGrid() {
   T.stage = 'grid';
   layout(0);
   boom(0.8);
-  hint('<span class="chip">手掌左右移动 · 转动照片星环</span>');
+  hint('<span class="chip">双手向外扩散 · 展开照片墙</span>');
 }
 
 function openCard(i) {
@@ -1220,63 +1177,187 @@ function onHandWall(h, dt) {
     if (dist > Math.min(W, H) * 0.30 && CARD.mode === 'ring') { expandGrid(); CARD.cool = 900; }
   }
   if (!h) { CARD.hasX = false; CARD.hot = -1; return; }
-  // 手掌横向速度 → 目标角速度；每帧积分，摄像头 20~30Hz 的抖动不再传到画面
-  var px = h.palm.x, nowT = performance.now();
+  // 只用手掌横向位移驱动「公转」，不做任何拾取/点击
+  var px = h.palm.x;
   if (CARD.hasX) {
-    var dts = Math.max(0.008, Math.min(0.20, (nowT - CARD.lastT) / 1000));
-    var vxp = (px - CARD.lastX) / dts;
-    if (Math.abs(vxp) < 45) vxp = 0;
-    var kk = 1 - Math.exp(-dts * 15);
-    CARD.drive += (vxp - CARD.drive) * kk;
-    CARD.vel = clamp(-CARD.drive * 0.155, -560, 560);
+    var vx = px - CARD.lastX;
+    if (Math.abs(vx) < 1.6) vx = 0;
+    CARD.vel = CARD.vel * 0.60 + vx * 1.20;
+    CARD.rotT -= vx * 1.05;
   }
   CARD.lastX = px;
-  CARD.lastT = nowT;
   CARD.hasX = true;
 }
 
-// 每帧推进：绕固定竖直轴做角速度积分；丢手后按指数阻尼惯性滑行
+// 每帧平滑推进旋转（与手是否有数据无关；丢手后按惯性滑行）
 function tickWall(dt) {
-  if (!CARD.on) return;
-  if (CARD.mode === 'ring') {
-    if (!CARD.hasX) {
-      CARD.drive *= Math.exp(-dt * 4.0);
-      CARD.vel *= Math.exp(-dt * 2.1);
-      if (Math.abs(CARD.vel) < 0.8) CARD.vel = 0;
-    }
-    CARD.rotT += CARD.vel * dt;
-    CARD.rot += (CARD.rotT - CARD.rot) * (1 - Math.exp(-24 * dt));
-    layout(CARD.rot);
+  if (!CARD.on || CARD.mode !== 'ring') return;
+  if (!CARD.hasX) {
+    CARD.rotT -= CARD.vel * 0.55;
+    CARD.vel *= Math.pow(0.34, dt * 3.0);
+    if (Math.abs(CARD.vel) < 0.02) CARD.vel = 0;
   }
+  CARD.rot += (CARD.rotT - CARD.rot) * (1 - Math.exp(-10.5 * dt));
+  layout(CARD.rot);
 }
 
 // 鼠标/触屏兜底（没有摄像头或调试用）
 var DRAG = null;
 addEventListener('pointerdown', function (e) {
   if (!CARD.on) return;
-  DRAG = { x: e.clientX, t: performance.now(), moved: 0 };
+  DRAG = { x: e.clientX, t: Date.now() };
 });
 addEventListener('pointermove', function (e) {
   if (!CARD.on || !DRAG) return;
-  if (CARD.mode === 'ring') {
-    var nowp = performance.now();
-    var dtp = Math.max(0.008, (nowp - DRAG.t) / 1000);
-    var dxp = e.clientX - DRAG.x;
-    CARD.rotT -= dxp * 0.9;
-    CARD.rot = CARD.rotT;
-    CARD.vel = clamp(-(dxp / dtp) * 0.32, -900, 900);
-    DRAG.x = e.clientX; DRAG.t = nowp; DRAG.moved += Math.abs(dxp);
-  }
+  if (CARD.mode === 'ring') { CARD.rotT -= (e.clientX - DRAG.x) * 0.9; DRAG.x = e.clientX; }
 });
 addEventListener('pointerup', function (e) {
   if (!CARD.on) { DRAG = null; return; }
-  var moved = DRAG ? DRAG.moved : 0;
+  var moved = DRAG ? Math.abs(e.clientX - DRAG.x) : 0;
   DRAG = null;
   if (moved < 8) {
     var i = pickCard(e.clientX, e.clientY);
     if (i >= 0) openCard(i);
   }
 });
-</script><script>boot();</script>
+</script>
+<script>
+"use strict";
+// ── 照片墙外圈：粒子光环（独立 program；暖金色，与蓝紫星场区分） ──
+var RING = { rot: 0, spd: 8.5, on: 0, n: NARROW ? 1500 : 2800, prog: null, buf: null, u: {}, loc: -1, ready: false };
+var RVS = [
+"attribute vec3 aR;",
+"uniform float uRot, uRp, uBand, uTilt, uHalfW, uHalfH, uPP, uTime, uDpr, uSize, uOn;",
+"varying vec3 vCol;",
+"varying float vA;",
+"void main(){",
+"  float a = aR.x * 6.2831853 + uRot;",
+"  float band = aR.y - 0.5;",
+"  float rr = uRp * (1.0 + band * 0.06);",
+"  float px = sin(a) * rr * 1.25;",
+"  float pz = cos(a) * rr;",
+"  float py = -cos(a) * uRp * uTilt + band * uBand * 2.0 + sin(a * 2.0 + uTime * 0.55 + aR.y * 7.0) * uBand * 0.45;",
+"  float persp = uPP / (uPP - pz);",
+"  vec2 q = vec2(px * persp / uHalfW, py * persp / uHalfH);",
+"  gl_Position = vec4(q, 0.0, 1.0);",
+"  gl_PointSize = clamp(uSize * uDpr * (0.55 + aR.y * 0.95) * persp, 0.9, 16.0 * uDpr);",
+"  float tw = 0.55 + 0.45 * sin(uTime * (1.1 + aR.y * 2.0) + aR.x * 47.0);",
+"  vec3 gold = vec3(1.00, 0.82, 0.48);",
+"  vec3 warm = vec3(1.00, 0.66, 0.38);",
+"  vec3 c = mix(gold, warm, aR.y);",
+"  float depth = 0.55 + 0.45 * clamp(pz / uRp * 0.5 + 0.5, 0.0, 1.0);",
+"  vCol = c * uOn * (0.85 + 0.35 * tw) * depth;",
+"  vA = (0.32 + 0.34 * aR.z) * uOn * tw;",
+"}"
+].join("\n");
+
+function initRing() {
+  if (RING.ready) return;
+  var pr = gl.createProgram();
+  gl.attachShader(pr, sh(gl.VERTEX_SHADER, RVS));
+  gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error("ring link: " + gl.getProgramInfoLog(pr));
+  RING.prog = pr;
+  var n = RING.n, arr = new Float32Array(n * 3);
+  for (var i = 0; i < n; i++) { arr[i*3] = Math.random(); arr[i*3+1] = Math.random(); arr[i*3+2] = Math.random(); }
+  RING.buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, RING.buf);
+  gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW);
+  RING.loc = gl.getAttribLocation(pr, "aR");
+  ["uRot","uRp","uBand","uTilt","uHalfW","uHalfH","uPP","uTime","uDpr","uSize","uOn"].forEach(function (k) {
+    RING.u[k] = gl.getUniformLocation(pr, k);
+  });
+  RING.ready = true;
+}
+
+// WebGL1 没有 VAO：画完光环必须把主程序的属性指针重新绑回来
+function rebindMain() {
+  var p = [["aA", bufA, 3], ["aB", bufB, 3], ["aSeed", bufSeed, 3], ["aTint", bufTint, 3]];
+  for (var i = 0; i < p.length; i++) {
+    var l = gl.getAttribLocation(PROG, p[i][0]);
+    if (l < 0) continue;
+    gl.bindBuffer(gl.ARRAY_BUFFER, p[i][1]);
+    gl.enableVertexAttribArray(l);
+    gl.vertexAttribPointer(l, p[i][2], gl.FLOAT, false, 0, 0);
+  }
+}
+
+function drawRing(rdt) {
+  var want = (CARD.on && CARD.mode === "ring") ? 1 : 0;
+  RING.on += (want - RING.on) * (1 - Math.exp(-2.6 * rdt));
+  if (RING.on < 0.004) return;
+  if (!RING.ready) initRing();
+  RING.rot += RING.spd * 0.0174532925 * rdt;
+  var u = RING.u;
+  gl.useProgram(RING.prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, RING.buf);
+  gl.enableVertexAttribArray(RING.loc);
+  gl.vertexAttribPointer(RING.loc, 3, gl.FLOAT, false, 0, 0);
+  gl.uniform1f(u.uRot, RING.rot);
+  gl.uniform1f(u.uRp, NARROW ? 140 : 430);
+  gl.uniform1f(u.uBand, NARROW ? 20 : 26);
+  gl.uniform1f(u.uTilt, NARROW ? 0.58 : 0.42);
+  gl.uniform1f(u.uHalfW, W * 0.5);
+  gl.uniform1f(u.uHalfH, H * 0.5);
+  gl.uniform1f(u.uPP, 1100);
+  gl.uniform1f(u.uTime, P.time);
+  gl.uniform1f(u.uDpr, DPR);
+  gl.uniform1f(u.uSize, NARROW ? 2.2 : 2.9);
+  gl.uniform1f(u.uOn, RING.on);
+  gl.drawArrays(gl.POINTS, 0, RING.n);
+  rebindMain();
+}
+
+// ── 手掌横划 → 角速度飞轮（惯性 + 阻尼，绕固定竖轴公转） ──
+CARD.anim = false; CARD.w = 0; CARD.vS = 0; CARD.vT = 0;
+
+function onHandWall(h, dt) {
+  if (CARD.cool > 0) CARD.cool -= dt * 1000;
+  if (!CARD.on) return;
+  if (HK.hands.length >= 2) {
+    var a0 = HK.hands[0], b0 = HK.hands[1];
+    var dist = Math.hypot(a0.palm.x - b0.palm.x, a0.palm.y - b0.palm.y);
+    if (dist > Math.min(W, H) * 0.30 && CARD.mode === "ring") { expandGrid(); CARD.cool = 900; }
+  }
+  if (!h) { CARD.hasX = false; CARD.hot = -1; return; }
+  var px = h.palm.x;
+  if (CARD.hasX && dt > 0.0008) {
+    var v = (px - CARD.lastX) / dt;
+    if (Math.abs(v) < 70) v = 0; else v -= (v > 0 ? 70 : -70);
+    CARD.vS += (v - CARD.vS) * (1 - Math.exp(-15 * dt));
+    CARD.vT = performance.now();
+  }
+  CARD.lastX = px;
+  CARD.hasX = true;
+}
+
+function tickWall(dt) {
+  if (!CARD.on || CARD.mode !== "ring" || CARD.anim) return;
+  var fresh = (performance.now() - (CARD.vT || 0)) < 150;
+  var target = fresh ? -CARD.vS * 0.30 : 0;
+  var k = fresh ? 9.0 : 1.9;
+  CARD.w += (target - CARD.w) * (1 - Math.exp(-k * dt));
+  if (Math.abs(CARD.w) < 0.06) CARD.w = 0;
+  if (CARD.w > 340) CARD.w = 340; else if (CARD.w < -340) CARD.w = -340;
+  if (CARD.w !== 0) { CARD.rot += CARD.w * dt; layout(CARD.rot); }
+}
+
+// 鼠标/触屏拖动也走同一套速度模型（DRAG 由 c9 的 pointerdown 维护）
+var MOUSEV = { x: 0, t: 0 };
+addEventListener("pointerdown", function (e) { MOUSEV.x = e.clientX; MOUSEV.t = performance.now(); });
+addEventListener("pointermove", function (e) {
+  if (!CARD.on || !DRAG || CARD.mode !== "ring") return;
+  var now = performance.now();
+  var dtm = (now - MOUSEV.t) / 1000;
+  if (dtm < 0.001) dtm = 0.001;
+  var v = (e.clientX - MOUSEV.x) / dtm;
+  MOUSEV.x = e.clientX; MOUSEV.t = now;
+  if (Math.abs(v) < 70) v = 0; else v -= (v > 0 ? 70 : -70);
+  CARD.vS += (v - CARD.vS) * 0.45;
+  CARD.vT = now;
+});
+</script>
+<script>boot();</script>
 </body>
 </html>
