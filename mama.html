@@ -1316,6 +1316,8 @@ function rebindMain() {
 }
 
 function drawRing(rdt) {
+  if (CARD.cool > 0) CARD.cool -= rdt * 1000; if (CARD.cool < 0) CARD.cool = 0;
+  wgTick();
   var want = (CARD.on && CARD.mode === "ring") ? 1 : 0;
   RING.on += (want - RING.on) * (1 - Math.exp(-2.6 * rdt));
   if (RING.on < 0.004) return;
@@ -1358,7 +1360,6 @@ function collapseRing() {
 window.__mb = window.__mb || {}; window.__mb.collapseRing = collapseRing;
 
 function onHandWall(h, dt) {
-  if (CARD.cool > 0) CARD.cool -= dt * 1000;
   if (!CARD.on) return;
   var fists = 0;
   for (var fi = 0; fi < HK.hands.length; fi++) if (HK.hands[fi].fist) fists++;
@@ -1406,6 +1407,63 @@ addEventListener("pointermove", function (e) {
   CARD.vS += (v - CARD.vS) * 0.45;
   CARD.vT = now;
 });
+
+// ── 照片墙分步引导（用户不知道下一步做什么 → 明确 1/2/3 步） ──
+var WG = null, WGmode = '', WGt = 0, WGdim = true;
+function wgEl() {
+  if (WG) return WG;
+  WG = document.createElement('div');
+  WG.id = 'wguide';
+  WG.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);' +
+    'bottom:calc(44px + env(safe-area-inset-bottom));z-index:6;display:flex;flex-direction:column;' +
+    'gap:6px;align-items:center;pointer-events:none;opacity:0;transition:opacity .5s';
+  document.body.appendChild(WG);
+  return WG;
+}
+function wgRow(n, txt, hot) {
+  return '<div style="display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:' + (NARROW ? 11.5 : 13) + 'px;' +
+    'letter-spacing:.03em;color:' + (hot ? '#ffe2a8' : '#c2d6f6') + ';text-shadow:0 2px 10px rgba(0,0,0,.85)">' +
+    '<span style="flex:0 0 auto;min-width:17px;height:17px;line-height:17px;text-align:center;border-radius:50%;' +
+    'font-size:10px;border:1px solid ' + (hot ? 'rgba(255,214,140,.8)' : 'rgba(150,190,255,.45)') + ';' +
+    'background:rgba(12,18,34,.6);color:' + (hot ? '#ffd88a' : '#a8c2ea') + '">' + n + '</span>' +
+    '<span>' + txt + '</span></div>';
+}
+function wgShow(mode) {
+  var e = wgEl();
+  var box = '<div style="padding:9px 15px;border-radius:14px;border:1px solid rgba(150,190,255,.22);' +
+    'background:rgba(10,16,30,.5);backdrop-filter:blur(6px);display:flex;flex-direction:column;gap:6px">';
+  if (mode === 'grid') {
+    e.innerHTML = box +
+      wgRow('✦', '<b>双手同时握拳</b> → 回到 3D 环绕', true) +
+      wgRow('✦', '<b>点一张照片</b> → 放大查看', false) + '</div>';
+  } else {
+    e.innerHTML = box +
+      wgRow('1', '<b>手掌左右划</b> → 照片墙跟着转', true) +
+      wgRow('2', '<b>双手向两边分开</b> → 展开全部照片', false) +
+      wgRow('3', '<b>点一张照片</b> → 放大查看', false) + '</div>';
+  }
+  e.style.opacity = '1';
+  WGt = performance.now(); WGdim = false;
+  if (typeof hint === 'function') hint('');
+}
+function wgTick() {
+  if (!WG) { if (!CARD.on) return; wgShow(CARD.mode); return; }
+  if (!CARD.on) { if (WG.style.opacity !== '0') WG.style.opacity = '0'; WGmode = ''; return; }
+  if (WGmode !== CARD.mode) { WGmode = CARD.mode; wgShow(CARD.mode); return; }
+  if (!WGdim && performance.now() - WGt > 9000) { WG.style.opacity = '.45'; WGdim = true; }
+}
+
+window.__mb = window.__mb || {};
+window.__mb.collapseRing = collapseRing;
+window.__mb.expandGrid = expandGrid;
+window.__mb.wgShow = wgShow;
+setTimeout(function () {
+  window.__mb = window.__mb || {};
+  window.__mb.collapseRing = collapseRing;
+  window.__mb.expandGrid = expandGrid;
+  window.__mb.wgShow = wgShow;
+  window.__mb.wgTick = wgTick;
+}, 0);
 </script>
 <script>boot();</script>
 </body>
