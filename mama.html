@@ -79,6 +79,18 @@ body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;-webki
 body.skyon #sky{opacity:1}
 @keyframes skyDrift{from{transform:translate3d(0,0,0) scale(1.04)}to{transform:translate3d(-160px,110px,0) scale(1.04)}}
 @keyframes skyTwinkle{from{opacity:.55}to{opacity:1}}
+/* ============ 照片墙阶段：外围粒子光环（暖金，刻意区别于冷白星场） ============ */
+#aura{position:absolute;left:50%;top:50%;width:0;height:0;z-index:3;opacity:0;perspective:2200px;transform-style:preserve-3d;pointer-events:none;transition:opacity 1.5s ease}
+body.wallon #aura{opacity:1}
+#aura .rg{position:absolute;left:0;top:0;width:0;height:0;transform-style:preserve-3d}
+#aura i{position:absolute;left:0;top:0;display:block;border-radius:50%;background:radial-gradient(circle,rgba(255,242,214,1) 0%,rgba(255,190,112,.9) 45%,rgba(255,150,60,0) 74%);box-shadow:0 0 9px rgba(255,196,128,.78);will-change:transform}
+@keyframes auraSpin{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
+@keyframes auraTwinkle{0%,100%{opacity:var(--o,.85)}50%{opacity:.3}}
+
+/* ============ 手势指引文字 ============ */
+#guide{position:fixed;left:0;right:0;z-index:7;text-align:center;pointer-events:none;bottom:calc(max(18px,env(safe-area-inset-bottom)) + 48px);opacity:0;transform:translateY(12px);transition:opacity .9s ease,transform .9s cubic-bezier(.2,.8,.2,1)}
+body.wallon #guide{opacity:1;transform:translateY(0)}
+#guide b{display:inline-block;padding:8px 18px;border-radius:999px;font-weight:400;font-size:13px;letter-spacing:.14em;color:#ffe8c8;border:1px solid rgba(255,204,140,.42);background:rgba(36,25,17,.6);box-shadow:0 10px 30px rgba(0,0,0,.45),inset 0 0 22px rgba(255,186,110,.16);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
 </style>
 </head>
 
@@ -89,6 +101,7 @@ body.skyon #sky{opacity:1}
 <div id="stage"></div>
 <div id="top">MOM &middot; HAPPY BIRTHDAY</div>
 <div id="hint"></div>
+<div id="guide"><b>手掌左右划，照片墙跟着转</b></div>
 <div id="cardModal"><span class="x">&times;</span><img alt=""><div class="cap"></div></div>
 <script>
 'use strict';
@@ -1071,8 +1084,10 @@ function buildWall() {
 function startWall() {
   buildWall();
   CARD.on = true;
-  CARD.vel = 0; CARD.hasX = false; CARD.hot = -1; CARD.lastX = 0;
+  CARD.vel = 0; CARD.drive = 0; CARD.hasX = false; CARD.hot = -1; CARD.lastX = 0; CARD.lastT = performance.now();
+  buildAura();
   document.body.classList.add('skyon');
+  document.body.classList.add('wallon');
   T.stage = 'wall';
   setTarget(ringPts(), 1.8);
   P.size = 0.86; P.bright = 0.52;
@@ -1093,8 +1108,43 @@ function startWall() {
   window.__mb.expandGrid = expandGrid;
 }
 
+/* 外围粒子光环：三条不同半径/转速的轨道，纯 CSS3D 自转（零逐帧开销） */
+var AURA = { el: null };
+
+function buildAura() {
+  if (AURA.el) return;
+  var el = document.createElement('div');
+  el.id = 'aura';
+  STAGE3.appendChild(el);
+  AURA.el = el;
+  var base = NARROW ? 150 : 480;
+  var specs = [
+    { r: base * 1.18, n: NARROW ? 54 : 96, sz: [2.2, 4.4], dur: 76, rev: false, o: 0.95, y: NARROW ? 14 : 24 },
+    { r: base * 1.38, n: NARROW ? 30 : 52, sz: [1.6, 3.0], dur: 112, rev: true, o: 0.58, y: NARROW ? 20 : 34 },
+    { r: base * 0.90, n: NARROW ? 22 : 36, sz: [1.4, 2.6], dur: 54, rev: false, o: 0.5, y: NARROW ? 10 : 18 }
+  ];
+  for (var s = 0; s < specs.length; s++) {
+    var sp = specs[s];
+    var rg = document.createElement('div');
+    rg.className = 'rg';
+    rg.style.animation = 'auraSpin ' + sp.dur + 's linear infinite' + (sp.rev ? ' reverse' : '');
+    for (var i = 0; i < sp.n; i++) {
+      var a = (i / sp.n) * 360 + rnd(-3, 3);
+      var d = document.createElement('i');
+      var sz = rnd(sp.sz[0], sp.sz[1]);
+      d.style.width = sz.toFixed(1) + 'px';
+      d.style.height = sz.toFixed(1) + 'px';
+      d.style.setProperty('--o', (sp.o * rnd(0.55, 1)).toFixed(2));
+      d.style.transform = 'rotateY(' + a.toFixed(2) + 'deg) translateZ(' + sp.r.toFixed(0) + 'px) translateY(' + (Math.sin(a * Math.PI / 180 * 3) * sp.y).toFixed(1) + 'px)';
+      d.style.animation = 'auraTwinkle ' + rnd(2.4, 6).toFixed(2) + 's ease-in-out ' + rnd(0, 3).toFixed(2) + 's infinite';
+      rg.appendChild(d);
+    }
+    el.appendChild(rg);
+  }
+}
+
 function layout(rot) {
-  var r = NARROW ? 140 : 430;
+  var r = NARROW ? 150 : 500;
   for (var i = 0; i < CARD.items.length; i++) {
     var it = CARD.items[i];
     if (CARD.mode === 'ring') {
@@ -1102,11 +1152,10 @@ function layout(rot) {
       var rad = a * Math.PI / 180;
       var ang = ((a % 360) + 540) % 360 - 180;
       var z = Math.cos(rad) * r;
-      var x = Math.sin(rad) * r * 1.25;
+      var x = Math.sin(rad) * r;
       var sc = 0.52 + 0.32 * ((z + r) / (2 * r));
       var diss = Math.abs(ang) > 82;
-      it.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + (Math.sin(rad * 2) * 14).toFixed(1) +
-        'px,' + z.toFixed(1) + 'px) rotateY(' + (-ang * 0.42).toFixed(1) + 'deg) scale(' + sc.toFixed(3) + ')';
+      it.el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,0,' + z.toFixed(1) + 'px) rotateY(' + (-ang * 0.42).toFixed(1) + 'deg) scale(' + sc.toFixed(3) + ')';
       it.el.style.opacity = diss ? '0' : (0.52 + 0.48 * ((z + r) / (2 * r))).toFixed(3);
       it.el.style.zIndex = String(100 + Math.round(diss ? -999 : z));
     } else {
@@ -1171,43 +1220,57 @@ function onHandWall(h, dt) {
     if (dist > Math.min(W, H) * 0.30 && CARD.mode === 'ring') { expandGrid(); CARD.cool = 900; }
   }
   if (!h) { CARD.hasX = false; CARD.hot = -1; return; }
-  // 只用手掌横向位移驱动「公转」，不做任何拾取/点击
-  var px = h.palm.x;
+  // 手掌横向速度 → 目标角速度；每帧积分，摄像头 20~30Hz 的抖动不再传到画面
+  var px = h.palm.x, nowT = performance.now();
   if (CARD.hasX) {
-    var vx = px - CARD.lastX;
-    if (Math.abs(vx) < 1.6) vx = 0;
-    CARD.vel = CARD.vel * 0.60 + vx * 1.20;
-    CARD.rotT -= vx * 1.05;
+    var dts = Math.max(0.008, Math.min(0.20, (nowT - CARD.lastT) / 1000));
+    var vxp = (px - CARD.lastX) / dts;
+    if (Math.abs(vxp) < 45) vxp = 0;
+    var kk = 1 - Math.exp(-dts * 15);
+    CARD.drive += (vxp - CARD.drive) * kk;
+    CARD.vel = clamp(-CARD.drive * 0.155, -560, 560);
   }
   CARD.lastX = px;
+  CARD.lastT = nowT;
   CARD.hasX = true;
 }
 
-// 每帧平滑推进旋转（与手是否有数据无关；丢手后按惯性滑行）
+// 每帧推进：绕固定竖直轴做角速度积分；丢手后按指数阻尼惯性滑行
 function tickWall(dt) {
-  if (!CARD.on || CARD.mode !== 'ring') return;
-  if (!CARD.hasX) {
-    CARD.rotT -= CARD.vel * 0.55;
-    CARD.vel *= Math.pow(0.34, dt * 3.0);
-    if (Math.abs(CARD.vel) < 0.02) CARD.vel = 0;
+  if (!CARD.on) return;
+  if (CARD.mode === 'ring') {
+    if (!CARD.hasX) {
+      CARD.drive *= Math.exp(-dt * 4.0);
+      CARD.vel *= Math.exp(-dt * 2.1);
+      if (Math.abs(CARD.vel) < 0.8) CARD.vel = 0;
+    }
+    CARD.rotT += CARD.vel * dt;
+    CARD.rot += (CARD.rotT - CARD.rot) * (1 - Math.exp(-24 * dt));
+    layout(CARD.rot);
   }
-  CARD.rot += (CARD.rotT - CARD.rot) * (1 - Math.exp(-10.5 * dt));
-  layout(CARD.rot);
 }
 
 // 鼠标/触屏兜底（没有摄像头或调试用）
 var DRAG = null;
 addEventListener('pointerdown', function (e) {
   if (!CARD.on) return;
-  DRAG = { x: e.clientX, t: Date.now() };
+  DRAG = { x: e.clientX, t: performance.now(), moved: 0 };
 });
 addEventListener('pointermove', function (e) {
   if (!CARD.on || !DRAG) return;
-  if (CARD.mode === 'ring') { CARD.rotT -= (e.clientX - DRAG.x) * 0.9; DRAG.x = e.clientX; }
+  if (CARD.mode === 'ring') {
+    var nowp = performance.now();
+    var dtp = Math.max(0.008, (nowp - DRAG.t) / 1000);
+    var dxp = e.clientX - DRAG.x;
+    CARD.rotT -= dxp * 0.9;
+    CARD.rot = CARD.rotT;
+    CARD.vel = clamp(-(dxp / dtp) * 0.32, -900, 900);
+    DRAG.x = e.clientX; DRAG.t = nowp; DRAG.moved += Math.abs(dxp);
+  }
 });
 addEventListener('pointerup', function (e) {
   if (!CARD.on) { DRAG = null; return; }
-  var moved = DRAG ? Math.abs(e.clientX - DRAG.x) : 0;
+  var moved = DRAG ? DRAG.moved : 0;
   DRAG = null;
   if (moved < 8) {
     var i = pickCard(e.clientX, e.clientY);
