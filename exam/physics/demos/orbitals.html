@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>氢原子电子概率角度分布 - 量子力学可视化 | 3D交互式动画</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Microsoft YaHei', 'Segoe UI', 'PingFang SC', Roboto, 'Helvetica Neue', sans-serif;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            padding: 12px 20px;
+            border-radius: 12px;
+            z-index: 10;
+            pointer-events: none;
+            border-left: 4px solid #ff3366;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            font-size: 14px;
+        }
+        #info h1 {
+            margin: 0 0 5px;
+            font-size: 1.2rem;
+            letter-spacing: 1px;
+        }
+        #info p {
+            margin: 0;
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(30,30,40,0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 15px 25px;
+            color: white;
+            z-index: 20;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+            font-family: monospace;
+            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            pointer-events: auto;
+            font-size: 14px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0,0,0,0.5);
+            padding: 8px 16px;
+            border-radius: 40px;
+            backdrop-filter: blur(4px);
+        }
+        .control-group label {
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        input {
+            cursor: pointer;
+            width: 180px;
+            accent-color: #ff6699;
+        }
+        .value-display {
+            background: #000000aa;
+            padding: 4px 12px;
+            border-radius: 20px;
+            min-width: 60px;
+            text-align: center;
+            font-weight: bold;
+            color: #ffaa77;
+        }
+        .orbitalsymbol {
+            background: #1e2a3a;
+            padding: 6px 16px;
+            border-radius: 32px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            font-family: monospace;
+            letter-spacing: 2px;
+            border: 1px solid #ffaa77;
+            box-shadow: 0 0 8px rgba(255,170,119,0.3);
+        }
+        .note {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-left: auto;
+        }
+        @media (max-width: 800px) {
+            .control-group { padding: 4px 12px; }
+            input { width: 120px; }
+            .orbitalsymbol { font-size: 0.9rem; padding: 4px 12px; }
+            .note { display: none; }
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px);}
+            to { opacity: 1; transform: translateY(0);}
+        }
+        .status {
+            position: absolute;
+            bottom: 90px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #ccc;
+            pointer-events: none;
+            font-family: monospace;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>⚛️ 氢原子电子概率角度分布 | |Y<sub>l,m</sub>(θ,φ)|<sup>2</sup></h1>
+        <p>球谐函数模平方 → 电子在空间各方向出现的概率密度 | 颜色越红表示概率密度越大</p>
+    </div>
+    <div id="controls">
+        <div class="control-group">
+            <span>📐 角量子数 <i>l</i> :</span>
+            <input type="range" id="lSlider" min="0" max="4" step="1" value="0">
+            <span id="lValue" class="value-display">0</span>
+        </div>
+        <div class="control-group">
+            <span>🧲 磁量子数 <i>m</i> :</span>
+            <input type="range" id="mSlider" min="0" max="0" step="1" value="0">
+            <span id="mValue" class="value-display">0</span>
+        </div>
+        <div id="orbitalSymbol" class="orbitalsymbol">1s (球形对称)</div>
+        <div class="note">💡 提示: |Y<sub>l,m</sub>|<sup>2</sup> 与 φ 无关 (绕z轴旋转对称) | m>0 与 m<0 分布相同</div>
+    </div>
+    <div class="status">
+        🖱️ 鼠标拖拽旋转视角 | 右键平移 | 滚动缩放
+    </div>
+
+    <!-- 引入Three.js核心库及扩展 -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+        // --- 初始化场景、相机、渲染器 ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050b1a); // 深邃星空蓝黑
+        scene.fog = new THREE.FogExp2(0x050b1a, 0.008); // 轻微雾效增强景深
+
+        // 透视相机 (视角, 宽高比, 近平面, 远平面)
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(2.2, 1.5, 2.5);
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = false; // 本例不需要阴影提高性能
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
+        
+        // CSS2渲染文字坐标轴
+        const labelRenderer = new CSS2DRenderer();
+        labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        labelRenderer.domElement.style.position = 'absolute';
+        labelRenderer.domElement.style.top = '0px';
+        labelRenderer.domElement.style.left = '0px';
+        labelRenderer.domElement.style.pointerEvents = 'none';
+        document.body.appendChild(labelRenderer.domElement);
+
+        // --- 轨道控制 (允许用户互动) ---
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;      // 惯性效果
+        controls.dampingFactor = 0.05;
+        controls.rotateSpeed = 1.2;
+        controls.zoomSpeed = 1.2;
+        controls.panSpeed = 0.8;
+        controls.enableZoom = true;
+        controls.autoRotate = false;
+        controls.target.set(0, 0, 0);
+        
+        // --- 辅助元素: 坐标轴和网格 (增强空间感) ---
+        // 轴线辅助 (带颜色的小箭头或线)
+        const axesHelper = new THREE.AxesHelper(1.2);
+        axesHelper.material.transparent = true;
+        axesHelper.material.opacity = 0.25;
+        scene.add(axesHelper);
+        
+        // 透明网格地板 (参考平面)
+        const gridHelper = new THREE.GridHelper(3.5, 20, 0x88aaff, 0x335588);
+        gridHelper.position.y = -0.9;
+        gridHelper.material.transparent = true;
+        gridHelper.material.opacity = 0.25;
+        scene.add(gridHelper);
+        
+        // 添加一个微弱的球体线框来表示参考球体 (半径1)
+        const wireframeSphere = new THREE.LineSegments();
+        const sphereGeo = new THREE.SphereGeometry(1, 24, 16);
+        const edgesGeo = new THREE.EdgesGeometry(sphereGeo);
+        const wireMat = new THREE.LineBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.12 });
+        const wireframe = new THREE.LineSegments(edgesGeo, wireMat);
+        scene.add(wireframe);
+        
+        // 添加背景星空的点效果 (简单装饰)
+        const starGeometry = new THREE.BufferGeometry();
+        const starCount = 800;
+        const starPositions = new Float32Array(starCount * 3);
+        for (let i = 0; i < starCount; i++) {
+            starPositions[i*3] = (Math.random() - 0.5) * 200;
+            starPositions[i*3+1] = (Math.random() - 0.5) * 100;
+            starPositions[i*3+2] = (Math.random() - 0.5) * 100 - 50;
+        }
+        starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.08, transparent: true, opacity: 0.6 });
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+        
+        // --- 灯光系统 (为立体感提供照明) ---
+        // 环境光
+        const ambientLight = new THREE.AmbientLight(0x222222);
+        scene.add(ambientLight);
+        // 主光源方向光
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(1, 2, 1);
+        scene.add(dirLight);
+        // 背光补充轮廓
+        const backLight = new THREE.DirectionalLight(0x88aaff, 0.5);
+        backLight.position.set(-1, 1, -1.5);
+        scene.add(backLight);
+        // 暖色填充光从底部
+        const fillLight = new THREE.PointLight(0xaa6644, 0.3);
+        fillLight.position.set(0, -1, 0);
+        scene.add(fillLight);
+        
+        // --- 核心数据: 球体几何 (用于变形展示概率密度角度分布) ---
+        // 细分参数: 径向分段足够表现平滑的形状 (纬度分段60, 经度分段60)
+        const segmentsPhi = 64;   // 方位角分段
+        const segmentsTheta = 64; // 极角分段
+        const baseGeometry = new THREE.SphereGeometry(1, segmentsTheta, segmentsPhi);
+        
+        // 保存原始单位方向向量 (归一化的顶点位置)
+        const positionsOriginal = baseGeometry.attributes.position.array.slice();
+        const vertexCount = positionsOriginal.length / 3;
+        
+        // 存储每个顶点对应的单位向量 (x,y,z) 归一化后方向
+        const directions = [];
+        for (let i = 0; i < vertexCount; i++) {
+            const ix = i*3;
+            let x = positionsOriginal[ix];
+            let y = positionsOriginal[ix+1];
+            let z = positionsOriginal[ix+2];
+            const len = Math.hypot(x, y, z);
+            if (len > 1e-6) {
+                directions.push({x: x/len, y: y/len, z: z/len});
+            } else {
+                directions.push({x: 0, y: 0, z: 1});
+            }
+        }
+        
+        // 材质: 带顶点颜色的光滑材质，使得概率密度映射到颜色上
+        const material = new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            roughness: 0.35,
+            metalness: 0.1,
+            flatShading: false,
+            emissive: 0x000000,
+            side: THREE.DoubleSide  // 让内部在相机穿过时也有颜色，展示形状完整性
+        });
+        
+        const orbitalMesh = new THREE.Mesh(baseGeometry, material);
+        scene.add(orbitalMesh);
+        
+        // --- 辅助函数: 阶乘 (用于归一化因子)---
+        function factorial(n) {
+            if (n <= 1) return 1;
+            let result = 1;
+            for (let i = 2; i <= n; i++) result *= i;
+            return result;
+        }
+        
+        // --- 连带勒让德多项式 P_l^m(x) 实现 (l=0..4, m>=0, x = cosθ)---
+        // 使用显式多项式公式，保证精度和性能 (适用于低量子数教学范围)
+        function associatedLegendre(l, m, x) {
+            // 处理负m: 由于概率密度只依赖于|m|，且我们只调用 m>=0 版本，符号不影响模平方
+            const abs_m = Math.abs(m);
+            if (abs_m > l) return 0;
+            // 限制x范围防止数值误差
+            const xc = Math.min(Math.max(x, -1.0), 1.0);
+            const sqrtTerm = Math.sqrt(1 - xc*xc);
+            
+            // 根据 l 和 m 返回 P_l^m(x) (未包含Condon-Shortley相位，但模平方时符号无关)
+            if (l === 0 && abs_m === 0) return 1;
+            
+            if (l === 1) {
+                if (abs_m === 0) return xc;
+                if (abs_m === 1) return -Math.sqrt(1 - xc*xc); // -sqrt(1-x^2)
+            }
+            if (l === 2) {
+                if (abs_m === 0) return 0.5 * (3*xc*xc - 1);
+                if (abs_m === 1) return -3 * xc * sqrtTerm;
+                if (abs_m === 2) return 3 * (1 - xc*xc);
+            }
+            if (l === 3) {
+                if (abs_m === 0) return 0.5 * (5*xc*xc*xc - 3*xc);
+                if (abs_m === 1) return -1.5 * (5*xc*xc - 1) * sqrtTerm;
+                if (abs_m === 2) return 15 * xc * (1 - xc*xc);
+                if (abs_m === 3) return -15 * Math.pow(1 - xc*xc, 1.5);
+            }
+            if (l === 4) {
+                if (abs_m === 0) return (35*xc*xc*xc*xc - 30*xc*xc + 3) / 8;
+                if (abs_m === 1) return -2.5 * (7*xc*xc*xc - 3*xc) * sqrtTerm;
+                if (abs_m === 2) return (15/2) * (7*xc*xc - 1) * (1 - xc*xc);
+                if (abs_m === 3) return -105 * xc * Math.pow(1 - xc*xc, 1.5);
+                if (abs_m === 4) return 105 * Math.pow(1 - xc*xc, 2);
+            }
+            // 更高阶未定义 (默认返回0)
+            return 0;
+        }
+        
+        // --- 计算 |Y_l^m|^2 概率密度 (角度部分) ---
+        function angularProbabilityDensity(l, m, theta, phi) {
+            // phi 实际上不影响概率密度 (因为|e^{imφ}|=1)，但为了完整性保留参数
+            const abs_m = Math.abs(m);
+            if (abs_m > l) return 0;
+            const x = Math.cos(theta);
+            const Plm = associatedLegendre(l, abs_m, x);
+            // 归一化因子 N_lm 平方
+            const factor1 = (2*l + 1) / (4 * Math.PI);
+            const factLminusM = factorial(l - abs_m);
+            const factLplusM = factorial(l + abs_m);
+            const normSq = factor1 * (factLminusM / factLplusM);
+            // 概率密度 = normSq * (P_l^m)^2
+            let density = normSq * Plm * Plm;
+            // 对于m=0, 不存在额外因子；对于m≠0，由于连带勒让德包含(-1)^m, 平方后已去符号
+            // 确保非负
+            return Math.max(0, density);
+        }
+        
+        // --- 更新网格形状: 根据当前的 (l,m) 重新计算顶点半径和顶点颜色 ---
+        let currentL = 0;
+        let currentM = 0;
+        
+        function updateOrbital(l, m) {
+            // 确保m的绝对值用于计算 (但显示正m，形状相同)
+            const absM = Math.abs(m);
+            // 第一步: 计算所有顶点的概率密度值，并找出最大值用于归一化半径和颜色映射
+            const densities = new Array(vertexCount);
+            let maxDensity = 0;
+            
+            for (let i = 0; i < vertexCount; i++) {
+                const dir = directions[i];
+                const x = dir.x, y = dir.y, z = dir.z;
+                // 球坐标: theta (极角 0~π), phi (方位角 0~2π)
+                const theta = Math.acos(Math.min(Math.max(z, -1.0), 1.0));
+                const phi = Math.atan2(y, x);
+                const prob = angularProbabilityDensity(l, absM, theta, phi);
+                densities[i] = prob;
+                if (prob > maxDensity) maxDensity = prob;
+            }
+            
+            // 防止maxDensity为0 (理论不会，除l,m超出范围)
+            if (maxDensity < 1e-8) maxDensity = 1e-8;
+            
+            // 半径缩放系数: 让形状最大半径为 0.85 (留出空间给坐标轴和美观)
+            const maxRadius = 0.85;
+            // 新顶点位置数组 和 颜色数组
+            const positionsNew = new Float32Array(positionsOriginal.length);
+            const colors = new Float32Array(vertexCount * 3);
+            
+            for (let i = 0; i < vertexCount; i++) {
+                const dir = directions[i];
+                const prob = densities[i];
+                // 半径比例: 使用 sqrt? 为了视觉上突出概率差异，保持线性映射，保证形状直观反映概率密度
+                let r = (prob / maxDensity) * maxRadius;
+                // 对于概率密度极小的点，保留下限使得形状不断裂，更美观
+                if (r < 0.03) r = 0.03;
+                
+                // 新顶点坐标
+                const newX = dir.x * r;
+                const newY = dir.y * r;
+                const newZ = dir.z * r;
+                positionsNew[i*3] = newX;
+                positionsNew[i*3+1] = newY;
+                positionsNew[i*3+2] = newZ;
+                
+                // 颜色映射: 从蓝色(低概率) -> 青色 -> 橙红(高概率)
+                // 比例 t = prob / maxDensity (0~1)
+                const t = prob / maxDensity;
+                // 色调: 低概率 (0.2,0.3,0.8) 蓝紫色，高概率 (1.0,0.4,0.2) 橙红
+                const rColor = 0.2 + t * 0.8;
+                const gColor = 0.2 + t * 0.5;
+                const bColor = 0.8 - t * 0.6;
+                colors[i*3] = rColor;
+                colors[i*3+1] = gColor;
+                colors[i*3+2] = bColor;
+            }
+            
+            // 更新几何体顶点位置
+            baseGeometry.attributes.position.array = positionsNew;
+            baseGeometry.attributes.position.needsUpdate = true;
+            // 更新颜色属性
+            if (!baseGeometry.attributes.color) {
+                baseGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            } else {
+                baseGeometry.attributes.color.array = colors;
+                baseGeometry.attributes.color.needsUpdate = true;
+            }
+            // 重新计算法线以获得正确光照效果
+            baseGeometry.computeVertexNormals();
+            
+            // 更新轨道符号显示
+            const orbitalNames = ['s', 'p', 'd', 'f', 'g'];
+            const lSymbol = orbitalNames[l] || (l >= 0 ? `l=${l}` : '');
+            let mDisplay = m;
+            let symbolText = '';
+            if (l === 0 && m === 0) symbolText = `1s (球形对称)`;
+            else {
+                let subshell = '';
+                if (l === 0) subshell = 's';
+                else if (l === 1) subshell = 'p';
+                else if (l === 2) subshell = 'd';
+                else if (l === 3) subshell = 'f';
+                else subshell = `l=${l}`;
+                symbolText = `${l}${subshell} , m = ${mDisplay}  |Y|² 角度分布`;
+                if (mDisplay !== 0) symbolText += ` (绕z轴对称)`;
+            }
+            document.getElementById('orbitalSymbol').innerHTML = symbolText;
+        }
+        
+        // --- UI 绑定与事件处理 ---
+        const lSlider = document.getElementById('lSlider');
+        const mSlider = document.getElementById('mSlider');
+        const lValueSpan = document.getElementById('lValue');
+        const mValueSpan = document.getElementById('mValue');
+        
+        function updateSlidersAndShape() {
+            let l = parseInt(lSlider.value, 10);
+            let m = parseInt(mSlider.value, 10);
+            // 限制 m 范围
+            const maxM = l;
+            if (m > maxM) {
+                m = maxM;
+                mSlider.value = m;
+            }
+            if (m < 0) m = 0; // 只显示非负，因为正负分布相同
+            mSlider.max = maxM;
+            
+            lValueSpan.textContent = l;
+            mValueSpan.textContent = m;
+            currentL = l;
+            currentM = m;
+            updateOrbital(l, m);
+        }
+        
+        lSlider.addEventListener('input', () => {
+            let l = parseInt(lSlider.value, 10);
+            let currentM = parseInt(mSlider.value, 10);
+            if (currentM > l) {
+                mSlider.value = l;
+            }
+            updateSlidersAndShape();
+        });
+        
+        mSlider.addEventListener('input', updateSlidersAndShape);
+        
+        // 额外在页面加载后添加一个简单 CSS2D 坐标轴标签 (X, Y, Z)
+        function makeAxisLabel(text, color, position) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            div.style.color = color;
+            div.style.fontSize = '18px';
+            div.style.fontWeight = 'bold';
+            div.style.textShadow = '1px 1px 0px black';
+            div.style.background = 'rgba(0,0,0,0.4)';
+            div.style.padding = '2px 6px';
+            div.style.borderRadius = '20px';
+            div.style.fontFamily = 'monospace';
+            const label = new CSS2DObject(div);
+            label.position.copy(position);
+            scene.add(label);
+        }
+        makeAxisLabel('X', '#ff8888', new THREE.Vector3(1.3, 0, 0));
+        makeAxisLabel('Y', '#88ff88', new THREE.Vector3(0, 1.3, 0));
+        makeAxisLabel('Z', '#8888ff', new THREE.Vector3(0, 0, 1.3));
+        
+        // 增加一个简单光晕/辉光效果的后处理? 为了轻量化不加额外库，添加一个周围微粒子环
+        const glowPointsGeometry = new THREE.BufferGeometry();
+        const glowCount = 600;
+        const glowPositions = new Float32Array(glowCount * 3);
+        for (let i = 0; i < glowCount; i++) {
+            // 在半径为 1.1 到 1.5 的球面上随机分布粒子
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const r = 1.15 + Math.random() * 0.3;
+            const x = r * Math.sin(phi) * Math.cos(theta);
+            const y = r * Math.sin(phi) * Math.sin(theta);
+            const z = r * Math.cos(phi);
+            glowPositions[i*3] = x;
+            glowPositions[i*3+1] = y;
+            glowPositions[i*3+2] = z;
+        }
+        glowPointsGeometry.setAttribute('position', new THREE.BufferAttribute(glowPositions, 3));
+        const glowMaterial = new THREE.PointsMaterial({ color: 0x88aaff, size: 0.012, transparent: true, opacity: 0.4 });
+        const glowParticles = new THREE.Points(glowPointsGeometry, glowMaterial);
+        scene.add(glowParticles);
+        
+        // 添加一个微妙的光晕效果: 围绕物体的泛光感 (通过点光源和雾效)
+        const centerLight = new THREE.PointLight(0x4466cc, 0.5, 3);
+        centerLight.position.set(0, 0, 0);
+        scene.add(centerLight);
+        
+        // 周期性轻微改变颜色增强视觉效果 (非必须，只是为了生动)
+        let time = 0;
+        
+        // --- 动画循环 & 自动微旋转 (可选，为了更好观察，但不自动旋转，保留用户控制) ---
+        // 但我们可以让光晕粒子缓慢自转，增加生动性
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.005;
+            
+            // 粒子系统缓慢旋转
+            glowParticles.rotation.y = time * 0.1;
+            glowParticles.rotation.x = Math.sin(time * 0.2) * 0.1;
+            stars.rotation.y = time * 0.02;
+            stars.rotation.x = time * 0.01;
+            
+            // 动态改变中心光源强度微变
+            const intensity = 0.5 + Math.sin(time * 1.2) * 0.15;
+            centerLight.intensity = intensity;
+            
+            // 更新轨道控制
+            controls.update(); // 如果 autoRotate 关闭，也需要调用以更新阻尼
+            // 渲染
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+        
+        // 启动动画并设置初始状态
+        updateSlidersAndShape();
+        animate();
+        
+        // 窗口自适应
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            labelRenderer.setSize(window.innerWidth, window.innerHeight);
+        }
+        
+        // 控制台输出提示
+        console.log('氢原子角度分布3D互动已启动 | 初始状态: l=0, m=0 (1s轨道)');
+        
+        // 添加一个小指引: 悬浮提示效果 (简单)
+        const helpDiv = document.createElement('div');
+        helpDiv.innerHTML = '🎓 量子数(l,m)决定电子云形状 | l=0球形，l=1哑铃型(m=0)或环形(m=±1)，l=2四叶形…';
+        helpDiv.style.position = 'absolute';
+        helpDiv.style.bottom = '80px';
+        helpDiv.style.right = '20px';
+        helpDiv.style.backgroundColor = 'rgba(0,0,0,0.5)';
+        helpDiv.style.color = '#ccc';
+        helpDiv.style.fontSize = '11px';
+        helpDiv.style.padding = '5px 12px';
+        helpDiv.style.borderRadius = '20px';
+        helpDiv.style.fontFamily = 'sans-serif';
+        helpDiv.style.pointerEvents = 'none';
+        document.body.appendChild(helpDiv);
+    </script>
+</body>
+</html>

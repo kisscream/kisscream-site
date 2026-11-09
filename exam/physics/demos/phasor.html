@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer">
+    <title>简谐振动模拟</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            display: flex;
+            width: 1000px;
+            gap: 20px;
+        }
+        .controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+        }
+        .speed-buttons button {
+            margin: 5px;
+            padding: 5px 15px;
+        }
+        .active {
+            background-color: blue;
+            color: white;
+        }
+        #equation {
+            font-size: 1.2em;
+            margin: 20px 0;
+        }
+        h1 {
+            text-align: center;
+        }
+    </style>
+<meta name="viewport" content="width=device-width,initial-scale=1"><style>.container{width:min(100%,1000px)}canvas{max-width:100%;height:auto}@media(max-width:850px){.container{flex-direction:column}.container>div{min-width:0}h1{font-size:24px}}</style></head>
+<body>
+    <h1>简谐振动与旋转矢量图</h1>
+    <div class="container">
+        <div class="controls">
+            <div>
+                <label>初始位移: <span id="disp-value">0.00</span></label>
+                <input type="range" id="displacement" min="-4" max="4" step="0.1" value="0">
+            </div>
+            <div class="speed-buttons">
+                <button id="speed-positive" class="active">正</button>
+                <button id="speed-negative">负</button>
+            </div>
+            <div id="equation">振动方程: x = 4cos(π/4 t + φ)</div>
+            <button id="toggle-animation">开始/暂停</button>
+            <canvas id="vibration-curve" width="400" height="150"></canvas>
+        </div>
+        <div>
+            <canvas id="main-canvas" width="500" height="300"></canvas>
+            <canvas id="vector-diagram" width="500" height="200"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const mainCtx = document.getElementById('main-canvas').getContext('2d');
+        const vectorCtx = document.getElementById('vector-diagram').getContext('2d');
+        const curveCtx = document.getElementById('vibration-curve').getContext('2d');
+        
+        // 物理参数
+        const A = 4;
+        const ω = Math.PI/4;
+        let x0 = 0;
+        let vSign = 1;
+        let phi = -Math.PI/2;
+        let isAnimating = false;
+        let animationId;
+        let t = 0;
+
+        // 控件元素
+        const displacement = document.getElementById('displacement');
+        const dispValue = document.getElementById('disp-value');
+        const speedPositive = document.getElementById('speed-positive');
+        const speedNegative = document.getElementById('speed-negative');
+
+        // 更新相位计算
+        function updatePhase() {
+            const v0 = vSign * ω * Math.sqrt(A**2 - x0**2);
+            const cosPhi = x0 / A;
+            const sinPhi = -v0 / (A * ω);
+            phi = Math.atan2(sinPhi, cosPhi);
+            updateEquation();
+            redrawAll();
+        }
+
+        // 更新方程显示
+        function updateEquation() {
+            const equation = `x = 4cos(π/4 t ${phi >= 0 ? '+' : '-'} ${Math.abs(phi/Math.PI).toFixed(2)}π)`;
+            document.getElementById('equation').textContent = `振动方程: ${equation}`;
+        }
+
+        // 绘制弹簧振子（最终优化版）
+        function drawSpringMass(currentT = 0) {
+            mainCtx.clearRect(0, 0, 500, 300);
+            
+            // 坐标轴
+            mainCtx.beginPath();
+            mainCtx.moveTo(50, 150);
+            mainCtx.lineTo(450, 150);
+            mainCtx.moveTo(450, 150);
+            mainCtx.lineTo(440, 145);
+            mainCtx.moveTo(450, 150);
+            mainCtx.lineTo(440, 155);
+            mainCtx.stroke();
+            mainCtx.fillText("x", 455, 150);
+            mainCtx.fillText("O", 245, 165);
+
+            // 振幅标记
+            mainCtx.fillStyle = 'black';
+            mainCtx.beginPath();
+            mainCtx.arc(250 + A*20, 150, 3, 0, Math.PI*2);
+            mainCtx.arc(250 - A*20, 150, 3, 0, Math.PI*2);
+            mainCtx.fill();
+            mainCtx.fillText("A", 250 + A*20 +5, 145);
+            mainCtx.fillText("A", 250 - A*20 -15, 145);
+
+            // 计算当前位移
+            const x = A * Math.cos(ω * currentT + phi);
+            
+            // 绘制弹簧（最终参数）
+            const springStartX = 20; // 起始点左移到20px
+            const springX = 250 + x*20;
+            mainCtx.beginPath();
+            mainCtx.moveTo(springStartX, 150);
+            mainCtx.lineWidth = 8; // 线宽增加到5px
+            for(let i = 0; i < 8; i++) {  // 线圈增加到8个
+                const phase = i * Math.PI;
+                const dx = (springX - springStartX)/8 * i;
+                const y = 150 + Math.sin(phase)*80;  // 振幅增加到80px
+                mainCtx.lineTo(springStartX + dx, y);
+            }
+            mainCtx.stroke();
+            mainCtx.lineWidth = 1;
+
+            // 绘制振子
+            mainCtx.fillStyle = 'blue';
+            mainCtx.fillRect(springX - 20, 130, 40, 40);
+        }
+
+        // 绘制旋转矢量图
+        function drawRotationVector(currentT = 0) {
+            vectorCtx.clearRect(0, 0, 500, 200);
+            const radius = A*20;
+            
+            vectorCtx.beginPath();
+            vectorCtx.arc(250, 100, radius, 0, Math.PI*2);
+            
+            vectorCtx.moveTo(250 - radius - 10, 100);
+            vectorCtx.lineTo(250 + radius + 10, 100);
+            vectorCtx.moveTo(250 + radius + 10, 100);
+            vectorCtx.lineTo(250 + radius + 5, 95);
+            vectorCtx.moveTo(250 + radius + 10, 100);
+            vectorCtx.lineTo(250 + radius + 5, 105);
+            vectorCtx.fillText("x", 250 + radius + 15, 105);
+            vectorCtx.stroke();
+
+            const angle = -(ω * currentT + phi);
+            const vx = 250 + radius * Math.cos(angle);
+            const vy = 100 + radius * Math.sin(angle);
+            
+            vectorCtx.beginPath();
+            vectorCtx.moveTo(250, 100);
+            vectorCtx.lineTo(vx, vy);
+            vectorCtx.strokeStyle = 'red';
+            vectorCtx.stroke();
+
+            vectorCtx.beginPath();
+            vectorCtx.setLineDash([5, 5]);
+            vectorCtx.moveTo(vx, vy);
+            vectorCtx.lineTo(vx, 100);
+            vectorCtx.strokeStyle = 'black';
+            vectorCtx.stroke();
+            vectorCtx.setLineDash([]);
+
+            vectorCtx.fillStyle = 'black';
+            vectorCtx.beginPath();
+            vectorCtx.arc(vx, 100, 3, 0, Math.PI*2);
+            vectorCtx.fill();
+        }
+
+        // 绘制振动曲线（添加坐标标签）
+        function drawVibrationCurve() {
+            curveCtx.clearRect(0, 0, 400, 150);
+            
+            // 坐标轴
+            curveCtx.beginPath();
+            curveCtx.moveTo(30, 0);
+            curveCtx.lineTo(30, 150);
+            curveCtx.moveTo(30, 0);
+            curveCtx.lineTo(25, 5);
+            curveCtx.moveTo(30, 0);
+            curveCtx.lineTo(35, 5);
+            curveCtx.moveTo(30, 75);
+            curveCtx.lineTo(370, 75);
+            curveCtx.moveTo(370, 75);
+            curveCtx.lineTo(365, 70);
+            curveCtx.moveTo(370, 75);
+            curveCtx.lineTo(365, 80);
+            curveCtx.stroke();
+
+            // 添加坐标标签
+            curveCtx.fillStyle = 'black';
+            curveCtx.fillText("x", 15, 10);  // 纵轴标签
+            curveCtx.fillText("t", 375, 90); // 横轴标签
+
+            // 刻度标签
+            curveCtx.font = '10px Arial';
+            curveCtx.textAlign = 'center';
+            for(let t = 0; t <= 8; t += 2) {
+                const x = 30 + t*40;
+                curveCtx.fillText(t.toString(), x, 90);
+            }
+            curveCtx.textAlign = 'right';
+            [-4, -2, 0, 2, 4].forEach(y => {
+                const yPos = 75 - y*15;
+                curveCtx.fillText(y.toString(), 25, yPos + 3);
+            });
+
+            // 绘制曲线
+            curveCtx.beginPath();
+            curveCtx.strokeStyle = 'blue';
+            for(let t = 0; t <= 8; t += 0.1) {
+                const x = 30 + t*40;
+                const y = 75 - A * Math.cos(ω * t + phi) * 15;
+                if(t === 0) curveCtx.moveTo(x, y);
+                else curveCtx.lineTo(x, y);
+            }
+            curveCtx.stroke();
+        }
+
+        function redrawAll() {
+            drawSpringMass();
+            drawRotationVector();
+            drawVibrationCurve();
+        }
+
+        // 事件监听
+        displacement.addEventListener('input', e => {
+            x0 = parseFloat(e.target.value);
+            dispValue.textContent = x0.toFixed(2);
+            updatePhase();
+        });
+
+        speedPositive.addEventListener('click', () => {
+            speedPositive.classList.add('active');
+            speedNegative.classList.remove('active');
+            vSign = 1;
+            updatePhase();
+        });
+
+        speedNegative.addEventListener('click', () => {
+            speedNegative.classList.add('active');
+            speedPositive.classList.remove('active');
+            vSign = -1;
+            updatePhase();
+        });
+
+        document.getElementById('toggle-animation').addEventListener('click', () => {
+            isAnimating = !isAnimating;
+            if(isAnimating) {
+                animationId = requestAnimationFrame(animate);
+            } else {
+                cancelAnimationFrame(animationId);
+            }
+        });
+
+        // 动画循环
+        function animate(timestamp) {
+            if(!isAnimating) return;
+            
+            t += 0.05;
+            drawSpringMass(t);
+            drawRotationVector(t);
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // 初始化
+        updatePhase();
+        redrawAll();
+    </script>
+</body>
+</html>

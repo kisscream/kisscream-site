@@ -1,0 +1,37 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>物理复习 · 知识图谱</title><style>
+*{box-sizing:border-box}body{margin:0;background:#eaf2ff;color:#263a50;font:16px/1.6 system-ui,"Microsoft YaHei",sans-serif}header{position:sticky;top:0;z-index:2;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px;background:#ffffffed}a{color:inherit}button,input{font:inherit;border:1px solid #c8d7eb;background:white;padding:8px 14px;border-radius:22px}button{cursor:pointer}button[aria-pressed=true]{background:#3989fa;color:white}.intro{margin:20px 24px}h1{font-size:25px;margin:0}.graph{overflow:auto;padding:12px}svg{display:block;width:100%;min-width:780px;height:auto}svg a:hover rect,svg a:focus rect{stroke:#2377ef;stroke-width:3}svg text{font-size:15px;fill:#263a50}svg .branch{font-weight:700;font-size:19px}.list{max-width:1000px;margin:auto;padding:20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.list section{background:white;border-radius:18px;padding:20px;border-top:5px solid var(--color)}.list a{display:block;padding:8px;border-radius:8px;text-decoration:none}.list a:hover{background:#edf4ff}[hidden]{display:none!important}.hint{font-size:14px;color:#61758c}input{min-width:0;max-width:100%}@media(max-width:600px){header{gap:7px}.intro{margin:14px}svg{min-width:1000px}}
+</style><header><a href="./index.html">← 首页</a><button id="graphButton" aria-pressed="true">知识图谱</button><button id="listButton" aria-pressed="false">知识列表</button><input id="search" aria-label="搜索知识点" placeholder="搜索知识点"><button id="reset">显示全部</button></header><div class="intro"><h1>大学物理Ⅱ（2）知识图谱</h1><p class="hint">点击章节或知识点进入笔记。手机可左右滑动图谱，也可切换知识列表。</p></div><div class="graph" id="graph"></div><div class="list" id="list" hidden></div><script>
+const data=[{"name": "机械振动", "color": "#ed80bd", "nodes": [{"id": "3", "title": "简谐运动"}, {"id": "4", "title": "相量法"}, {"id": "5", "title": "振子能量"}, {"id": "6", "title": "摆动模型"}, {"id": "7", "title": "同频合成"}]}, {"name": "机械波", "color": "#ad91ed", "nodes": [{"id": "8", "title": "行波"}, {"id": "9", "title": "行波能量"}, {"id": "10", "title": "声阻抗"}, {"id": "11", "title": "干涉"}, {"id": "12", "title": "反射"}, {"id": "13", "title": "驻波"}, {"id": "14", "title": "多普勒"}, {"id": "15", "title": "回声与拍"}]}, {"name": "光的干涉", "color": "#f49a7e", "nodes": [{"id": "16", "title": "光程"}, {"id": "17", "title": "双缝"}, {"id": "18", "title": "薄膜"}, {"id": "19", "title": "劈尖"}, {"id": "20", "title": "牛顿环"}, {"id": "21", "title": "迈克耳孙"}]}, {"name": "衍射与偏振", "color": "#67a3ef", "nodes": [{"id": "22", "title": "单缝衍射"}, {"id": "23", "title": "分辨率"}, {"id": "24", "title": "光栅"}, {"id": "25", "title": "偏振"}, {"id": "26", "title": "布儒斯特角"}]}, {"name": "量子力学基础", "color": "#58b99b", "nodes": [{"id": "27", "title": "黑体"}, {"id": "28", "title": "普朗克定律"}, {"id": "29", "title": "光电效应"}, {"id": "30", "title": "光子与康普顿"}, {"id": "31", "title": "玻尔模型"}, {"id": "32", "title": "物质波"}, {"id": "33", "title": "不确定关系"}, {"id": "34", "title": "波函数"}, {"id": "35", "title": "归一化"}, {"id": "36", "title": "薛定谔方程"}, {"id": "37", "title": "无限深势阱"}, {"id": "38", "title": "势阱概率"}, {"id": "39", "title": "势垒"}, {"id": "40", "title": "量子谐振子"}]}, {"name": "量子数与原子结构", "color": "#55b9cd", "nodes": [{"id": "41", "title": "量子数"}, {"id": "42", "title": "正常塞曼效应"}, {"id": "45", "title": "斯特恩—盖拉赫"}, {"id": "46", "title": "自旋"}, {"id": "47", "title": "四个量子数"}, {"id": "48", "title": "电子壳层"}, {"id": "49", "title": "电子填充"}]}];
+const esc=s=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
+const graph=document.querySelector('#graph'),list=document.querySelector('#list');
+function render(){
+ const query=document.querySelector('#search').value.trim();
+ let svg='<svg viewBox="0 0 1500 1500" role="img" aria-label="大学物理章节知识图谱">';
+ const positions=[[440,240],[440,740],[440,1240],[1060,240],[1060,740],[1060,1240]];
+ data.forEach((g,i)=>{
+  const [x,y]=positions[i],left=i<3,edge=left?65:1190;
+  const nodes=g.nodes.filter(n=>n.title.includes(query)||g.name.includes(query));
+  if(!nodes.length)return;
+  svg+='<path d="M750 740 Q'+x+' 740 '+x+' '+y+'" fill="none" stroke="'+g.color+'" stroke-width="5" opacity=".55"/>';
+  nodes.forEach((n,j)=>{
+   const ny=y+(j-(nodes.length-1)/2)*31;
+   svg+='<path d="M'+x+' '+y+' Q'+(left?340:1160)+' '+ny+' '+(edge+115)+' '+ny+'" fill="none" stroke="'+g.color+'" stroke-width="2" opacity=".5"/>';
+   svg+='<a href="./notes.html#n'+n.id+'"><rect x="'+edge+'" y="'+(ny-13)+'" width="230" height="27" rx="13" fill="white" stroke="'+g.color+'"/><text x="'+(edge+115)+'" y="'+(ny+5)+'" text-anchor="middle">'+esc(n.title)+'</text></a>';
+  });
+  svg+='<a href="./notes.html#n'+g.nodes[0].id+'"><rect x="'+(x-94)+'" y="'+(y-24)+'" width="188" height="48" rx="18" fill="'+g.color+'"/><text class="branch" x="'+x+'" y="'+(y+7)+'" text-anchor="middle">'+g.name+'</text></a>';
+ });
+ svg+='<a href="./notes.html"><circle cx="750" cy="740" r="83" fill="#3989fa"/><text x="750" y="736" text-anchor="middle" style="fill:white;font-size:25px;font-weight:bold">大学物理</text><text x="750" y="769" text-anchor="middle" style="fill:white;font-size:22px">Ⅱ（2）</text></a></svg>';
+ graph.innerHTML=svg;
+ list.innerHTML=data.map(g=>{
+ const nodes=g.nodes.filter(n=>n.title.includes(query)||g.name.includes(query));
+ return nodes.length?'<section style="--color:'+g.color+'"><h2>'+g.name+'</h2>'+nodes.map(n=>'<a href="./notes.html#n'+n.id+'">'+esc(n.title)+' ↗</a>').join('')+'</section>':'';
+ }).join('');
+ if(!list.innerHTML){list.innerHTML='<p>没有匹配的知识点。</p>';graph.innerHTML='<p>没有匹配的知识点。</p>';}
+}
+function mode(isList){graph.hidden=isList;list.hidden=!isList;document.querySelector('#listButton').setAttribute('aria-pressed',isList);document.querySelector('#graphButton').setAttribute('aria-pressed',!isList);}
+document.querySelector('#listButton').onclick=()=>mode(true);
+document.querySelector('#graphButton').onclick=()=>mode(false);
+document.querySelector('#search').oninput=render;
+document.querySelector('#reset').onclick=()=>{document.querySelector('#search').value='';render()};
+render();
+</script></html>

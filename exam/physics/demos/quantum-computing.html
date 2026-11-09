@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>量子计算机模拟 · 三维布洛赫球</title>
+    <style>
+        /* ---------- 全局样式 ---------- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0b0e1a;
+            font-family: 'Segoe UI', 'PingFang SC', Roboto, system-ui, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #e0e8f0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1280px;
+            width: 100%;
+            background: linear-gradient(145deg, #12162a, #1a1f3a);
+            border-radius: 36px;
+            padding: 28px 32px 32px 32px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), inset 0 1px 2px rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(2px);
+            transition: all 0.2s;
+        }
+
+        /* ---------- 头部 ---------- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 22px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .header h1 {
+            font-weight: 600;
+            font-size: 26px;
+            letter-spacing: 0.5px;
+            background: linear-gradient(135deg, #8ab4f8, #6c8cff, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header h1 small {
+            font-size: 16px;
+            font-weight: 400;
+            -webkit-text-fill-color: #8899bb;
+            background: none;
+            color: #8899bb;
+            letter-spacing: 0.3px;
+        }
+        .state-badge {
+            background: rgba(255, 255, 255, 0.04);
+            padding: 8px 18px;
+            border-radius: 60px;
+            font-size: 15px;
+            font-weight: 400;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(4px);
+            font-family: 'Courier New', monospace;
+            color: #b8c8ee;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+        }
+        .state-badge .highlight {
+            color: #fbbf24;
+            font-weight: 500;
+        }
+
+        /* ---------- 主体：两栏 ---------- */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 28px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 860px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+        }
+
+        /* ---------- 卡片通用 ---------- */
+        .card {
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 18px 20px 20px 20px;
+            backdrop-filter: blur(2px);
+            transition: border-color 0.3s;
+        }
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.09);
+        }
+        .card-title {
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: #7a8aaa;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-title .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #6c8cff;
+        }
+        .card-title .dot.gold {
+            background: #fbbf24;
+        }
+
+        /* ---------- 布洛赫球容器 ---------- */
+        #bloch-container {
+            width: 100%;
+            aspect-ratio: 1/1;
+            border-radius: 16px;
+            overflow: hidden;
+            background: radial-gradient(ellipse at center, #151e30 0%, #0b0e1a 100%);
+            cursor: grab;
+            touch-action: none;
+            position: relative;
+        }
+        #bloch-container:active {
+            cursor: grabbing;
+        }
+
+        /* ---------- 右侧干涉区 ---------- */
+        .interference-area {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        #interferenceCanvas {
+            width: 100%;
+            aspect-ratio: 16/7;
+            display: block;
+            border-radius: 14px;
+            background: #0b0e1a;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .prob-row {
+            display: flex;
+            gap: 18px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 2px;
+        }
+        .prob-item {
+            flex: 1;
+            min-width: 100px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 14px;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .prob-item .label {
+            font-size: 14px;
+            font-weight: 400;
+            color: #99aacd;
+        }
+        .prob-item .value {
+            font-size: 20px;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+        .prob-item .value.p0 {
+            color: #6c8cff;
+        }
+        .prob-item .value.p1 {
+            color: #fbbf24;
+        }
+        .prob-bar-wrap {
+            width: 100%;
+            height: 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.06);
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .prob-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.08s ease-out;
+            width: 50%;
+        }
+        .prob-bar.b0 {
+            background: linear-gradient(90deg, #4f7aff, #6c8cff);
+        }
+        .prob-bar.b1 {
+            background: linear-gradient(90deg, #f59e0b, #fbbf24);
+        }
+
+        /* ---------- 底部控制 ---------- */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 20px 30px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+        .control-group label {
+            font-size: 14px;
+            font-weight: 400;
+            color: #99aacd;
+            letter-spacing: 0.3px;
+        }
+        .control-group .phase-val {
+            font-family: 'Courier New', monospace;
+            font-size: 17px;
+            font-weight: 500;
+            color: #fbbf24;
+            min-width: 56px;
+            text-align: center;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 200px;
+            height: 5px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #2a3a6a, #6c8cff);
+            outline: none;
+            transition: background 0.2s;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #8ab4f8, #4f7aff);
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(108, 140, 255, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            transition: 0.15s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.12);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #8ab4f8, #4f7aff);
+            cursor: pointer;
+            border: 2px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #d0daea;
+            padding: 8px 22px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s;
+            backdrop-filter: blur(4px);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: inherit;
+        }
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.09);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        .btn:active {
+            transform: translateY(0px);
+        }
+        .btn.primary {
+            background: linear-gradient(135deg, #4f7aff, #6c8cff);
+            border-color: #6c8cff;
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(108, 140, 255, 0.2);
+        }
+        .btn.primary:hover {
+            background: linear-gradient(135deg, #5f8aff, #7c9cff);
+            box-shadow: 0 6px 28px rgba(108, 140, 255, 0.35);
+        }
+        .btn.gold {
+            background: linear-gradient(135deg, #d97706, #fbbf24);
+            border-color: #fbbf24;
+            color: #0b0e1a;
+        }
+        .btn.gold:hover {
+            background: linear-gradient(135deg, #e88a0a, #fcd34d);
+            box-shadow: 0 4px 24px rgba(251, 191, 36, 0.25);
+        }
+        .btn-icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .circuit-info {
+            font-family: 'Courier New', monospace;
+            font-size: 15px;
+            color: #8899bb;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 6px 18px;
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .circuit-info .gate {
+            color: #8ab4f8;
+            font-weight: 500;
+        }
+        .circuit-info .gate.phase {
+            color: #fbbf24;
+        }
+
+        /* ---------- 响应式微调 ---------- */
+        @media (max-width: 600px) {
+            .container {
+                padding: 16px;
+            }
+            .header h1 {
+                font-size: 20px;
+            }
+            .header h1 small {
+                font-size: 13px;
+            }
+            .state-badge {
+                font-size: 13px;
+                padding: 4px 12px;
+                white-space: normal;
+            }
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 14px;
+            }
+            .control-group {
+                justify-content: center;
+            }
+            input[type="range"] {
+                width: 140px;
+            }
+            .circuit-info {
+                font-size: 13px;
+                text-align: center;
+                white-space: normal;
+            }
+            .prob-item .value {
+                font-size: 17px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- 头部 -->
+        <div class="header">
+            <h1>
+                ⚛ 量子计算机模拟
+                <small>并行性 · 干涉</small>
+            </h1>
+            <div class="state-badge" id="stateBadge">
+                |ψ⟩ = <span class="highlight" id="stateDisplay">|0⟩</span>
+            </div>
+        </div>
+
+        <!-- 主区域 -->
+        <div class="main-grid">
+            <!-- 左侧：三维布洛赫球 -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="dot"></span> 布洛赫球 · 三维交互
+                </div>
+                <div id="bloch-container"></div>
+            </div>
+
+            <!-- 右侧：干涉 + 概率 -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="dot gold"></span> 量子干涉 · 概率分布
+                </div>
+                <div class="interference-area">
+                    <canvas id="interferenceCanvas" width="800" height="350"></canvas>
+                    <div class="prob-row">
+                        <div class="prob-item">
+                            <span class="label">|0⟩ 概率</span>
+                            <span class="value p0" id="prob0">50.0%</span>
+                            <div class="prob-bar-wrap">
+                                <div class="prob-bar b0" id="bar0" style="width:50%"></div>
+                            </div>
+                        </div>
+                        <div class="prob-item">
+                            <span class="label">|1⟩ 概率</span>
+                            <span class="value p1" id="prob1">50.0%</span>
+                            <div class="prob-bar-wrap">
+                                <div class="prob-bar b1" id="bar1" style="width:50%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部控制 -->
+        <div class="controls">
+            <div class="control-group">
+                <label>相位 φ</label>
+                <input type="range" id="phaseSlider" min="0" max="6.2832" step="0.005" value="0" />
+                <span class="phase-val" id="phaseDisplay">0.00</span>
+            </div>
+            <div class="control-group">
+                <button class="btn gold" id="btnAnimate">
+                    <span class="btn-icon">▶</span> 扫描干涉
+                </button>
+                <button class="btn primary" id="btnReset">
+                    <span class="btn-icon">⟳</span> 重置
+                </button>
+            </div>
+            <div class="circuit-info">
+                <span class="gate">|0⟩</span> → <span class="gate">H</span> →
+                <span class="gate phase">P(φ)</span> → <span class="gate">H</span> → 测量
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入 Three.js 库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS2DRenderer.js"></script>
+
+    <script>
+        // ============================================================
+        //  量子计算机模拟  —— 三维布洛赫球 + 干涉
+        //  物理：单量子比特 |0⟩ → H → P(φ) → H → 测量
+        //  采用 Three.js 实现三维交互，z轴竖直向上
+        // ============================================================
+
+        // ---------- DOM 引用 ----------
+        const container = document.getElementById('bloch-container');
+        const interCanvas = document.getElementById('interferenceCanvas');
+        const ctxI = interCanvas.getContext('2d');
+
+        const phaseSlider = document.getElementById('phaseSlider');
+        const phaseDisplay = document.getElementById('phaseDisplay');
+        const prob0El = document.getElementById('prob0');
+        const prob1El = document.getElementById('prob1');
+        const bar0 = document.getElementById('bar0');
+        const bar1 = document.getElementById('bar1');
+        const stateDisplay = document.getElementById('stateDisplay');
+        const btnAnimate = document.getElementById('btnAnimate');
+        const btnReset = document.getElementById('btnReset');
+
+        // ---------- 物理参数 ----------
+        let phi = 0;
+        let animating = false;
+        let animId = null;
+        let animDirection = 1;
+
+        // ---------- 干涉图尺寸 ----------
+        let Wi, Hi;
+
+        // ============================================================
+        //  1. 三维布洛赫球 (Three.js)
+        // ============================================================
+        let scene, camera, renderer, labelRenderer, controls;
+        let stateArrow, statePoint, trajectoryLine;
+        let trajectoryPoints = []; // 存储历史点 (用于轨迹)
+        const MAX_TRAJECTORY = 60;
+
+        // 初始化 Three.js 场景
+        function initThree() {
+            const rect = container.getBoundingClientRect();
+            const width = rect.width || 600;
+            const height = rect.height || 600;
+
+            // 场景
+            scene = new THREE.Scene();
+            scene.background = null; // 透明
+
+            // 相机 (透视)
+            camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 10);
+            // 设置 z 轴向上
+            camera.up.set(0, 0, 1);
+            camera.position.set(1.8, 1.8, 1.2);
+            camera.lookAt(0, 0, 0);
+
+            // WebGL渲染器
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = false;
+            container.appendChild(renderer.domElement);
+
+            // CSS2D 渲染器 (用于文字标签)
+            labelRenderer = new THREE.CSS2DRenderer();
+            labelRenderer.setSize(width, height);
+            labelRenderer.domElement.style.position = 'absolute';
+            labelRenderer.domElement.style.top = '0';
+            labelRenderer.domElement.style.left = '0';
+            labelRenderer.domElement.style.pointerEvents = 'none'; // 允许点击穿透到 OrbitControls
+            container.appendChild(labelRenderer.domElement);
+
+            // 控制器
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.target.set(0, 0, 0);
+            controls.update();
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.08;
+            controls.rotateSpeed = 0.8;
+
+            // ---- 构建场景内容 ----
+            buildBlochSphere();
+
+            // 启动渲染循环
+            animateThree();
+
+            // 窗口大小变化时更新
+            window.addEventListener('resize', onResizeThree);
+        }
+
+        function buildBlochSphere() {
+            // ---- 1. 球体 (半透明线框) ----
+            const sphereGeom = new THREE.SphereGeometry(1, 48, 32);
+            const sphereMat = new THREE.MeshPhongMaterial({
+                color: 0x4466aa,
+                transparent: true,
+                opacity: 0.15,
+                wireframe: false,
+                side: THREE.DoubleSide,
+            });
+            const sphere = new THREE.Mesh(sphereGeom, sphereMat);
+            scene.add(sphere);
+
+            // 线框球 (更亮)
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: 0x88aaff,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.12,
+            });
+            const wireSphere = new THREE.Mesh(sphereGeom.clone(), wireMat);
+            scene.add(wireSphere);
+
+            // ---- 2. 坐标轴 ----
+            const axisLength = 1.35;
+            const colors = [0xff4444, 0x44ff44, 0x4488ff]; // X:红, Y:绿, Z:蓝
+            const dirs = [
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(0, 1, 0),
+                new THREE.Vector3(0, 0, 1)
+            ];
+            const labels = ['X', 'Y', 'Z'];
+            dirs.forEach((dir, i) => {
+                // 箭头
+                const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(0, 0, 0), axisLength, colors[i], 0.12, 0.06);
+                scene.add(arrow);
+
+                // 标签 (CSS2D)
+                const pos = dir.clone().multiplyScalar(axisLength + 0.15);
+                const div = document.createElement('div');
+                div.textContent = labels[i];
+                div.style.color = '#fff';
+                div.style.fontSize = '16px';
+                div.style.fontWeight = 'bold';
+                div.style.textShadow = '0 0 10px rgba(0,0,0,0.8)';
+                div.style.fontFamily = 'Segoe UI, sans-serif';
+                const label = new THREE.CSS2DObject(div);
+                label.position.copy(pos);
+                scene.add(label);
+            });
+
+            // ---- 3. 基态标签 (|0>, |1>, |+>, |->) ----
+            const basePositions = [
+                { pos: new THREE.Vector3(0, 0, 1), text: '|0⟩', color: '#ffcc44' },
+                { pos: new THREE.Vector3(0, 0, -1), text: '|1⟩', color: '#ffcc44' },
+                { pos: new THREE.Vector3(1, 0, 0), text: '|+⟩', color: '#88ddff' },
+                { pos: new THREE.Vector3(-1, 0, 0), text: '|-⟩', color: '#88ddff' },
+            ];
+            basePositions.forEach(({ pos, text, color }) => {
+                const div = document.createElement('div');
+                div.textContent = text;
+                div.style.color = color;
+                div.style.fontSize = '18px';
+                div.style.fontWeight = '500';
+                div.style.textShadow = '0 0 15px rgba(0,0,0,0.9)';
+                div.style.fontFamily = 'Segoe UI, sans-serif';
+                div.style.background = 'rgba(0,0,0,0.3)';
+                div.style.padding = '2px 8px';
+                div.style.borderRadius = '12px';
+                div.style.backdropFilter = 'blur(2px)';
+                const label = new THREE.CSS2DObject(div);
+                label.position.copy(pos.clone().multiplyScalar(1.12));
+                scene.add(label);
+            });
+
+            // ---- 4. 光照 ----
+            const ambient = new THREE.AmbientLight(0x404060);
+            scene.add(ambient);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(1, 2, 3);
+            scene.add(dirLight);
+            const backLight = new THREE.DirectionalLight(0x4488ff, 0.3);
+            backLight.position.set(-1, -1, -1);
+            scene.add(backLight);
+
+            // ---- 5. 状态向量 (动态) ----
+            // 箭头
+            stateArrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 1, 0xfbbf24, 0.15, 0.08);
+            scene.add(stateArrow);
+
+            // 状态点 (发光小球)
+            const pointGeom = new THREE.SphereGeometry(0.06, 16, 16);
+            const pointMat = new THREE.MeshStandardMaterial({
+                color: 0xfbbf24,
+                emissive: 0xfbbf24,
+                emissiveIntensity: 0.5,
+            });
+            statePoint = new THREE.Mesh(pointGeom, pointMat);
+            statePoint.position.set(1, 0, 0);
+            scene.add(statePoint);
+
+            // 轨迹线 (动态)
+            const trajGeom = new THREE.BufferGeometry();
+            const positions = new Float32Array(MAX_TRAJECTORY * 3);
+            trajGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            trajGeom.setDrawRange(0, 0);
+            const trajMat = new THREE.LineBasicMaterial({
+                color: 0xfbbf24,
+                transparent: true,
+                opacity: 0.4,
+                linewidth: 2,
+            });
+            trajectoryLine = new THREE.Line(trajGeom, trajMat);
+            scene.add(trajectoryLine);
+
+            // 添加一个微弱的赤道圈 (辅助)
+            const ringPoints = [];
+            const segments = 64;
+            for (let i = 0; i <= segments; i++) {
+                const theta = (i / segments) * Math.PI * 2;
+                const x = Math.cos(theta);
+                const y = Math.sin(theta);
+                ringPoints.push(new THREE.Vector3(x, y, 0));
+            }
+            const ringGeom = new THREE.BufferGeometry().setFromPoints(ringPoints);
+            const ringMat = new THREE.LineBasicMaterial({ color: 0x88aaff, transparent: true, opacity: 0.15 });
+            const ring = new THREE.Line(ringGeom, ringMat);
+            scene.add(ring);
+        }
+
+        // ---- 更新布洛赫球上的量子态 ----
+        function updateBloch(phi) {
+            // 计算状态向量 (中间态 |ψ₂⟩ = (|0⟩ + e^{iφ}|1⟩)/√2)
+            const x = Math.cos(phi);
+            const y = Math.sin(phi);
+            const z = 0; // 始终在赤道面
+
+            const dir = new THREE.Vector3(x, y, z);
+            if (dir.length() > 0.001) {
+                dir.normalize();
+                // 更新箭头
+                stateArrow.setDirection(dir);
+                stateArrow.setLength(1, 0.15, 0.08);
+                // 更新点
+                statePoint.position.copy(dir);
+            } else {
+                // 零向量（不会发生）
+            }
+
+            // 更新轨迹：将当前点加入历史
+            const pos = new THREE.Vector3(x, y, z);
+            trajectoryPoints.push(pos);
+            if (trajectoryPoints.length > MAX_TRAJECTORY) {
+                trajectoryPoints.shift();
+            }
+
+            // 更新轨迹线几何体
+            const count = trajectoryPoints.length;
+            const positions = trajectoryLine.geometry.attributes.position.array;
+            for (let i = 0; i < count; i++) {
+                const p = trajectoryPoints[i];
+                positions[i * 3] = p.x;
+                positions[i * 3 + 1] = p.y;
+                positions[i * 3 + 2] = p.z;
+            }
+            trajectoryLine.geometry.attributes.position.needsUpdate = true;
+            trajectoryLine.geometry.setDrawRange(0, count);
+
+            // 更新坐标显示 (在场景中用一个CSS2D标签显示坐标值？我们直接更新页面上的stateBadge)
+            // 但stateBadge显示的是测量概率，我们可以在布洛赫球上显示当前坐标值吗？加一个动态标签
+            // 简单起见，更新一个已存在的标签或添加一个动态标签
+            // 由于我们已有轨迹，可以在右上角显示坐标，但这里我们更新stateBadge为叠加态表达式。
+            // 但stateBadge由drawInterference更新，我们在这里不覆盖。
+        }
+
+        // ---- Three.js 动画循环 ----
+        function animateThree() {
+            requestAnimationFrame(animateThree);
+            controls.update(); // 如果启用阻尼
+            // 渲染 WebGL 和 CSS2D
+            renderer.render(scene, camera);
+            labelRenderer.render(scene, camera);
+        }
+
+        // ---- 尺寸自适应 ----
+        function onResizeThree() {
+            const rect = container.getBoundingClientRect();
+            const width = rect.width || 600;
+            const height = rect.height || 600;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+            labelRenderer.setSize(width, height);
+        }
+
+        // 初始化 Three.js
+        initThree();
+
+        // ============================================================
+        //  2. 干涉图绘制 (保留原 2D Canvas)
+        // ============================================================
+        function computeState(phi) {
+            const reA = 0.5 * (1 + Math.cos(phi));
+            const imA = 0.5 * Math.sin(phi);
+            const reB = 0.5 * (1 - Math.cos(phi));
+            const imB = -0.5 * Math.sin(phi);
+            const p0 = reA * reA + imA * imA;
+            const p1 = reB * reB + imB * imB;
+            return { p0, p1 };
+        }
+
+        function drawInterference(phi) {
+            const ctx = ctxI;
+            const W = Wi,
+                H = Hi;
+            ctx.clearRect(0, 0, W, H);
+
+            const pad = { top: 28, bottom: 32, left: 44, right: 28 };
+            const plotW = W - pad.left - pad.right;
+            const plotH = H - pad.top - pad.bottom;
+            const baseY = pad.top + plotH;
+
+            ctx.fillStyle = 'rgba(0,0,0,0)';
+            ctx.fillRect(0, 0, W, H);
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(pad.left, pad.top);
+            ctx.lineTo(pad.left, baseY);
+            ctx.lineTo(pad.left + plotW, baseY);
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            ctx.font = '12px "Segoe UI", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('相位 φ (rad)', pad.left + plotW / 2, baseY + 8);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('概率', pad.left - 6, pad.top + 4);
+
+            for (let i = 0; i <= 4; i++) {
+                const x = pad.left + (i / 4) * plotW;
+                const val = (i / 4) * 2 * Math.PI;
+                ctx.beginPath();
+                ctx.moveTo(x, baseY);
+                ctx.lineTo(x, baseY + 6);
+                ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                ctx.font = '10px "Courier New", monospace';
+                ctx.fillText(val.toFixed(1), x, baseY + 8);
+            }
+            for (let i = 0; i <= 4; i++) {
+                const y = baseY - (i / 4) * plotH;
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y);
+                ctx.lineTo(pad.left - 6, y);
+                ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(255,255,255,0.15)';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                ctx.font = '9px "Courier New", monospace';
+                ctx.fillText((i / 4 * 100).toFixed(0) + '%', pad.left - 10, y);
+            }
+
+            const points = 200;
+            const data0 = [];
+            const data1 = [];
+            for (let i = 0; i <= points; i++) {
+                const t = i / points;
+                const ph = t * 2 * Math.PI;
+                const p0 = Math.cos(ph / 2) ** 2;
+                const p1 = Math.sin(ph / 2) ** 2;
+                data0.push({ ph, p: p0 });
+                data1.push({ ph, p: p1 });
+            }
+
+            ctx.beginPath();
+            for (let i = 0; i < data0.length; i++) {
+                const x = pad.left + (data0[i].ph / (2 * Math.PI)) * plotW;
+                const y = baseY - data0[i].p * plotH;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = '#6c8cff';
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = 'rgba(108, 140, 255, 0.2)';
+            ctx.shadowBlur = 12;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.beginPath();
+            for (let i = 0; i < data1.length; i++) {
+                const x = pad.left + (data1[i].ph / (2 * Math.PI)) * plotW;
+                const y = baseY - data1[i].p * plotH;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = 'rgba(251, 191, 36, 0.15)';
+            ctx.shadowBlur = 12;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            const curX = pad.left + (phi / (2 * Math.PI)) * plotW;
+            ctx.beginPath();
+            ctx.moveTo(curX, pad.top);
+            ctx.lineTo(curX, baseY);
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 6]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const state = computeState(phi);
+            const p0 = state.p0;
+            const p1 = state.p1;
+
+            const y0 = baseY - p0 * plotH;
+            ctx.beginPath();
+            ctx.arc(curX, y0, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#6c8cff';
+            ctx.shadowColor = 'rgba(108, 140, 255, 0.5)';
+            ctx.shadowBlur = 16;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            const y1 = baseY - p1 * plotH;
+            ctx.beginPath();
+            ctx.arc(curX, y1, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#fbbf24';
+            ctx.shadowColor = 'rgba(251, 191, 36, 0.5)';
+            ctx.shadowBlur = 16;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            const legX = pad.left + plotW - 120;
+            const legY = pad.top + 14;
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.fillRect(legX - 8, legY - 6, 116, 48);
+
+            ctx.font = '12px "Segoe UI", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+
+            ctx.fillStyle = '#6c8cff';
+            ctx.fillRect(legX, legY + 2, 18, 3);
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillText('P(|0⟩)', legX + 24, legY + 4);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(legX, legY + 22, 18, 3);
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillText('P(|1⟩)', legX + 24, legY + 24);
+
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'bottom';
+            ctx.fillStyle = 'rgba(255,255,255,0.12)';
+            ctx.font = '13px "Courier New", monospace';
+            const info = `φ = ${phi.toFixed(2)} rad  |  P(0)=${(p0*100).toFixed(1)}%  P(1)=${(p1*100).toFixed(1)}%`;
+            ctx.fillText(info, W - 12, H - 6);
+
+            // 更新 DOM
+            prob0El.textContent = (p0 * 100).toFixed(1) + '%';
+            prob1El.textContent = (p1 * 100).toFixed(1) + '%';
+            bar0.style.width = (p0 * 100) + '%';
+            bar1.style.width = (p1 * 100) + '%';
+
+            const p0Str = (p0 * 100).toFixed(0);
+            const p1Str = (p1 * 100).toFixed(0);
+            if (p0 > 0.999) {
+                stateDisplay.textContent = '|0⟩';
+            } else if (p1 > 0.999) {
+                stateDisplay.textContent = '|1⟩';
+            } else {
+                stateDisplay.textContent = `√${p0Str}% |0⟩ + √${p1Str}% |1⟩`;
+            }
+        }
+
+        // ============================================================
+        //  3. 尺寸管理 & 主绘制
+        // ============================================================
+        function resizeCanvases() {
+            // 干涉图
+            const rectI = interCanvas.getBoundingClientRect();
+            let wi = rectI.width || interCanvas.width;
+            let hi = rectI.height || interCanvas.height;
+            if (wi === 0) wi = 800;
+            if (hi === 0) hi = 350;
+            const dpr = window.devicePixelRatio || 1;
+            Wi = wi * dpr;
+            Hi = hi * dpr;
+            interCanvas.width = Wi;
+            interCanvas.height = Hi;
+
+            // Three.js 尺寸在 onResizeThree 中处理 (已绑定)
+            onResizeThree();
+
+            drawAll();
+        }
+
+        function drawAll() {
+            drawInterference(phi);
+            phaseDisplay.textContent = phi.toFixed(2);
+            // 三维布洛赫球更新由 setPhase 触发
+        }
+
+        // ============================================================
+        //  4. 相位控制 & 动画
+        // ============================================================
+        function setPhase(val) {
+            phi = Math.max(0, Math.min(2 * Math.PI, val));
+            phaseSlider.value = phi;
+            // 更新布洛赫球
+            updateBloch(phi);
+            // 更新干涉图
+            drawInterference(phi);
+            phaseDisplay.textContent = phi.toFixed(2);
+        }
+
+        function animateStep() {
+            if (!animating) return;
+            const step = 0.018 * animDirection;
+            let newPhi = phi + step;
+            if (newPhi > 2 * Math.PI) {
+                newPhi = 2 * Math.PI;
+                animDirection = -1;
+            } else if (newPhi < 0) {
+                newPhi = 0;
+                animDirection = 1;
+            }
+            setPhase(newPhi);
+            animId = requestAnimationFrame(animateStep);
+        }
+
+        function toggleAnimation() {
+            animating = !animating;
+            if (animating) {
+                btnAnimate.innerHTML = '<span class="btn-icon">⏸</span> 暂停扫描';
+                btnAnimate.classList.add('gold');
+                if (phi >= 2 * Math.PI - 0.05) animDirection = -1;
+                if (phi <= 0.05) animDirection = 1;
+                animId = requestAnimationFrame(animateStep);
+            } else {
+                btnAnimate.innerHTML = '<span class="btn-icon">▶</span> 扫描干涉';
+                if (animId) {
+                    cancelAnimationFrame(animId);
+                    animId = null;
+                }
+            }
+        }
+
+        function resetSim() {
+            if (animating) toggleAnimation();
+            setPhase(0);
+            animDirection = 1;
+            // 清空轨迹
+            trajectoryPoints = [];
+            const positions = trajectoryLine.geometry.attributes.position.array;
+            positions.fill(0);
+            trajectoryLine.geometry.attributes.position.needsUpdate = true;
+            trajectoryLine.geometry.setDrawRange(0, 0);
+        }
+
+        // ============================================================
+        //  5. 事件绑定 & 启动
+        // ============================================================
+        phaseSlider.addEventListener('input', (e) => {
+            if (animating) toggleAnimation();
+            setPhase(parseFloat(e.target.value));
+        });
+
+        btnAnimate.addEventListener('click', toggleAnimation);
+        btnReset.addEventListener('click', resetSim);
+
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ' || e.key === 'Space') {
+                e.preventDefault();
+                toggleAnimation();
+            }
+            if (e.key === 'r' || e.key === 'R') {
+                resetSim();
+            }
+        });
+
+        // 启动
+        resizeCanvases();
+        setPhase(0);
+        // 初始轨迹清空
+        trajectoryPoints = [];
+        const positions = trajectoryLine.geometry.attributes.position.array;
+        positions.fill(0);
+        trajectoryLine.geometry.attributes.position.needsUpdate = true;
+        trajectoryLine.geometry.setDrawRange(0, 0);
+
+        // 额外: 如果容器尺寸变化，需要重新设置
+        window.addEventListener('resize', () => {
+            resizeCanvases();
+        });
+
+        console.log('🎯 快捷键: 空格 = 扫描动画, R = 重置');
+        console.log('🖱️ 拖拽旋转布洛赫球, 滚轮缩放');
+    </script>
+</body>
+</html>

@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>一维无限深势阱 · 量子力学互动演示（真实常数，eV）</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(145deg, #f5f7fa 0%, #e9ecf2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            max-width: 1350px;
+            width: 100%;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 42px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.12), 0 6px 12px rgba(0,0,0,0.05);
+            padding: 28px 24px 32px;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+        h1 {
+            margin: 0 0 6px 0;
+            font-weight: 500;
+            font-size: 2.1rem;
+            color: #1a2639;
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .subtitle {
+            margin: 0 0 20px 0;
+            color: #3a4a6b;
+            font-weight: 400;
+            font-size: 1.05rem;
+            border-left: 4px solid #3a7ca5;
+            padding-left: 18px;
+        }
+        .subtitle strong {
+            color: #1e3a5f;
+        }
+        .control-panel {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 30px 40px;
+            background: #ffffffc2;
+            padding: 16px 24px;
+            border-radius: 60px;
+            margin-bottom: 28px;
+            backdrop-filter: blur(4px);
+            border: 1px solid #cdd9e6;
+        }
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+        }
+        .slider-group label {
+            font-weight: 600;
+            color: #1e3a5f;
+            min-width: 70px;
+            font-size: 1.1rem;
+        }
+        .slider-group input {
+            width: 260px;
+            accent-color: #2a628f;
+        }
+        .slider-group span {
+            min-width: 85px;
+            background: #1e3a5f18;
+            padding: 6px 14px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: #0b2a41;
+            text-align: center;
+            font-size: 1rem;
+        }
+        .energy-badge {
+            background: #1e3a5f;
+            color: white;
+            padding: 8px 22px;
+            border-radius: 40px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            margin-left: auto;
+        }
+        .energy-badge span {
+            font-weight: 300;
+            opacity: 0.9;
+        }
+        .canvas-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            gap: 16px 10px;
+        }
+        .canvas-container {
+            flex: 1 1 280px;
+            min-width: 260px;
+            text-align: center;
+            background: #ffffffb0;
+            border-radius: 32px;
+            padding: 18px 8px 12px;
+            backdrop-filter: blur(4px);
+            box-shadow: inset 0 1px 4px #ffffff, 0 8px 18px rgba(44,62,80,0.08);
+            border: 1px solid #d9e2ec;
+        }
+        .canvas-container h3 {
+            margin: 0 0 10px 0;
+            font-weight: 500;
+            color: #1e3a5f;
+            font-size: 1.3rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            max-width: 320px;
+            border-radius: 20px;
+            background: #fdfdfe;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+            border: 1px solid #cbd6e3;
+            touch-action: none;
+        }
+        .footnote {
+            margin-top: 24px;
+            color: #2e4b6e;
+            font-size: 0.9rem;
+            text-align: center;
+            border-top: 1px dashed #a6bbd0;
+            padding-top: 18px;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #2a628f;
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 10px 22px;
+            border-radius: 40px;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 6px 12px rgba(42,98,143,0.25);
+            transition: all 0.15s;
+            border: 1px solid #ffffff50;
+            backdrop-filter: blur(5px);
+            margin-left: 10px;
+        }
+        button:hover {
+            background: #1e4a6f;
+            transform: scale(0.98);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        button.animate-btn {
+            background: #3f6b4c;
+            box-shadow: 0 6px 12px #3f6b4c40;
+        }
+        button.animate-btn:hover {
+            background: #2d5237;
+        }
+        .flex-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 700px) {
+            .card { padding: 16px; }
+            .control-panel { border-radius: 32px; }
+            .slider-group { width: 100%; }
+            .energy-badge { margin-left: 0; width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>
+        ⚛️ 一维无限深势阱
+        <span style="font-size: 0.9rem; background: #d4e1f0; padding: 4px 14px; border-radius: 40px; font-weight: 400; color:#1e3a5f;">真实常数 · 电子 · eV</span>
+    </h1>
+    <div class="subtitle">
+        <strong>V(x) = 0</strong> (0 &lt; x &lt; a) &nbsp;&nbsp;|&nbsp;&nbsp; <strong>V(x) = ∞</strong> (其它) &nbsp;&nbsp;—&nbsp;&nbsp; ψₙ(x) = √(2/a) sin(nπx/a) ， Eₙ = n²π²ħ²/(2m a²) <br>
+        <span style="font-size:0.9rem;">ħ = 1.0545718×10⁻³⁴ J·s &nbsp; m = 9.1093837×10⁻³¹ kg (电子质量) &nbsp; a 以纳米为单位 &nbsp; 能量显示为 eV</span>
+    </div>
+
+    <div class="control-panel">
+        <div class="slider-group">
+            <label>📊 量子数 n</label>
+            <input type="range" id="nSlider" min="1" max="10" value="1" step="1">
+            <span id="nValue">n = 1</span>
+        </div>
+        <div class="slider-group">
+            <label>📏 阱宽 a (nm)</label>
+            <input type="range" id="aSlider" min="0.10" max="2.00" value="0.50" step="0.01">
+            <span id="aValue">a = 0.50 nm</span>
+        </div>
+        <div class="flex-row">
+            <button id="animateBtn" class="animate-btn">▶ 自动播放</button>
+            <button id="resetBtn" style="background:#6c7a89;">↺ 重置</button>
+        </div>
+        <div class="energy-badge" id="energyDisplay">
+            Eₙ = <span id="energyValue">1.50</span> eV
+        </div>
+    </div>
+
+    <div class="canvas-row">
+        <div class="canvas-container">
+            <h3>📈 能级分布 <i>Eₙ ∝ n²/a²</i></h3>
+            <canvas id="energyCanvas" width="350" height="350"></canvas>
+            <div style="margin-top: 6px; font-size: 0.85rem; color: #2b4b6e;">水平线长度示意相对能量 (单位: eV)</div>
+        </div>
+        <div class="canvas-container">
+            <h3>🌊 波函数 ψₙ(x)</h3>
+            <canvas id="waveCanvas" width="350" height="350"></canvas>
+            <div style="margin-top: 6px; font-size: 0.85rem; color: #2b4b6e;">实线: ψ(x) &nbsp; | &nbsp; 虚线: 边界 x=0, a</div>
+        </div>
+        <div class="canvas-container">
+            <h3>📊 概率密度 |ψₙ|²</h3>
+            <canvas id="probCanvas" width="350" height="350"></canvas>
+            <div style="margin-top: 6px; font-size: 0.85rem; color: #2b4b6e;">填充区域: 概率密度</div>
+        </div>
+    </div>
+
+    <div class="footnote">
+        <div class="legend">
+            <span>🔴 红色高亮当前选中能级 (n = <span id="legendN">1</span>)</span>
+            <span>⚫ 阱内区域 0 ≤ x ≤ a</span>
+            <span>🧪 常数: ħ = 1.0546e-34 J·s, m = 9.1094e-31 kg, 1 eV = 1.6022e-19 J</span>
+        </div>
+        <div style="margin-top: 12px;">拖动滑块 — 实时观察波函数节点、概率密度及能级变化（能量单位为 eV）</div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        "use strict";
+
+        // ----- 真实物理常数 (国际单位制) -----
+        const HBAR = 1.0545718e-34;      // 约化普朗克常数 (J·s)
+        const MASS = 9.1093837e-31;       // 电子质量 (kg)
+        const EV_TO_JOULE = 1.602176634e-19;  // 1 eV 对应的焦耳数
+
+        // DOM 元素
+        const nSlider = document.getElementById('nSlider');
+        const aSlider = document.getElementById('aSlider');
+        const nSpan = document.getElementById('nValue');
+        const aSpan = document.getElementById('aValue');
+        const energySpan = document.getElementById('energyValue');
+        const energyDisplayDiv = document.getElementById('energyDisplay');
+        const legendNSpan = document.getElementById('legendN');
+
+        const energyCanvas = document.getElementById('energyCanvas');
+        const waveCanvas = document.getElementById('waveCanvas');
+        const probCanvas = document.getElementById('probCanvas');
+        
+        const ctxEnergy = energyCanvas.getContext('2d');
+        const ctxWave = waveCanvas.getContext('2d');
+        const ctxProb = probCanvas.getContext('2d');
+
+        const animateBtn = document.getElementById('animateBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        let n = 1;
+        let a_nm = 0.50;          // 阱宽，单位纳米
+        const MAX_N = 10;
+        
+        let animInterval = null;
+        let isAnimating = false;
+
+        // 获取以米为单位的阱宽
+        function getAInMeters() {
+            return a_nm * 1e-9;
+        }
+
+        // 计算能量（单位：焦耳）
+        function energyInJoule(nVal, a_m) {
+            return (nVal * nVal * Math.PI * Math.PI * HBAR * HBAR) / (2.0 * MASS * a_m * a_m);
+        }
+
+        // 将焦耳转换为电子伏特
+        function jouleToEV(joule) {
+            return joule / EV_TO_JOULE;
+        }
+
+        // 波函数值 (归一化)
+        function psi(x, nVal, a_m) {
+            if (x < 0 || x > a_m) return 0.0;
+            return Math.sqrt(2.0 / a_m) * Math.sin(nVal * Math.PI * x / a_m);
+        }
+
+        // 概率密度
+        function probDensity(x, nVal, a_m) {
+            const val = psi(x, nVal, a_m);
+            return val * val;
+        }
+
+        // 更新UI数值（能量显示为eV）
+        function updateUI() {
+            nSpan.textContent = `n = ${n}`;
+            aSpan.textContent = `a = ${a_nm.toFixed(2)} nm`;
+            legendNSpan.textContent = n;
+            const a_m = getAInMeters();
+            const eVal_J = energyInJoule(n, a_m);
+            const eVal_eV = jouleToEV(eVal_J);
+            const e1_eV = jouleToEV(energyInJoule(1, a_m));
+            
+            energySpan.textContent = eVal_eV.toFixed(3);
+            energyDisplayDiv.innerHTML = `Eₙ = <span id="energyValue">${eVal_eV.toFixed(3)}</span> eV &nbsp; (E₁ = ${e1_eV.toFixed(3)} eV)`;
+        }
+
+        // ----- 绘制能级图（坐标轴标注 eV）-----
+        function drawEnergyLevels() {
+            const w = energyCanvas.width;
+            const h = energyCanvas.height;
+            ctxEnergy.clearRect(0, 0, w, h);
+            
+            const margin = { top: 30, bottom: 35, left: 55, right: 30 };
+            const plotWidth = w - margin.left - margin.right;
+            const plotHeight = h - margin.top - margin.bottom;
+            
+            const a_m = getAInMeters();
+            const maxE_eV = jouleToEV(energyInJoule(MAX_N, a_m));
+            const yMax = maxE_eV * 1.08;
+            const energyToY = (e_eV) => margin.top + plotHeight * (1 - e_eV / yMax);
+            
+            ctxEnergy.save();
+            ctxEnergy.fillStyle = '#fdfdfe';
+            ctxEnergy.fillRect(0, 0, w, h);
+            
+            // 纵轴
+            ctxEnergy.beginPath();
+            ctxEnergy.strokeStyle = '#2e4b6e';
+            ctxEnergy.lineWidth = 1.5;
+            ctxEnergy.moveTo(margin.left - 2, margin.top - 5);
+            ctxEnergy.lineTo(margin.left - 2, h - margin.bottom + 5);
+            ctxEnergy.stroke();
+            
+            // 刻度标签（显示n值）
+            ctxEnergy.font = '12px "Segoe UI", "Roboto", sans-serif';
+            ctxEnergy.fillStyle = '#1e3a5f';
+            ctxEnergy.textAlign = 'right';
+            ctxEnergy.textBaseline = 'middle';
+            for (let i = 1; i <= MAX_N; i++) {
+                const e_eV = jouleToEV(energyInJoule(i, a_m));
+                const yPos = energyToY(e_eV);
+                if (yPos > margin.top - 8 && yPos < h - margin.bottom + 8) {
+                    ctxEnergy.fillText(`n=${i}`, margin.left - 8, yPos);
+                }
+            }
+            
+            // 纵轴标题
+            ctxEnergy.save();
+            ctxEnergy.translate(20, h/2);
+            ctxEnergy.rotate(-Math.PI/2);
+            ctxEnergy.font = '500 12px "Segoe UI", sans-serif';
+            ctxEnergy.fillStyle = '#1e3a5f';
+            ctxEnergy.textAlign = 'center';
+            ctxEnergy.fillText('能量 E (eV)', 0, 0);
+            ctxEnergy.restore();
+            
+            const lineStartX = margin.left;
+            const lineEndX = w - margin.right;
+            
+            for (let i = 1; i <= MAX_N; i++) {
+                const e_eV = jouleToEV(energyInJoule(i, a_m));
+                const y = energyToY(e_eV);
+                if (y < margin.top - 5 || y > h - margin.bottom + 5) continue;
+                
+                ctxEnergy.beginPath();
+                if (i === n) {
+                    ctxEnergy.strokeStyle = '#c44b3c';
+                    ctxEnergy.lineWidth = 4.5;
+                } else {
+                    ctxEnergy.strokeStyle = '#6b8da8';
+                    ctxEnergy.lineWidth = 2.2;
+                }
+                ctxEnergy.moveTo(lineStartX, y);
+                ctxEnergy.lineTo(lineEndX, y);
+                ctxEnergy.stroke();
+                
+                ctxEnergy.font = '10px "Segoe UI", monospace';
+                ctxEnergy.fillStyle = i === n ? '#a03028' : '#3a5a78';
+                ctxEnergy.textAlign = 'left';
+                ctxEnergy.textBaseline = 'middle';
+                ctxEnergy.fillText(e_eV.toFixed(3) + ' eV', lineEndX + 4, y);
+            }
+            
+            // 势阱示意矩形
+            ctxEnergy.fillStyle = '#b0c7de30';
+            ctxEnergy.strokeStyle = '#1e3a5f60';
+            ctxEnergy.lineWidth = 1;
+            ctxEnergy.beginPath();
+            ctxEnergy.rect(margin.left, margin.top-2, plotWidth, plotHeight+4);
+            ctxEnergy.fill();
+            ctxEnergy.stroke();
+            
+            ctxEnergy.font = '500 12px "Segoe UI"';
+            ctxEnergy.fillStyle = '#1e3a5f';
+            ctxEnergy.textAlign = 'center';
+            ctxEnergy.fillText(`a = ${a_nm.toFixed(2)} nm`, w/2, margin.top-8);
+            
+            ctxEnergy.restore();
+        }
+
+        // ----- 绘制波函数（不变）-----
+        function drawWavefunction() {
+            const w = waveCanvas.width;
+            const h = waveCanvas.height;
+            ctxWave.clearRect(0, 0, w, h);
+            
+            const margin = { top: 28, bottom: 38, left: 48, right: 28 };
+            const plotWidth = w - margin.left - margin.right;
+            const plotHeight = h - margin.top - margin.bottom;
+            
+            const a_m = getAInMeters();
+            const ampMax = Math.sqrt(2.0 / a_m);
+            const yLimit = ampMax * 1.25;
+            
+            const xToCanvas = (x) => margin.left + (x / a_m) * plotWidth;
+            const yToCanvas = (val) => margin.top + plotHeight/2 - (val / yLimit) * (plotHeight/2);
+            
+            ctxWave.save();
+            ctxWave.fillStyle = '#fdfdfe';
+            ctxWave.fillRect(0, 0, w, h);
+            
+            ctxWave.beginPath();
+            ctxWave.strokeStyle = '#2e3f4e';
+            ctxWave.lineWidth = 1.2;
+            ctxWave.moveTo(margin.left-5, margin.top + plotHeight/2);
+            ctxWave.lineTo(w - margin.right + 5, margin.top + plotHeight/2);
+            ctxWave.moveTo(margin.left-2, margin.top-5);
+            ctxWave.lineTo(margin.left-2, h - margin.bottom+5);
+            ctxWave.stroke();
+            
+            ctxWave.beginPath();
+            ctxWave.strokeStyle = '#1e3a5f';
+            ctxWave.lineWidth = 2.0;
+            ctxWave.setLineDash([5, 4]);
+            const x0 = xToCanvas(0);
+            const xa = xToCanvas(a_m);
+            ctxWave.moveTo(x0, margin.top-2);
+            ctxWave.lineTo(x0, h - margin.bottom+2);
+            ctxWave.moveTo(xa, margin.top-2);
+            ctxWave.lineTo(xa, h - margin.bottom+2);
+            ctxWave.stroke();
+            ctxWave.setLineDash([]);
+            
+            ctxWave.font = '11px "Segoe UI"';
+            ctxWave.fillStyle = '#1e3a5f';
+            ctxWave.textAlign = 'center';
+            ctxWave.fillText('0', x0, h - margin.bottom + 15);
+            ctxWave.fillText('a', xa, h - margin.bottom + 15);
+            
+            const steps = 300;
+            ctxWave.beginPath();
+            ctxWave.strokeStyle = '#c44b3c';
+            ctxWave.lineWidth = 3.0;
+            
+            let first = true;
+            for (let i = 0; i <= steps; i++) {
+                const x = (i / steps) * a_m;
+                const yVal = psi(x, n, a_m);
+                const canvasX = xToCanvas(x);
+                const canvasY = yToCanvas(yVal);
+                if (first) {
+                    ctxWave.moveTo(canvasX, canvasY);
+                    first = false;
+                } else {
+                    ctxWave.lineTo(canvasX, canvasY);
+                }
+            }
+            ctxWave.stroke();
+            
+            ctxWave.fillStyle = '#1e3a5f';
+            for (let k = 1; k < n; k++) {
+                const nodeX = (k * a_m) / n;
+                const cx = xToCanvas(nodeX);
+                const cy = margin.top + plotHeight/2;
+                ctxWave.beginPath();
+                ctxWave.arc(cx, cy, 3.5, 0, 2*Math.PI);
+                ctxWave.fillStyle = '#1e3a5f90';
+                ctxWave.fill();
+                ctxWave.strokeStyle = 'white';
+                ctxWave.lineWidth = 1.5;
+                ctxWave.stroke();
+            }
+            
+            ctxWave.font = '500 13px "Segoe UI"';
+            ctxWave.fillStyle = '#1e3a5f';
+            ctxWave.textAlign = 'left';
+            ctxWave.fillText(`ψₙ(x)  n = ${n}`, margin.left+5, margin.top-8);
+            
+            ctxWave.restore();
+        }
+
+        // ----- 绘制概率密度（不变）-----
+        function drawProbability() {
+            const w = probCanvas.width;
+            const h = probCanvas.height;
+            ctxProb.clearRect(0, 0, w, h);
+            
+            const margin = { top: 28, bottom: 38, left: 48, right: 28 };
+            const plotWidth = w - margin.left - margin.right;
+            const plotHeight = h - margin.top - margin.bottom;
+            
+            const a_m = getAInMeters();
+            const maxProb = 2.0 / a_m;
+            const yLimit = maxProb * 1.15;
+            
+            const xToCanvas = (x) => margin.left + (x / a_m) * plotWidth;
+            const yToCanvas = (val) => margin.top + plotHeight - (val / yLimit) * plotHeight;
+            
+            ctxProb.save();
+            ctxProb.fillStyle = '#fdfdfe';
+            ctxProb.fillRect(0, 0, w, h);
+            
+            ctxProb.beginPath();
+            ctxProb.strokeStyle = '#2e3f4e';
+            ctxProb.lineWidth = 1.2;
+            ctxProb.moveTo(margin.left-5, margin.top + plotHeight);
+            ctxProb.lineTo(w - margin.right+5, margin.top + plotHeight);
+            ctxProb.moveTo(margin.left-2, margin.top-5);
+            ctxProb.lineTo(margin.left-2, h - margin.bottom+5);
+            ctxProb.stroke();
+            
+            ctxProb.beginPath();
+            ctxProb.strokeStyle = '#1e3a5f';
+            ctxProb.lineWidth = 2.0;
+            ctxProb.setLineDash([5, 4]);
+            const x0 = xToCanvas(0);
+            const xa = xToCanvas(a_m);
+            ctxProb.moveTo(x0, margin.top-2);
+            ctxProb.lineTo(x0, h - margin.bottom+2);
+            ctxProb.moveTo(xa, margin.top-2);
+            ctxProb.lineTo(xa, h - margin.bottom+2);
+            ctxProb.stroke();
+            ctxProb.setLineDash([]);
+            
+            ctxProb.font = '11px "Segoe UI"';
+            ctxProb.fillStyle = '#1e3a5f';
+            ctxProb.textAlign = 'center';
+            ctxProb.fillText('0', x0, h - margin.bottom + 15);
+            ctxProb.fillText('a', xa, h - margin.bottom + 15);
+            
+            const steps = 400;
+            ctxProb.beginPath();
+            let first = true;
+            for (let i = 0; i <= steps; i++) {
+                const x = (i / steps) * a_m;
+                const pVal = probDensity(x, n, a_m);
+                const canvasX = xToCanvas(x);
+                const canvasY = yToCanvas(pVal);
+                if (first) {
+                    ctxProb.moveTo(canvasX, canvasY);
+                    first = false;
+                } else {
+                    ctxProb.lineTo(canvasX, canvasY);
+                }
+            }
+            const baseY = yToCanvas(0);
+            ctxProb.lineTo(xToCanvas(a_m), baseY);
+            ctxProb.lineTo(xToCanvas(0), baseY);
+            ctxProb.closePath();
+            ctxProb.fillStyle = '#3a7ca5b0';
+            ctxProb.fill();
+            ctxProb.strokeStyle = '#1e4a6f';
+            ctxProb.lineWidth = 2.2;
+            ctxProb.stroke();
+            
+            ctxProb.font = '500 13px "Segoe UI"';
+            ctxProb.fillStyle = '#1e3a5f';
+            ctxProb.textAlign = 'left';
+            ctxProb.fillText(`|ψₙ|²   n = ${n}`, margin.left+5, margin.top-8);
+            
+            ctxProb.restore();
+        }
+
+        function redrawAll() {
+            updateUI();
+            drawEnergyLevels();
+            drawWavefunction();
+            drawProbability();
+        }
+
+        function handleNChange() {
+            n = parseInt(nSlider.value, 10);
+            redrawAll();
+        }
+        function handleAChange() {
+            a_nm = parseFloat(aSlider.value);
+            redrawAll();
+        }
+
+        function startAnimation() {
+            if (animInterval) clearInterval(animInterval);
+            isAnimating = true;
+            animateBtn.textContent = '⏸︎ 暂停';
+            animInterval = setInterval(() => {
+                let nextN = n + 1;
+                if (nextN > MAX_N) nextN = 1;
+                n = nextN;
+                nSlider.value = n;
+                redrawAll();
+            }, 900);
+        }
+        function stopAnimation() {
+            if (animInterval) {
+                clearInterval(animInterval);
+                animInterval = null;
+            }
+            isAnimating = false;
+            animateBtn.textContent = '▶ 自动播放';
+        }
+        function toggleAnimation() {
+            if (isAnimating) {
+                stopAnimation();
+            } else {
+                startAnimation();
+            }
+        }
+
+        function resetToDefault() {
+            stopAnimation();
+            n = 1;
+            a_nm = 0.50;
+            nSlider.value = n;
+            aSlider.value = a_nm;
+            redrawAll();
+        }
+
+        function init() {
+            nSlider.addEventListener('input', handleNChange);
+            aSlider.addEventListener('input', handleAChange);
+            animateBtn.addEventListener('click', toggleAnimation);
+            resetBtn.addEventListener('click', resetToDefault);
+            redrawAll();
+        }
+
+        init();
+    })();
+</script>
+</body>
+</html>

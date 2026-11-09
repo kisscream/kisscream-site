@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>光栅衍射 · 参数互动实验室</title>
+<style>
+/* ===== 配色方案：Deep Blue 学术深蓝（与单缝/圆孔课件同一套） ===== */
+:root {
+  --primary: #1A3A5C; --primary-light: #5B84A8;
+  --accent: #D9822B; --accent-soft: #FBE7CB;
+  --ink: #16283A; --paper: #F4F7FA; --paper-2: #E8F0F7;
+  --line: #C9D8E5; --green: #00796B; --red: #C0392B;
+  --shadow: 0 4px 16px rgba(26,58,92,.10);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{overflow:hidden;height:100%}
+body{
+  font-family:"Segoe UI","Microsoft YaHei","Noto Sans SC",-apple-system,sans-serif;
+  background:var(--paper);color:var(--ink);
+  height:100dvh;overflow:hidden;position:relative;
+  font-size:21px;line-height:1.65;
+  display:flex;flex-direction:column;
+}
+
+/* ===== 导航条 ===== */
+nav#topNav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  background:linear-gradient(135deg,var(--primary),#2C5A85);
+  padding:6px 12px;display:flex;align-items:center;gap:10px;
+  flex-wrap:nowrap;overflow-x:auto;
+  box-shadow:0 2px 12px rgba(0,0,0,.15);
+  -webkit-overflow-scrolling:touch;
+}
+nav#topNav::-webkit-scrollbar{height:3px}
+nav#topNav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3);border-radius:2px}
+nav#topNav .chip{
+  flex-shrink:0;padding:5px 14px;border-radius:20px;
+  background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);
+  font-size:16px;cursor:pointer;transition:all .25s;
+  white-space:nowrap;border:1px solid transparent;font-weight:500;
+}
+nav#topNav .chip:hover{background:rgba(255,255,255,.25)}
+nav#topNav .chip.active{
+  background:var(--accent);color:#fff;font-weight:700;
+  border-color:var(--accent);box-shadow:0 2px 8px rgba(217,130,43,.4);
+}
+nav#topNav .chip.sim{background:rgba(21,101,192,.25);color:#fff}
+nav#topNav .chip.sum{background:rgba(0,121,107,.25);color:#fff}
+
+/* ===== 进度条 ===== */
+#progressWrap{
+  position:fixed;top:44px;left:0;right:0;height:4px;z-index:201;
+  background:rgba(0,0,0,.08);
+}
+#progressBar{
+  height:100%;background:var(--accent);
+  width:0%;transition:width .4s ease;border-radius:0 2px 2px 0;
+}
+
+/* ===== 翻页容器 ===== */
+#pageContainer{flex:1;position:relative;overflow:hidden;margin-top:48px}
+
+/* ===== 页面通用（底栏净空 74px = 底栏 bottom 18 + 高度 48 + 余量） ===== */
+.page{
+  position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;
+  display:none;padding:18px 36px 74px;
+  animation:fadeSlide .4s ease;
+}
+.page.active{display:block}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.page::-webkit-scrollbar{width:5px}
+.page::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+
+/* ===== 翻页按钮 ===== */
+#navBtns{
+  position:fixed !important;bottom:20px !important;left:50% !important;
+  right:auto !important;top:auto !important;transform:translateX(-50%) !important;
+  display:flex !important;align-items:center;justify-content:center;gap:16px;z-index:150;
+}
+#navBtns button{
+  width:48px;height:48px;border-radius:50%;border:2px solid var(--primary);
+  background:var(--paper);color:var(--primary);font-size:22px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .2s;box-shadow:var(--shadow);
+}
+#navBtns button:hover{background:var(--primary);color:#fff}
+#navBtns button:disabled{opacity:.35;cursor:default}
+#navBtns button:disabled:hover{background:var(--paper);color:var(--primary)}
+#pageIndicator{font-size:20px;font-weight:700;color:var(--primary);min-width:80px;text-align:center}
+
+/* ===== 封面页 ===== */
+.page.active .cover-page{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  width:100%;height:100%;color:#fff;
+}
+.cover-page h1{font-size:44px;font-weight:900;color:#fff;margin-bottom:8px;text-shadow:0 3px 12px rgba(0,0,0,.5);letter-spacing:2px}
+.cover-page .sub{font-size:22px;color:rgba(255,255,255,.88);margin-bottom:6px;letter-spacing:1px}
+.cover-page .formula-line{
+  font-family:Consolas,"Courier New",monospace;font-size:19px;color:#F0B36A;
+  letter-spacing:.5px;margin-bottom:10px;
+}
+.cover-page .tags{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:14px 0 16px}
+.cover-page .tag{padding:7px 18px;border-radius:24px;background:rgba(217,130,43,.78);color:#fff;font-size:17px;font-weight:600}
+.cover-page .hint{margin-top:20px;font-size:17px;color:rgba(255,255,255,.62)}
+#coverCanvas{
+  width:88%;max-width:900px;height:96px;display:block;margin:4px 0;
+  border-radius:10px;box-shadow:0 6px 30px rgba(120,190,255,.28);
+}
+.cover-note{font-size:14px;color:rgba(255,255,255,.5);margin-top:4px}
+
+/* ===== 仿真页 ===== */
+.sim-title{font-size:27px;font-weight:900;color:var(--primary);margin-bottom:2px;text-align:center}
+.sim-desc{text-align:center;font-size:16.5px;color:var(--primary-light);margin-bottom:12px}
+.sim-layout{display:grid;grid-template-columns:312px 1fr;gap:18px;align-items:start}
+
+.ctrl-panel{
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:14px 16px 12px;box-shadow:var(--shadow);
+}
+.ctrl-group{margin-bottom:9px}
+.ctrl-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px}
+.ctrl-head .cname{font-size:15px;font-weight:700;color:var(--primary)}
+.ctrl-head .cval{font-size:16.5px;font-weight:800;color:var(--accent);font-family:Consolas,"Courier New",monospace}
+.ctrl-head .cval small{font-size:12px;font-weight:600;color:var(--primary-light);margin-left:3px}
+input[type="range"]{width:100%;height:18px;accent-color:var(--accent);cursor:pointer;background:transparent}
+.ctrl-scale{display:flex;justify-content:space-between;font-size:11.5px;color:var(--primary-light);margin-top:-3px}
+.ctrl-sub{
+  font-size:12.5px;font-weight:800;color:var(--primary-light);letter-spacing:1.5px;
+  margin:12px 0 8px;padding-top:9px;border-top:1px dashed var(--line);
+}
+.toggle-row{display:flex;gap:7px;margin-bottom:9px}
+.toggle-row .mini-btn{flex:1;text-align:center}
+.preset-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line)}
+.preset-row .mini-btn{flex:1 1 46%;text-align:center}
+.mini-btn{
+  padding:6px 10px;border-radius:18px;border:1.5px solid var(--primary-light);
+  background:#fff;color:var(--primary);font-size:13px;font-weight:600;cursor:pointer;
+  transition:all .18s;font-family:inherit;
+}
+.mini-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.mini-btn.on{background:var(--green);border-color:var(--green);color:#fff}
+.mini-btn.on:hover{background:#00695C;border-color:#00695C}
+.mini-btn.amber{border-color:var(--accent);color:#A5620F}
+.mini-btn.amber:hover{background:var(--accent);color:#fff}
+
+.obs-box{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line)}
+.obs-title{font-size:13px;font-weight:800;color:var(--primary);margin-bottom:4px}
+.obs-list{margin:0;padding-left:16px}
+.obs-list li{font-size:11.5px;line-height:1.5;color:var(--ink);margin-bottom:3px}
+.obs-list li b{color:var(--accent)}
+
+/* ===== Canvas 区（②③ 左右 PAD 完全相同 → 横轴像素级对齐）===== */
+.view-panel{min-width:0}
+.canvas-box{margin-bottom:1px}
+.canvas-box canvas{display:block;width:100%;border-radius:10px;border:1px solid var(--line);background:#fff}
+#opticsCanvas{height:256px;background:#F8FBFD}
+#fringeCanvas{height:94px;background:#04070C;cursor:crosshair}
+#curveCanvas{height:176px;cursor:crosshair}
+.canvas-box .cap{font-size:13px;color:var(--primary);margin:2px 0 6px 2px;font-weight:600;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.canvas-box .cap em{font-style:normal;color:var(--primary-light);font-weight:500;font-size:12px}
+
+/* ===== 读数条（8 格 + 探针）===== */
+.readout-bar{display:grid;grid-template-columns:repeat(9,1fr);gap:8px;margin-top:9px}
+.ro{
+  background:#fff;border:1px solid var(--line);border-left:4px solid var(--primary-light);
+  border-radius:10px;padding:6px 8px;box-shadow:0 2px 8px rgba(26,58,92,.05);min-width:0;
+}
+.ro .rl{font-size:11.5px;color:var(--primary-light);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ro .rv{font-size:16px;font-weight:800;color:var(--primary);font-family:Consolas,"Courier New",monospace;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ro .rv small{font-size:11.5px;font-weight:600;color:var(--primary-light);margin-left:2px}
+.ro.hl{border-left-color:var(--accent)}
+.ro.hl .rv{color:#A5620F}
+.ro.probe{border-left-color:var(--green)}
+.ro.probe .rv{color:var(--green);font-size:14.5px}
+.ro.probe .rv small{color:var(--primary-light)}
+
+.formula-bar{
+  margin-top:8px;background:var(--paper-2);border-radius:10px;padding:6px 16px;
+  text-align:center;font-size:14.5px;color:var(--primary);letter-spacing:.3px;
+}
+.formula-bar b{color:var(--accent);font-family:Consolas,"Courier New",monospace;font-size:16px}
+
+/* ===== 总结页 ===== */
+.sum-title{font-size:29px;font-weight:900;color:var(--primary);text-align:center;margin-bottom:2px}
+.sum-desc{text-align:center;font-size:16.5px;color:var(--primary-light);margin-bottom:16px}
+.rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;align-items:start}
+.rule-card{
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  overflow:hidden;box-shadow:var(--shadow);transition:border-color .2s;
+}
+.rule-card.open{border-color:var(--accent)}
+.rule-head{display:flex;align-items:center;gap:13px;padding:13px 17px;cursor:pointer;user-select:none}
+.rule-head:hover{background:var(--paper-2)}
+.rule-ico{
+  flex-shrink:0;width:46px;height:46px;border-radius:12px;
+  background:linear-gradient(135deg,var(--primary),#2C5A85);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;
+  font-family:Consolas,"Courier New",monospace;line-height:1.1;text-align:center;
+}
+.rule-tt{flex:1;min-width:0}
+.rule-tt h4{font-size:17.5px;color:var(--primary);font-weight:800;line-height:1.35}
+.rule-tt .rule-sub{font-size:13px;color:var(--accent);font-family:Consolas,"Courier New",monospace;font-weight:700}
+.rule-arrow{font-size:19px;color:var(--primary-light);transition:transform .3s;flex-shrink:0}
+.rule-card.open .rule-arrow{transform:rotate(180deg)}
+/* max-height 必须 >= 最长卡正文实测高度（本课件最长卡约 430px，故取 1000px） */
+.rule-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.rule-card.open .rule-body{max-height:1000px}
+.rule-group{grid-column:1/-1;display:flex;align-items:center;gap:9px;margin:4px 0 -3px 2px;font-size:16px;font-weight:800;color:var(--primary)}
+.rule-group span{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:8px;background:var(--accent);color:#fff;font-size:14px;font-family:Consolas,"Courier New",monospace}
+.rule-group em{font-style:normal;color:var(--accent)}
+.rule-body-in{padding:0 17px 15px;font-size:16px;line-height:1.75;color:var(--ink)}
+.rule-body-in .kv{
+  background:var(--paper-2);border-radius:8px;padding:7px 12px;margin:9px 0;
+  font-family:Consolas,"Courier New",monospace;font-size:14.5px;color:var(--primary);font-weight:700;
+  line-height:1.6;
+}
+.rule-body-in .deep{
+  border-left:3px solid var(--primary-light);padding-left:10px;margin:9px 0 0;
+  font-size:14.5px;color:#4A6E8F;line-height:1.65;
+}
+.rule-body-in b{color:var(--accent)}
+
+.sum-formula{
+  margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:14px 20px;box-shadow:var(--shadow);
+}
+.sum-formula h4{font-size:18px;color:var(--primary);margin-bottom:8px;font-weight:800}
+.sum-formula .fl{display:flex;flex-wrap:wrap;gap:8px 26px}
+.sum-formula .fi{font-size:16px;color:var(--ink)}
+.sum-formula .fi b{color:var(--accent);font-family:Consolas,"Courier New",monospace;font-size:17px;margin-left:6px}
+
+/* ===== 响应式 ===== */
+@media(max-width:1400px){ .readout-bar{grid-template-columns:repeat(5,1fr)} }
+@media(max-width:900px){
+  .page{padding:16px 15px 74px}
+  .cover-page h1{font-size:28px;letter-spacing:1px}
+  .cover-page .sub{font-size:17px}
+  .cover-page .formula-line{font-size:15px}
+  #coverCanvas{height:76px;width:96%}
+  .sim-layout{grid-template-columns:1fr}
+  .sim-title{font-size:22px}
+  .sim-desc{font-size:15px}
+  #opticsCanvas{height:230px}
+  #fringeCanvas{height:84px}
+  #curveCanvas{height:164px}
+  .readout-bar{grid-template-columns:repeat(3,1fr);gap:7px}
+  .ro{padding:6px 8px}
+  .ro .rv{font-size:14.5px}
+  .rule-grid{grid-template-columns:1fr}
+  nav#topNav{padding:4px 8px;gap:6px}
+  nav#topNav .chip{padding:4px 10px;font-size:14px}
+  #navBtns button{width:40px;height:40px;font-size:18px}
+  .formula-bar{font-size:12.5px}
+  .formula-bar b{font-size:13.5px}
+}
+@media(max-width:520px){ .readout-bar{grid-template-columns:repeat(2,1fr)} }
+
+/* ===== 图片全屏灯箱（骨架内置，保留） ===== */
+#imgLightbox{
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,.92);justify-content:center;align-items:center;
+  cursor:zoom-out;
+}
+#imgLightbox.show{display:flex}
+#imgLightbox img{
+  max-width:95vw;max-height:95vh;object-fit:contain;
+  border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5);
+  animation:lightboxIn .3s ease;
+}
+@keyframes lightboxIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+#imgLightbox .lb-close{
+  position:absolute;top:20px;right:24px;width:44px;height:44px;
+  border-radius:50%;background:rgba(255,255,255,.15);color:#fff;
+  font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  border:none;transition:background .2s;
+}
+#imgLightbox .lb-close:hover{background:rgba(255,255,255,.3)}
+
+/* ===== 伪全屏兜底 CSS（第四代标准件 §3）===== */
+body.fs-pseudo #pageContainer{position:fixed;inset:0;z-index:9999}
+body.fs-pseudo #topNav{z-index:10001 !important}
+body.fs-pseudo #navBtns, body.fs-pseudo #mqttStatus{z-index:10000 !important}
+</style>
+</head>
+<body>
+
+<nav id="topNav">
+  <span class="chip active" data-page="0">封面</span>
+  <span class="chip sim" data-page="1">参数实验室</span>
+  <span class="chip sum" data-page="2">规律总结</span>
+</nav>
+
+<div id="progressWrap"><div id="progressBar"></div></div>
+
+<div id="pageContainer">
+
+<!-- ===== p0: 封面 ===== -->
+<section class="page active" id="p0" style="background:radial-gradient(circle at 50% 32%,#24547F 0%,#142F4C 46%,#0B1D30 100%);padding:20px 24px">
+<div class="cover-page">
+  <h1>🌈 光栅衍射</h1>
+  <p class="sub">大学物理 · 光的衍射 · 参数互动实验室</p>
+  <p class="formula-line">d·sin θ = kλ　×　a·sin θ = kλ</p>
+  <canvas id="coverCanvas"></canvas>
+  <p class="cover-note">默认参数（λ = 550 nm，d = 10.0 μm，a = 5.0 μm，N = 20）下屏上的条纹分布</p>
+  <div class="tags">
+    <span class="tag">多缝干涉 × 单缝衍射</span>
+    <span class="tag">缺级</span>
+    <span class="tag">分辨本领</span>
+  </div>
+  <p style="font-size:18px;color:rgba(255,255,255,.82);max-width:720px;line-height:1.8;">
+    拖一拖波长、光栅常数、缝宽、缝数、屏距和入射角——看条纹怎样疏密、怎样变细，<br>
+    看某一级怎样<b style="color:#F0B36A">凭空消失</b>，又看白光下中央那条为什么<b style="color:#F0B36A">始终是白的</b>。
+  </p>
+  <p class="hint">点击右下角箭头开始 或 点击顶部导航跳转</p>
+</div>
+</section>
+
+<!-- ===== p1: 参数实验室 ===== -->
+<section class="page" id="p1">
+  <h2 class="sim-title">参数实验室</h2>
+  <p class="sim-desc">六个参数<b>各自独立</b>、即时重绘：① 光栅剖面与衍射光路　② 屏上图样　③ 相对光强曲线（三线分解）</p>
+
+  <div class="sim-layout">
+    <aside class="ctrl-panel">
+      <div class="ctrl-sub">光栅与光</div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">波长 λ</span><span class="cval" id="valLam">550<small>nm</small></span></div>
+        <input type="range" id="slLam" min="400" max="700" step="5" value="550" aria-label="波长">
+        <div class="ctrl-scale"><span>400 紫</span><span>700 红</span></div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">光栅常数 d</span><span class="cval" id="valD">10.0<small>μm</small></span></div>
+        <input type="range" id="slD" min="30" max="200" step="1" value="100" aria-label="光栅常数">
+        <div class="ctrl-scale"><span>3.0 μm</span><span id="scaleD">等效 100 线/mm</span></div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">缝宽 a</span><span class="cval" id="valA">5.00<small>μm</small></span></div>
+        <input type="range" id="slA" min="10" max="380" step="1" value="100" aria-label="缝宽">
+        <div class="ctrl-scale"><span>0.50 μm</span><span>19.0 μm（固定量程）</span></div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">缝数 N</span><span class="cval" id="valN">20<small>条</small></span></div>
+        <input type="range" id="slN" min="0" max="1000" step="1" value="408" aria-label="缝数">
+        <div class="ctrl-scale"><span>2</span><span>200（对数）</span></div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">屏距 L</span><span class="cval" id="valL">1.00<small>m</small></span></div>
+        <input type="range" id="slL" min="60" max="120" step="1" value="100" aria-label="屏距">
+        <div class="ctrl-scale"><span>0.60 m</span><span>1.20 m</span></div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">入射角 i</span><span class="cval" id="valInc">0.0<small>°</small></span></div>
+        <input type="range" id="slInc" min="-15" max="15" step="0.5" value="0" aria-label="入射角">
+        <div class="ctrl-scale"><span>−15°</span><span>+15°</span></div>
+      </div>
+
+      <div class="ctrl-sub">视野与显示</div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">视野半径 R</span><span class="cval" id="valR">300<small>mm</small></span></div>
+        <input type="range" id="slR" min="0" max="1000" step="1" value="500" aria-label="视野半径">
+        <div class="ctrl-scale"><span>50 mm（放大）</span><span>1200 mm（缩小）</span></div>
+      </div>
+
+      <div class="toggle-row">
+        <button class="mini-btn" id="btnWhite" onclick="toggleWhite()">白光：关</button>
+        <button class="mini-btn" id="btnSqrt" onclick="toggleSqrt()">纵轴 √I：关</button>
+      </div>
+
+      <div class="preset-row">
+        <button class="mini-btn amber" onclick="applyPreset('standard')">标准光栅</button>
+        <button class="mini-btn amber" onclick="applyPreset('break')">打破缺级</button>
+        <button class="mini-btn amber" onclick="applyPreset('real')">真实光栅 N=200</button>
+        <button class="mini-btn amber" onclick="applyPreset('white')">白光光谱</button>
+      </div>
+
+      <div class="obs-box">
+        <div class="obs-title">观察要点</div>
+        <ol class="obs-list">
+          <li><b>λ</b> ↑ → 条纹整体变宽、变红（x_k ∝ λ）。</li>
+          <li><b>d</b> ↓ → 条纹散开、k_max 变少；d ↑ 则级次挤向中央。</li>
+          <li><b>d 与 a 各自独立</b>：拖 a（d 不动）→ 包络宽窄变，d/a 跨过整数时<b>缺级出现或消失</b>；拖 d（a 不动）→ 缺级级次随 d/a 整体挪位。</li>
+          <li><b>N</b> ↑ → 条纹位置一位不变，只是<b>变细变亮</b>。</li>
+          <li><b>白光</b> → 零级仍是白的，±1 级才散成彩带。</li>
+          <li><b>i</b> ↑ → 整幅平移，而 Δsinθ 恒为 λ/d。</li>
+        </ol>
+      </div>
+    </aside>
+
+    <div class="view-panel">
+      <div class="canvas-box">
+        <canvas id="opticsCanvas"></canvas>
+        <div class="cap"><span>① 光栅剖面与衍射光路（平行光 → 光栅 → 透镜 L → 焦面 E）</span><em>同一级衍射光在光栅后是<b>平行光</b>，被透镜会聚到焦面上<b>一点</b>；缺级画灰虚线打 ×</em></div>
+      </div>
+      <div class="canvas-box">
+        <canvas id="fringeCanvas"></canvas>
+        <div class="cap"><span>② 屏上图样</span><em id="capFringe">单色 · 亮度按 I⁰·⁵⁵ 提升</em></div>
+      </div>
+      <div class="canvas-box">
+        <canvas id="curveCanvas"></canvas>
+        <div class="cap"><span>③ 相对光强 I / I₀（横轴与上图像素级对齐）</span><em id="capCurve">虚线＝单缝包络　细线＝N 缝干涉因子　实线＝总强度</em></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="readout-bar">
+    <div class="ro hl"><div class="rl">d / a（缺级判据）</div><div class="rv" id="roDA">—</div></div>
+    <div class="ro"><div class="rl">最高级次 k_max</div><div class="rv" id="roKmax">—</div></div>
+    <div class="ro"><div class="rl">一级衍射角 θ₁</div><div class="rv" id="roTh1">—</div></div>
+    <div class="ro hl"><div class="rl">一级位置 x₁</div><div class="rv" id="roX1">—</div></div>
+    <div class="ro"><div class="rl">相邻级间距 Δx₁₂</div><div class="rv" id="roDx">—</div></div>
+    <div class="ro hl"><div class="rl">Δsinθ ≡ λ/d</div><div class="rv" id="roDSin">—</div></div>
+    <div class="ro"><div class="rl">主极大半宽 δx</div><div class="rv" id="roW">—</div></div>
+    <div class="ro hl"><div class="rl">视野内可见级次</div><div class="rv" id="roVis">—</div></div>
+    <div class="ro probe"><div class="rl">探针（鼠标位置）</div><div class="rv" id="roProbe">移动鼠标</div></div>
+  </div>
+
+  <div class="formula-bar">光栅方程 <b>d(sinθ − sin i) = kλ</b>　｜　强度 <b>I = I₀[sin u/u]²·[sin(Nv)/sin v]²</b>，u = πa·s/λ，v = πd·s/λ，s = sinθ − sin i</div>
+</section>
+
+<!-- ===== p2: 规律总结 ===== -->
+<section class="page" id="p2">
+  <h2 class="sum-title">形态 · 锐度 · 缺级 · 光谱</h2>
+  <p class="sum-desc">点击卡片展开推理，再点「在仿真中验证」回到实验室亲手复现</p>
+
+  <div class="rule-grid">
+    <div class="rule-group"><span>A</span>改变条纹的<em>位置与间距</em>（谁在动 · 谁不动）</div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">λ</span>
+        <div class="rule-tt"><h4>波长变长 → 条纹整体变宽</h4><p class="rule-sub">d·sin θ = kλ　⇒　x_k ∝ λ</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        各级位置由 d·sinθ = kλ 唯一决定：λ 增大，sinθ 按比例增大，整幅条纹同步散开，颜色由紫转红。
+        <div class="kv">λ：550 nm → 700 nm　⇒　x₁ 由 55.08 mm 增至 70.17 mm（×1.27）</div>
+        注意这是"整体变宽"而不是"变密"：所有级次一起外移，相邻间距也一起变大。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({lam:700})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">d</span>
+        <div class="rule-tt"><h4>光栅常数变小 → 条纹散得更开</h4><p class="rule-sub">x_k ∝ 1/d　｜　k_max = ⌊d(1+sin i)/λ⌋</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        d 是刻线的<b>空间周期</b>——周期越小，同样的波长差就能"磨"出更大的角度差，条纹散得越开；代价是最高级次 k_max 随之减少（谱线总数变少）。
+        <div class="kv">d：10.0 μm → 5.0 μm（按钮演示里把 a 一并设为 2.50 μm，以维持 d/a = 2 的标准缺级；d 与 a 是两根独立滑块）<br>⇒ x₁ 由 55.08 mm 变为 110.67 mm（×2.01），k_max 由 18 降到 9</div>
+        实验室里"想看得更开就换更高密度的光栅"，说的就是这一条。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({d:5.0,a:2.5})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-group"><span>B</span>改变条纹的<em>亮度与锐度</em>（缝数的独家作用）</div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">N</span>
+        <div class="rule-tt"><h4>缝数 N：位置纹丝不动，只变细变亮</h4><p class="rule-sub">Δx = Lλ/d（与 N 无关）　δx ≈ Lλ/(N·d·cos³θ₁) ∝ 1/N</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        把 N 从 20 拉到 200：±1 级始终钉在 <b>55.08 mm</b>，相邻间距 <b>55.59 mm</b> 一位数字都不变；变的只有谱线宽度——<b>2.76 mm → 0.28 mm</b>，细了整整十倍。
+        <div class="kv">N = 2 　→ δx = 27.63 mm<br>N = 20 　→ δx = 2.76 mm<br>N = 200 → δx = 0.28 mm　（x₁ 恒为 55.08 mm）</div>
+        原因：主极大位置由 d·sinθ = kλ 唯一决定，N 只决定 N 束光在<b>中心方向</b>上的相位叠加有多"锐"。这正是光栅比双缝分辨率高的全部秘密——分辨本领 R_分 = kN。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({N:200})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">L</span>
+        <div class="rule-tt"><h4>屏移远 → 条纹线性铺开</h4><p class="rule-sub">x_k ∝ L　（θ_k 不变）</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        衍射角由 d 与 λ 决定，与屏放在哪里无关；屏越远，同样张角的条纹在屏上铺得越开，而各级的<b>相对光强分布</b>一点没变。
+        <div class="kv">L：1.00 m → 1.20 m　⇒　x₁ 由 55.08 mm 变为 66.10 mm（×1.20），θ₁ 仍为 3.153°</div>
+        所以"调屏距"是实验室里改变条纹尺度最方便的一根"杠杆"，但它不改变任何角信息。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({L:1.2})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-group"><span>C</span>决定<em>哪一级不存在</em>——缺级</div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">a:d</span>
+        <div class="rule-tt"><h4>缺级：d/a 为整数时，那些级凭空消失</h4><p class="rule-sub">缺级条件 k = (d/a)·m　｜　包络零点 sinθ = mλ/a</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        当 d/a 恰为整数，第 (d/a)·m 级主极大正好落在单缝衍射的第 m 级零点上——干涉要它亮，衍射偏不给光，这一级就<b>凭空消失</b>。当前 d/a = 2.00（标准光栅），所以 ±2、±4 … ±18 级全部为零。
+        <div class="kv">d/a = 2.00（a = 5.0 μm）→ 缺 ±2, ±4, ±6, …, ±18<br>d/a = 2.50（a = 4.0 μm）→ 无缺级，全部级次现身</div>
+        <div class="deep">把 N 从 2 拉到 200 也救不回来——缺级是衍射包络的属性，与缝数完全无关。请在仿真中亲手试一次。</div>
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({d:10.0,a:4.0,N:20})">① 先看「打破缺级」 →</button>
+          <button class="mini-btn amber" style="margin-left:6px" onclick="event.stopPropagation();gotoSimWith({d:10.0,a:5.0,N:200})">② 再试「加缝数救不回」 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">i</span>
+        <div class="rule-tt"><h4>斜入射：整幅平移，Δsinθ 严格不变</h4><p class="rule-sub">d(sinθ − sin i) = kλ　⇒　θ_k = arcsin(sin i + kλ/d)</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        光斜射入光栅时，零级不再沿光栅法线，而是沿<b>入射方向</b>偏出（θ₀ = i）：i = 5° 时零级跑到屏上 <b>87.49 mm</b> 处，整幅图样随之平移。
+        <div class="kv">i = 0°　→ 零级 0.00 mm，相邻间距 55.59 mm<br>i = 5°　→ 零级 87.49 mm，相邻间距 57.49 mm</div>
+        <div class="deep">深入一步：严格守恒的是 <b>Δsinθ ≡ λ/d = 0.055000</b>（与 i 完全无关）；屏上 Δx 之所以从 55.59 mm 微涨到 57.49 mm，是 x = L·tanθ 这个换算式带来的非线性修正——那是 tan 的账，不是 sinθ 的账。读数条第 6 格可以现场验证这一点。</div>
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({inc:5})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-group"><span>D</span>白光与光谱——光栅与棱镜的根本区别</div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">◎</span>
+        <div class="rule-tt"><h4>白光下零级仍是白的，±1 级才散成彩带</h4><p class="rule-sub">k = 0 时 sinθ = 0，与 λ 无关</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        打开白光开关，中央那条主极大<b>纹丝不动、依然是白色</b>——因为 k = 0 时 d·sinθ 恒等于 0，与波长毫无关系。只有 |k| ≥ 1 才有 sinθ = kλ/d，波长越长偏得越远，于是从紫到红散成一条彩带。
+        <div class="kv">零级位移 = 0.00 mm（与 λ 无关）<br>一级展开：400 nm → 40.03 mm（紫）　700 nm → 70.17 mm（红）</div>
+        <div class="deep">这正是光栅与棱镜的根本区别：棱镜在零级附近色散最大、且只有"一级光谱"；光栅零级完全无色散，却能给出多级光谱。</div>
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({white:1})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">⊂</span>
+        <div class="rule-tt"><h4>第二级与第三级光谱会重叠</h4><p class="rule-sub">k₁λ₁ = k₂λ₂　⇒　λ_长/λ_短 &gt; 1.5 即重叠</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        光栅有"多级光谱"，代价是后一级的短波端会追上长波端：可见光 700/400 = 1.75 &gt; 1.5，所以三级紫端（3×400 = 1200）与二级的 600 nm（2×600 = 1200）落在<b>同一处</b>——同一位置该算二级还是三级，光看位置分辨不出来。
+        <div class="kv">三级 400 nm ≡ 二级 600 nm（同为 1200）<br>二级红端 1400 &gt; 三级紫端 1200　⇒　必然重叠</div>
+        这就是光栅光谱仪必须配滤光片（或前置棱镜预色散）来消除级次重叠的原因。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({white:1,lam:550})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="sum-formula">
+    <h4>核心公式速查</h4>
+    <div class="fl">
+      <span class="fi">光栅方程<b>d(sinθ − sin i) = kλ</b></span>
+      <span class="fi">强度分布<b>I = I₀[sin u/u]²·[sin(Nv)/sin v]²</b></span>
+      <span class="fi">中间量<b>u = πa·s/λ，v = πd·s/λ，s = sinθ − sin i</b></span>
+      <span class="fi">缺级条件<b>k = (d/a)·m（d/a 为整数）</b></span>
+      <span class="fi">最高级次<b>k_max = ⌊d(1+sin i)/λ⌋</b></span>
+      <span class="fi">分辨本领<b>R = kN</b></span>
+      <span class="fi">主极大半宽<b>δθ = λ/(N·d·cosθ)</b></span>
+      <span class="fi">屏上位置<b>x_k = L·tan θ_k</b></span>
+      <span class="fi">守恒量<b>Δsinθ ≡ λ/d（与 i、N 无关）</b></span>
+    </div>
+  </div>
+</section>
+
+</div><!-- /pageContainer -->
+
+<div id="imgLightbox" onclick="closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()">✕</button>
+  <img id="lbImg" src="" alt="全屏查看">
+</div>
+
+<div id="navBtns">
+  <button id="btnPrev" onclick="prevPage()" disabled>◀</button>
+  <span id="pageIndicator">1/3</span>
+  <button id="btnNext" onclick="nextPage()">▶</button>
+</div>
+
+<script>
+/* =====================================================================
+   模块 1 · 翻页系统
+   复制自 templates/page-flip-system.js，仅改 PAGE_IDS / PAGE_LABELS。
+   ⚠ 必须最先定义：getPageParam 是全课件唯一的 URL 参数入口。
+   ===================================================================== */
+
+// ===== URL 参数解析（hash → search → parent）=====
+function getPageParam(k) {
+  try {
+    var h = location.hash || '';
+    if (h.indexOf(k + '=') >= 0) {
+      var m1 = new RegExp('[#&]' + k + '=([^&#]*)').exec(h);
+      if (m1) return decodeURIComponent(m1[1]);
+    }
+    var q = location.search || '';
+    if (q.indexOf(k + '=') >= 0) {
+      var m2 = new RegExp('[?&]' + k + '=([^&#]*)').exec(q);
+      if (m2) return decodeURIComponent(m2[1]);
+    }
+    if (window.parent && window.parent !== window) {
+      try {
+        var psrc = (window.parent.location.hash || '') + '&' + (window.parent.location.search || '');
+        if (psrc.indexOf(k + '=') >= 0) {
+          var m3 = new RegExp('[#&?]' + k + '=([^&#]*)').exec(psrc);
+          if (m3) return decodeURIComponent(m3[1]);
+        }
+      } catch (e) { /* 跨源不可读 → 忽略 */ }
+    }
+  } catch (e) {}
+  return null;
+}
+
+// ===== 配置块 =====
+var PAGE_IDS = ['p0', 'p1', 'p2'];
+var PAGE_LABELS = ['封面', '参数实验室', '规律总结'];
+var IMG_PREFIX = 'img/';
+var curPage = 0;
+
+function showPage(i) {
+  if (i < 0 || i >= PAGE_IDS.length) return;
+  var oldEl = document.querySelector('.page.active');
+  if (oldEl) oldEl.classList.remove('active');
+  var newEl = document.getElementById(PAGE_IDS[i]);
+  if (newEl) {
+    newEl.classList.add('active');
+    newEl.scrollTop = 0;
+  }
+  curPage = i;
+  document.querySelectorAll('#topNav .chip').forEach(function (c, idx) {
+    c.classList.toggle('active', idx === i);
+  });
+  document.getElementById('progressBar').style.width = ((i + 1) / PAGE_IDS.length * 100) + '%';
+  document.getElementById('pageIndicator').textContent = (i + 1) + '/' + PAGE_IDS.length;
+  document.getElementById('btnPrev').disabled = (i === 0);
+  document.getElementById('btnNext').disabled = (i === PAGE_IDS.length - 1);
+  onPageEnter(i);
+  var activeChip = document.querySelector('#topNav .chip.active');
+  if (activeChip && typeof activeChip.scrollIntoView === 'function') {
+    activeChip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
+}
+
+function nextPage() { if (curPage < PAGE_IDS.length - 1) showPage(curPage + 1); }
+function prevPage() { if (curPage > 0) showPage(curPage - 1); }
+
+document.querySelectorAll('#topNav .chip').forEach(function (chip) {
+  chip.addEventListener('click', function () {
+    showPage(parseInt(this.getAttribute('data-page'), 10));
+  });
+});
+
+// 键盘导航 — 揭示优先（本课件无 reveal 队列，等价于纯翻页）
+document.addEventListener('keydown', function (e) {
+  var pid = PAGE_IDS[curPage];
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+    e.preventDefault();
+    if (typeof pageRevealActive !== 'undefined' && pageRevealActive[pid] &&
+        pageRevealQueues[pid] && pageRevealIndex[pid] < pageRevealQueues[pid].length) {
+      nextReveal(pid);
+    } else {
+      nextPage();
+    }
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (typeof pageRevealQueues !== 'undefined' && pageRevealQueues[pid] && pageRevealIndex[pid] > 0) {
+      prevReveal(pid);
+    } else {
+      prevPage();
+    }
+  }
+});
+
+// 触摸滑动翻页
+var touchStartX = 0, touchStartY = 0;
+document.addEventListener('touchstart', function (e) {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchend', function (e) {
+  var dx = e.changedTouches[0].clientX - touchStartX;
+  var dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+    if (dx < 0) nextPage(); else prevPage();
+  }
+});
+
+// ===== 页面进入回调 =====
+var pageEntered = {};
+function onPageEnter(i) {
+  var id = PAGE_IDS[i];
+  if (pageEntered[id]) return;
+  pageEntered[id] = true;
+  if (id === 'p0') drawCover();
+  if (id === 'p1') { fitAll(); renderAll(); }
+}
+
+/* =====================================================================
+   模块 2 · 光栅衍射仿真（六参数 · 单色/白光 · 斜入射）
+   ---------------------------------------------------------------------
+   屏坐标 x（mm），原点 = 光栅法线（光轴）与屏的交点，向上为正。
+   物理内核（唯一公式，六参数全部收敛于此，无任何参数分支）：
+       s_k  = sin i + k·λ/d                    （第 k 级的方向正弦）
+       x_k  = L·tan(arcsin s_k)                （第 k 级在屏上的位置）
+       I(x) = I₀ · [sin u/u]² · [sin(Nv)/sin v]² / N²
+              u = πa·s/λ ,  v = πd·s/λ ,  s = sinθ − sin i
+       sinθ = x/√(x² + L²)                     （自光栅中心射向屏上 x 点）
+   ⚠ 归一化：主极大处 [sin(Nv)/sin v]² = N²，除以 N² 后 I(0) = 1。
+   ⚠ 不进公式的量：R（视野半径）—— 纯显示量，不参与任何物理计算。
+   ===================================================================== */
+
+// ---- 状态 ----
+var simParams = { lam: 550, d: 10.0, a: 5.0, N: 20, L: 1.00, inc: 0 };  // nm / μm / μm / 条 / m / °
+var whiteLight = false;   // 白光开关
+var sqrtY = false;        // ③ 图纵轴：线性 / √
+var R = 300;              // 屏上视野半宽 (mm)
+var PAD_L = 48, PAD_R = 16;   // ②③ 共用的左右内边距，保证横轴对齐
+var hoverXmm = null;
+
+// ---- 离屏画布 ----
+var offFringe = document.createElement('canvas');
+var offCurve = document.createElement('canvas');
+var strip = document.createElement('canvas');
+var cv = {};
+
+// ---- 物理计算 ----
+function incRad(p) { return p.inc * Math.PI / 180; }
+
+// 第 k 级的方向正弦；|s| >= 1 表示该级不存在（返回 null）
+function sinOfK(k, p, lamNm) {
+  var lam = (lamNm === undefined ? p.lam : lamNm) * 1e-9;   // m
+  var d = p.d * 1e-6;                                       // m
+  var s = Math.sin(incRad(p)) + k * lam / d;
+  return (s >= 1 || s <= -1) ? null : s;
+}
+
+// 第 k 级在屏上的位置（mm）；不存在返回 null
+function xOfK(k, p, lamNm) {
+  var s = sinOfK(k, p, lamNm);
+  return s === null ? null : p.L * 1000 * Math.tan(Math.asin(s));
+}
+
+// 主极大处（中心方向）的衍射因子 —— 该处干涉因子恒为 1
+function difAtK(k, p, lamNm) {
+  var lam = (lamNm === undefined ? p.lam : lamNm) * 1e-9;
+  var s = sinOfK(k, p, lamNm);
+  if (s === null) return 0;
+  var u = Math.PI * (p.a * 1e-6) * s / lam;
+  if (Math.abs(u) < 1e-12) return 1;
+  var t = Math.sin(u) / u;
+  return t * t;
+}
+
+// 连续光强（归一化到主极大 = 1）
+function intensityAtP(xmm, p, lamNm) {
+  var lam = (lamNm === undefined ? p.lam : lamNm) * 1e-9;
+  var d = p.d * 1e-6, a = p.a * 1e-6;
+  var xr = xmm * 1e-3;                                     // mm → m
+  var sinT = xr / Math.sqrt(xr * xr + p.L * p.L);
+  var s = sinT - Math.sin(incRad(p));
+
+  var u = Math.PI * a * s / lam;
+  var dif;
+  if (Math.abs(u) < 1e-12) dif = 1;
+  else { var t1 = Math.sin(u) / u; dif = t1 * t1; }
+
+  var v = Math.PI * d * s / lam;
+  var sv = Math.sin(v);
+  var inter;
+  if (Math.abs(sv) < 1e-7) {
+    inter = 1;     // 主极大极限：sin(Nv)/sin(v) → ±N，归一化后 = 1
+  } else {
+    var t2 = Math.sin(p.N * v) / (p.N * sv);
+    inter = t2 * t2;
+  }
+  return dif * inter;
+}
+
+// 干涉因子单独取值（③ 三联图的中间那条细线）
+function interAtP(xmm, p) {
+  var d = p.d * 1e-6;
+  var xr = xmm * 1e-3;
+  var sinT = xr / Math.sqrt(xr * xr + p.L * p.L);
+  var s = sinT - Math.sin(incRad(p));
+  var v = Math.PI * d * s / (p.lam * 1e-9);
+  var sv = Math.sin(v);
+  if (Math.abs(sv) < 1e-7) return 1;
+  var t = Math.sin(p.N * v) / (p.N * sv);
+  return t * t;
+}
+
+// 单缝衍射包络单独取值
+function envAtP(xmm, p, lamNm) {
+  var lam = (lamNm === undefined ? p.lam : lamNm) * 1e-9;
+  var a = p.a * 1e-6;
+  var xr = xmm * 1e-3;
+  var sinT = xr / Math.sqrt(xr * xr + p.L * p.L);
+  var s = sinT - Math.sin(incRad(p));
+  var u = Math.PI * a * s / lam;
+  if (Math.abs(u) < 1e-12) return 1;
+  var t = Math.sin(u) / u;
+  return t * t;
+}
+
+// 缺级判定：d/a 为整数 m 时，k = m·l 全缺（容差 0.004，与滑块吸附配合）
+function missingM(p) {
+  var r = p.d / p.a;
+  var m = Math.round(r);
+  return (m >= 1 && Math.abs(r - m) < 0.004) ? m : 0;
+}
+function isMissing(k, p) {
+  var m = missingM(p);
+  return m > 0 && (k % m === 0);
+}
+
+// 最高级次（读数条口径：⌊d(1+sin i)/λ⌋）
+function kmaxOf(p) {
+  return Math.floor(p.d * 1e-6 * (1 + Math.sin(incRad(p))) / (p.lam * 1e-9));
+}
+
+// 视野内可见级次（已扣掉缺级与 |s|>=1）
+function visibleOrders(p, radius) {
+  var out = [], k, km = kmaxOf(p) + 2;
+  for (k = 1; k <= km; k++) {
+    var x = xOfK(k, p);
+    if (x === null) continue;
+    if (Math.abs(x) > radius) continue;
+    if (isMissing(k, p)) continue;
+    out.push(k);
+  }
+  return out;
+}
+
+// ---- 波长 → RGB（piecewise 近似；boost=false 时不做亮度均衡，供白光叠加用）----
+function wlToRGB(wl, boost) {
+  var Rr = 0, Gg = 0, Bb = 0;
+  if (wl >= 380 && wl < 440) { Rr = -(wl - 440) / 60; Bb = 1; }
+  else if (wl < 490) { Gg = (wl - 440) / 50; Bb = 1; }
+  else if (wl < 510) { Gg = 1; Bb = -(wl - 510) / 20; }
+  else if (wl < 580) { Rr = (wl - 510) / 70; Gg = 1; }
+  else if (wl < 645) { Rr = 1; Gg = -(wl - 645) / 65; }
+  else { Rr = 1; }
+  var r = Rr * 255, g = Gg * 255, b = Bb * 255;
+  if (boost !== false) {
+    var luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    var target = 150;
+    if (luma < target) {
+      var t = (target - luma) / target * 0.62;
+      r += (255 - r) * t; g += (255 - g) * t; b += (255 - b) * t;
+    }
+  }
+  return [Math.round(Math.max(0, Math.min(255, r))),
+          Math.round(Math.max(0, Math.min(255, g))),
+          Math.round(Math.max(0, Math.min(255, b)))];
+}
+function wlCss(wl) {
+  var c = wlToRGB(wl);
+  return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+}
+
+// 白光取样波长（400 → 700 nm，步长 10 nm，共 31 个）
+var WHITE_LAMS = (function () {
+  var a = [];
+  for (var w = 400; w <= 700; w += 10) a.push(w);
+  return a;
+})();
+// ③ 图在"三代表波长"模式下使用的波长
+var TRI_LAMS = [650, 550, 450];
+
+// ---- 白光通道归一 ----
+// 纯光谱色按等权求和并不等于中性白：400-700 nm 等权相加后 R 通道能量远大于 B
+// （650-700 nm 全为纯红 255，而 B 只在 <500 nm 有非零值），零级会渲染成暖橙黄。
+// 物理上零级各波长强度相同、应严格呈现为白，故按通道配平增益，使
+//   SUM wlToRGB(lambda) * gain  ->  R = G = B
+// 增益是常数、与级次无关，故色散后的色相不受影响。
+var WHITE_GAIN = (function () {
+  var sr = 0, sg = 0, sb = 0, i, cc;
+  for (i = 0; i < WHITE_LAMS.length; i++) {
+    cc = wlToRGB(WHITE_LAMS[i], false);
+    sr += cc[0]; sg += cc[1]; sb += cc[2];
+  }
+  return [1 / sr, 1 / sg, 1 / sb];
+})();
+
+// ---- Canvas 尺寸适配（devicePixelRatio）----
+var CANVAS_DEFS = [
+  { id: 'opticsCanvas', key: 'optics' },
+  { id: 'fringeCanvas', key: 'fringe' },
+  { id: 'curveCanvas', key: 'curve' }
+];
+
+function fitAll() {
+  var dp = Math.min(window.devicePixelRatio || 1, 2);
+  CANVAS_DEFS.forEach(function (d) {
+    var el = document.getElementById(d.id);
+    if (!el) return;
+    var r = el.getBoundingClientRect();
+    var w = Math.round(r.width), h = Math.round(r.height);
+    if (w < 40 || h < 20) return;   // 页面隐藏时跳过
+    el.width = Math.round(w * dp);
+    el.height = Math.round(h * dp);
+    var ctx = el.getContext('2d');
+    ctx.setTransform(dp, 0, 0, dp, 0, 0);
+    cv[d.key] = { el: el, ctx: ctx, w: w, h: h, dp: dp };
+  });
+}
+/* ---------------- 视图 ① 光栅剖面与衍射光路 ---------------- */
+// 透镜半高：既不写死像素、也不拍比例 —— 由"最外侧光线在透镜面的落点" hNeed 反推。
+// 解析上界（符号与 drawOptics 中的 F、dGL 一致）：
+//   hNeed ≤ gHalf + R·KT·(lensX−gratingX)/F = 0.17H + 0.40H·(0.13/0.55) = 0.2645H
+// 于是 hL = max(0.20H, hNeed + 9px) ≤ 0.2645H + 9px，
+// 画布容量 hLcap = min(y0−3, H−3−y0) = 0.5H − 3 > 0.2645H + 9px 对一切 H > 53 成立，
+// 故保险夹紧在真实视口（H=256 / 230）下恒不触发。
+
+function drawLensShape(ctx, cx, cy, hh, hw) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - hh);
+  ctx.quadraticCurveTo(cx + hw * 1.6, cy, cx, cy + hh);
+  ctx.quadraticCurveTo(cx - hw * 1.6, cy, cx, cy - hh);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(140,190,225,.38)';
+  ctx.fill();
+  ctx.strokeStyle = '#5B84A8';
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawOptics() {
+  if (!cv.optics) return;
+  var c = cv.optics, ctx = c.ctx, W = c.w, H = c.h, p = simParams;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#F8FBFD';
+  ctx.fillRect(0, 0, W, H);
+
+  var y0 = H * 0.50;                                   // 光轴
+  var gratingX = W * 0.22, lensX = W * 0.35, screenX = W * 0.90;
+  var KT = (H * 0.40) / R;                             // mm → px（纵向等比压缩，与视野一致）
+  var gHalf = H * 0.17;                                // 光栅展示半高（px）
+  var PER = 6;                                         // 剖面展示 6 个周期（局部放大）
+  var F = Math.max(1, screenX - lensX);                // 绘图"焦距"（px）：透镜面 → 焦面
+  var dGL = lensX - gratingX;                          // 光栅面 → 透镜面 的水平距离（px）
+  var visI = incRad(p) * 0.45;                         // 入射角视觉系数（纯美术量，不影响读数）
+
+  // 光轴
+  ctx.save();
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = '#B9CBDB';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(14, y0); ctx.lineTo(screenX, y0); ctx.stroke();
+  ctx.restore();
+
+  // ① 入射平行光（按入射角 i 倾斜）
+  var nL = 6, i;
+  var tanI = Math.tan(visI);
+  ctx.strokeStyle = '#5E7E9B';
+  ctx.lineWidth = 1.5;
+  for (i = 0; i < nL; i++) {
+    var yyS = (y0 - gHalf) + (2 * gHalf) * i / (nL - 1);
+    var yyL = yyS + (gratingX - 16) * tanI;
+    ctx.beginPath(); ctx.moveTo(16, yyL); ctx.lineTo(gratingX - 4, yyS); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(gratingX - 4, yyS);
+    ctx.lineTo(gratingX - 11, yyS - 3.4);
+    ctx.lineTo(gratingX - 11, yyS + 3.4);
+    ctx.closePath();
+    ctx.fillStyle = '#5E7E9B';
+    ctx.fill();
+  }
+  ctx.fillStyle = '#5E7E9B';
+  ctx.font = '12.5px "Segoe UI",sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('平行光 λ', 16, Math.max(12, (y0 - gHalf) - 8));
+
+  // ② 入射角 i 角弧
+  if (Math.abs(p.inc) > 0.05) {
+    var rr = 30;
+    ctx.strokeStyle = '#D9822B';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(gratingX, y0, rr, Math.PI, Math.PI - visI, visI > 0);
+    ctx.stroke();
+    ctx.fillStyle = '#D9822B';
+    ctx.font = 'bold 13px Consolas,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('i', gratingX - rr * 0.72, y0 - Math.sign(visI) * rr * 0.72 + (visI > 0 ? -3 : 12));
+  }
+
+  // ③ 光栅剖面：按真实 a/d 占空比画 PER 个周期（深色 = 挡光，缝隙 = 透光）
+  var frac = Math.max(0.05, Math.min(0.95, p.a / p.d));
+  var perPx = (2 * gHalf) / PER;
+  ctx.fillStyle = '#2F4256';
+  for (i = 0; i < PER; i++) {
+    var yTop = y0 - gHalf + i * perPx;
+    ctx.fillRect(gratingX - 3.5, yTop, 7, perPx * (1 - frac));
+  }
+  ctx.strokeStyle = '#C9D8E5';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(gratingX - 3.5, y0 - gHalf, 7, 2 * gHalf);
+
+  // a 尺寸标注
+  var axp = gratingX - 12;
+  ctx.strokeStyle = '#2F4256';
+  ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(axp, y0 - gHalf + perPx * (1 - frac)); ctx.lineTo(axp, y0 - gHalf + perPx); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(axp - 4, y0 - gHalf + perPx * (1 - frac)); ctx.lineTo(axp + 4, y0 - gHalf + perPx * (1 - frac)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(axp - 4, y0 - gHalf + perPx); ctx.lineTo(axp + 4, y0 - gHalf + perPx); ctx.stroke();
+  ctx.fillStyle = '#2F4256';
+  ctx.font = 'bold 13px Consolas,monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText('a', axp - 6, y0 - gHalf + perPx * (1 - frac / 2) + 4);
+
+  // d 尺寸标注
+  var dxp = gratingX - 26;
+  ctx.strokeStyle = '#5E7E9B';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(dxp, y0 - gHalf); ctx.lineTo(dxp, y0 - gHalf + perPx); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(dxp - 4, y0 - gHalf); ctx.lineTo(dxp + 4, y0 - gHalf); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(dxp - 4, y0 - gHalf + perPx); ctx.lineTo(dxp + 4, y0 - gHalf + perPx); ctx.stroke();
+  ctx.fillStyle = '#5E7E9B';
+  ctx.textAlign = 'right';
+  ctx.fillText('d', dxp - 5, y0 - gHalf + perPx / 2 + 4);
+
+  ctx.fillStyle = '#5E7E9B';
+  ctx.font = '12px "Segoe UI",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('光栅（局部 ' + PER + ' 个周期）', gratingX + 6, Math.max(11, y0 - gHalf - 7));
+
+  // ④ 各级衍射光线：光栅 →（平行光）→ 透镜 →（会聚）→ 焦面上一点
+  //    这是一套自洽的薄透镜作图（纵向按 KT 统一压缩，故为"各向异性"作图）：
+  //      · 光栅后每级衍射光是一束【平行光】，图上斜率统一 m_k = −x_k·KT / F
+  //      · 焦面交高 y_F = y0 + m_k·F = y0 − x_k·KT   —— 与光线射到透镜面的高度无关
+  //      · 出射斜率需满足 m' = m_k − h/F （h = 该光线在透镜面的高度,
+  //        而 (y_F − h)/F = (y0 + m_k·F − h)/F = m_k − (h−y0)/F ✓ 自动成立）
+  //    ⇒ 同一级的三条平行光线经透镜后严格交于焦面上同一点，与读数条的 x_k 对得上。
+  var needUp = 0, needDn = 0;
+  var beamCount = 0, hNeed = 0;
+  var RAYS = [];            // 仅供自检的几何流水（不参与渲染）
+
+  function beam(k, color, lw, dash) {
+    var xk = xOfK(k, p);
+    if (xk === null) return null;
+    if (Math.abs(xk) > R) return null;
+    var yF = y0 - xk * KT;                     // 焦面上该级的位置
+    var m = -xk * KT / F;                      // 该级平行光在图上的斜率（三线共用）
+    ctx.save();
+    if (dash) ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    var yGs = [y0 - gHalf, y0, y0 + gHalf], q;
+    for (q = 0; q < yGs.length; q++) {
+      var yG = yGs[q];
+      var yLp = yG + m * dGL;                  // 这条平行光线射到透镜面的高度
+      hNeed = Math.max(hNeed, Math.abs(yLp - y0));
+      needUp = Math.max(needUp, y0 - Math.min(yG, yLp, yF));
+      needDn = Math.max(needDn, Math.max(yG, yLp, yF) - y0);
+      RAYS.push({ k: k, yG: yG, yLp: yLp, yF: yF, m: m });
+      ctx.beginPath(); ctx.moveTo(gratingX, yG); ctx.lineTo(lensX, yLp); ctx.stroke();  // 平行段
+      ctx.beginPath(); ctx.moveTo(lensX, yLp); ctx.lineTo(screenX, yF); ctx.stroke();   // 会聚段
+    }
+    ctx.restore();
+    beamCount++;
+    return yF;
+  }
+
+  // 绘制顺序：|k|>=2 普通级次（浅） → 缺级（灰虚线） → ±1（橙） → 0 级（深，压最上）
+  var kCap = Math.min(kmaxOf(p), 20);
+  var ord = [];
+  for (var kk = kCap; kk >= 2; kk--) { ord.push(kk); ord.push(-kk); }
+  ord.forEach(function (k) {
+    if (isMissing(k, p)) return;                       // 缺级单独画
+    var xk = xOfK(k, p);
+    if (xk === null || Math.abs(xk) > R) return;
+    beam(k, '#9AB0C4', 1, false);
+  });
+  ord.forEach(function (k) {
+    if (!isMissing(k, p)) return;
+    var xk = xOfK(k, p);
+    if (xk === null || Math.abs(xk) > R) return;
+    beam(k, '#C6CED6', 1, true);
+  });
+  beam(1, '#D9822B', 1.5, false);
+  beam(-1, 'rgba(217,130,43,.45)', 1.2, false);
+  beam(0, '#4A6076', 1.7, false);
+
+  // ⑤ 透镜：半高由"最外侧光线在透镜面的落点" hNeed 反推（留 9px 余量），
+  //     下限 0.20H 保证级次很少时透镜不至于缩成一条缝；hLcap 为画布容量保险。
+  var hLcap = Math.max(14, Math.min(y0 - 3, H - 3 - y0));
+  var hL = Math.min(hLcap, Math.max(Math.round(H * 0.20), Math.round(hNeed + 9)));
+  drawLensShape(ctx, lensX, y0, hL, 11);
+  ctx.fillStyle = '#5E7E9B';
+  ctx.font = '12.5px "Segoe UI",sans-serif';
+  ctx.textAlign = 'center';
+  var lblY = y0 + hL + 16;
+  if (lblY > H - 8) lblY = y0 - hL - 7;
+  ctx.fillText('透镜 L', lensX, Math.max(11, lblY));
+
+  // ⑥ 屏
+  ctx.strokeStyle = '#2F4256';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath(); ctx.moveTo(screenX, 14); ctx.lineTo(screenX, H - 14); ctx.stroke();
+  ctx.fillStyle = '#5E7E9B';
+  ctx.font = '12.5px "Segoe UI",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('屏 E', screenX, 11);
+
+  // 视野框
+  var yV1 = y0 - R * KT, yV2 = y0 + R * KT;
+  ctx.save();
+  ctx.setLineDash([3, 3]);
+  ctx.strokeStyle = 'rgba(0,121,107,.42)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(screenX + 4, yV1); ctx.lineTo(screenX + 4, yV2); ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = 'rgba(0,121,107,.85)';
+  ctx.font = '11px "Segoe UI",sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('视野 ±' + Math.round(R) + ' mm', screenX + 7, Math.max(9, yV1 - 3));
+
+  // ⑦ 屏上标记：主极大亮点（缺级画 ✕）
+  var kmark = Math.min(kmaxOf(p), 20);
+  for (var m2 = -kmark; m2 <= kmark; m2++) {
+    var xm = xOfK(m2, p);
+    if (xm === null || Math.abs(xm) > R) continue;
+    var yM = y0 - xm * KT;
+    if (isMissing(m2, p)) {
+      ctx.strokeStyle = '#98A4AE';
+      ctx.lineWidth = 1.5;
+      var s2 = 4.5;
+      ctx.beginPath(); ctx.moveTo(screenX - s2, yM - s2); ctx.lineTo(screenX + s2, yM + s2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(screenX + s2, yM - s2); ctx.lineTo(screenX - s2, yM + s2); ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(screenX, yM, m2 === 0 ? 5.5 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = (m2 === 0) ? wlCss(p.lam) : '#D9822B';
+      ctx.fill();
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+  }
+
+  // ⑧ θ₁ 角标注
+  var s1 = sinOfK(1, p);
+  if (s1 !== null) {
+    var th1v = (Math.asin(s1) - incRad(p)) * 0.45;
+    ctx.strokeStyle = '#D9822B';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(gratingX, y0, 48, -incRad(p) * 0.45 - th1v, -incRad(p) * 0.45); ctx.stroke();
+    ctx.fillStyle = '#D9822B';
+    ctx.font = 'bold 13px Consolas,monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('θ₁', gratingX + 52, y0 - incRad(p) * 0.45 * 48 - 6);
+  }
+
+  // ⑨ 图例
+  ctx.font = '12.5px "Segoe UI",sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = wlCss(p.lam);
+  ctx.fillText('● 0 级主极大', 14, H - 24);
+  ctx.fillStyle = '#D9822B';
+  ctx.fillText('● ±1 级　', 14 + 92, H - 24);
+  ctx.fillStyle = '#98A4AE';
+  ctx.fillText('✕ 缺级（d/a 整数）', 14, H - 6);
+
+  // 调试钩子（全参数域扫描用） —— 只读，不参与渲染
+  window.__dbg = {
+    W: W, H: H, KT: KT, y0: y0, gHalf: gHalf, F: F, dGL: dGL,
+    needUp: needUp, needDn: needDn, hNeed: hNeed,
+    hLcap: hLcap, hL: hL, lensTopY: y0 - hL, lensBotY: y0 + hL,
+    lensX: lensX, gratingX: gratingX, screenX: screenX,
+    beamCount: beamCount, R: R, N: p.N, rays: RAYS
+  };
+}
+
+/* ---------------- 视图 ② 屏上图样 ---------------- */
+
+// 收集视野内所有主极大（各波长），按 x 升序 —— 供"亚像素亮线"解析补录，杜绝漏峰
+function buildPeakList(p, lams) {
+  var arr = [], li, k;
+  for (li = 0; li < lams.length; li++) {
+    var lam = lams[li];
+    var km = Math.floor(p.d * 1e-6 * (1 + Math.abs(Math.sin(incRad(p)))) / (lam * 1e-9)) + 1;
+    for (k = -km; k <= km; k++) {
+      var s = sinOfK(k, p, lam);
+      if (s === null) continue;
+      var x = p.L * 1000 * Math.tan(Math.asin(s));
+      if (Math.abs(x) > R * 1.08) continue;
+      var I = difAtK(k, p, lam);
+      if (I < 0.0012) continue;
+      arr.push({ x: x, I: I, lam: lam, k: k });
+    }
+  }
+  arr.sort(function (a, b) { return a.x - b.x; });
+  return arr;
+}
+
+function buildFringes() {
+  if (!cv.fringe) return;
+  var c = cv.fringe;
+  offFringe.width = c.el.width;
+  offFringe.height = c.el.height;
+  var ox = offFringe.getContext('2d');
+  ox.setTransform(c.dp, 0, 0, c.dp, 0, 0);
+  var W = c.w, H = c.h;
+
+  var usable = W - PAD_L - PAD_R;
+  if (usable <= 4) return;
+
+  var sw = Math.max(2, Math.round(usable * c.dp));
+  var sh = Math.max(2, Math.round(H * c.dp));
+  strip.width = sw;
+  strip.height = sh;
+  var sx = strip.getContext('2d');
+  var img = sx.createImageData(sw, sh);
+
+  var lams = whiteLight ? WHITE_LAMS : [simParams.lam];
+  var peaks = buildPeakList(simParams, lams);
+  var SS = 3, i, t;
+  var rr = new Float32Array(sw), gg = new Float32Array(sw), bb = new Float32Array(sw);
+  var pi = 0, maxv = 0;
+
+  for (i = 0; i < sw; i++) {
+    var xa = -R + (2 * R) * i / sw;
+    var xb = -R + (2 * R) * (i + 1) / sw;
+    var cr = 0, cg = 0, cb = 0;
+
+    while (pi < peaks.length && peaks[pi].x < xa) pi++;
+    var pj = pi;
+    var inPix = [];
+    while (pj < peaks.length && peaks[pj].x <= xb) { inPix.push(peaks[pj]); pj++; }
+
+    if (whiteLight) {
+      var sr = 0, sg = 0, sb = 0;
+      for (var li = 0; li < lams.length; li++) {
+        var lam = lams[li];
+        var best = 0;
+        for (t = 0; t <= SS; t++) {
+          var I0 = intensityAtP(xa + (xb - xa) * t / SS, simParams, lam);
+          if (I0 > best) best = I0;
+        }
+        for (var e = 0; e < inPix.length; e++) {
+          if (inPix[e].lam === lam && inPix[e].I > best) best = inPix[e].I;
+        }
+        var col = wlToRGB(lam, false);
+        var v = Math.pow(best, 0.55);
+        sr += v * col[0] * WHITE_GAIN[0];
+        sg += v * col[1] * WHITE_GAIN[1];
+        sb += v * col[2] * WHITE_GAIN[2];
+      }
+      cr = sr / lams.length; cg = sg / lams.length; cb = sb / lams.length;
+    } else {
+      var best1 = 0;
+      for (t = 0; t <= SS; t++) {
+        var I1 = intensityAtP(xa + (xb - xa) * t / SS, simParams);
+        if (I1 > best1) best1 = I1;
+      }
+      for (var e1 = 0; e1 < inPix.length; e1++) {
+        if (inPix[e1].I > best1) best1 = inPix[e1].I;
+      }
+      var col1 = wlToRGB(simParams.lam);
+      var v1 = Math.pow(best1, 0.55);
+      cr = v1 * col1[0]; cg = v1 * col1[1]; cb = v1 * col1[2];
+    }
+    rr[i] = cr; gg[i] = cg; bb[i] = cb;
+    if (cr > maxv) maxv = cr;
+    if (cg > maxv) maxv = cg;
+    if (cb > maxv) maxv = cb;
+  }
+
+  // 白光自动曝光（把最亮点归一到 250），单色直接使用。
+  // ⚠ 判据必须是 maxv > 0：通道配平后量级降到 ~1e-2，若写成 maxv > 1
+  //   判据恒不成立 -> scale 恒为 1 -> 全部分量 round 成 0 -> 白光谱整条渲染成黑。
+  var scale = (whiteLight && maxv > 1e-9) ? (250 / maxv) : 1;
+
+  for (i = 0; i < sw; i++) {
+    var R8 = Math.round(Math.max(0, Math.min(255, rr[i] * scale)));
+    var G8 = Math.round(Math.max(0, Math.min(255, gg[i] * scale)));
+    var B8 = Math.round(Math.max(0, Math.min(255, bb[i] * scale)));
+    for (var j = 0; j < sh; j++) {
+      var idx = (j * sw + i) * 4;
+      img.data[idx] = R8; img.data[idx + 1] = G8; img.data[idx + 2] = B8; img.data[idx + 3] = 255;
+    }
+  }
+  sx.putImageData(img, 0, 0);
+
+  ox.fillStyle = '#04070C';
+  ox.fillRect(0, 0, W, H);
+  ox.drawImage(strip, PAD_L, 0, usable, H);
+  ox.strokeStyle = 'rgba(255,255,255,.14)';
+  ox.lineWidth = 1;
+  ox.strokeRect(PAD_L + 0.5, 0.5, usable - 1, H - 1);
+}
+
+function paintFringes() {
+  if (!cv.fringe) return;
+  var c = cv.fringe, ctx = c.ctx, W = c.w, H = c.h;
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(offFringe, 0, 0, W, H);
+
+  // 零级位置参考线；出屏时在边缘给出提示
+  var x0 = xOfK(0, simParams);
+  if (x0 !== null) {
+    if (Math.abs(x0) <= R) {
+      var px0 = PAD_L + ((x0 + R) / (2 * R)) * (W - PAD_L - PAD_R);
+      ctx.strokeStyle = 'rgba(255,255,255,.45)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 5]);
+      ctx.beginPath(); ctx.moveTo(px0, 0); ctx.lineTo(px0, H); ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      ctx.fillStyle = 'rgba(255,179,102,.95)';
+      ctx.font = 'bold 12px "Segoe UI",sans-serif';
+      ctx.textAlign = (x0 > 0) ? 'right' : 'left';
+      ctx.fillText('0 级在 ' + x0.toFixed(1) + ' mm →（视野外）', (x0 > 0) ? W - 8 : 8, 15);
+    }
+  }
+
+  if (hoverXmm !== null) {
+    var xx = PAD_L + ((hoverXmm + R) / (2 * R)) * (W - PAD_L - PAD_R);
+    ctx.strokeStyle = 'rgba(120,255,220,.85)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(xx, 0); ctx.lineTo(xx, H); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+/* ---------------- 视图 ③ 相对光强曲线（三联） ---------------- */
+function buildCurve() {
+  if (!cv.curve) return;
+  var c = cv.curve;
+  offCurve.width = c.el.width;
+  offCurve.height = c.el.height;
+  var ox = offCurve.getContext('2d');
+  ox.setTransform(c.dp, 0, 0, c.dp, 0, 0);
+  var W = c.w, H = c.h, p = simParams;
+
+  var left = PAD_L, right = W - PAD_R, top = 42, bot = H - 30;
+  var pw = Math.max(10, right - left), ph = Math.max(10, bot - top);
+
+  ox.clearRect(0, 0, W, H);
+  ox.fillStyle = '#FFFFFF';
+  ox.fillRect(0, 0, W, H);
+
+  // y 网格
+  ox.strokeStyle = '#EDF3F8';
+  ox.lineWidth = 1;
+  var g, yy, px, xv;
+  for (g = 1; g <= 5; g++) {
+    yy = bot - ph * g / 5;
+    ox.beginPath(); ox.moveTo(left, yy); ox.lineTo(right, yy); ox.stroke();
+  }
+
+  // 坐标轴
+  ox.strokeStyle = '#9FB6C9';
+  ox.lineWidth = 1.4;
+  ox.beginPath(); ox.moveTo(left, top); ox.lineTo(left, bot); ox.lineTo(right, bot); ox.stroke();
+
+  // x 轴刻度（10 等分，标屏上绝对 mm）
+  ox.fillStyle = '#5B84A8';
+  ox.font = '12px "Segoe UI",sans-serif';
+  ox.textAlign = 'center';
+  for (g = 0; g <= 10; g++) {
+    px = left + pw * g / 10;
+    var xv2 = -R + 2 * R * g / 10;
+    ox.strokeStyle = '#C9D8E5';
+    ox.lineWidth = 1;
+    ox.beginPath(); ox.moveTo(px, bot); ox.lineTo(px, bot + 4); ox.stroke();
+    ox.fillText(shortNum(xv2), px, bot + 15);
+  }
+  ox.textAlign = 'right';
+  ox.fillText('x / mm', right, 18);
+
+  // y 轴刻度
+  ox.textAlign = 'right';
+  for (g = 0; g <= 5; g++) {
+    yy = bot - ph * g / 5;
+    ox.fillText((g / 5).toFixed(1), left - 6, yy + 4);
+  }
+  ox.textAlign = 'left';
+  ox.fillStyle = '#1A3A5C';
+  ox.font = 'bold 12.5px "Segoe UI",sans-serif';
+  ox.fillText(sqrtY ? '√(I / I₀)' : 'I / I₀', 4, 18);
+
+  // ---- 采样：以 v 为尺度导出的采样数 ∝ N（固定采样数会在 N 大时整条漏掉主极大）----
+  var d = p.d * 1e-6, lam = p.lam * 1e-9;
+  var sL = sFromX(-R, p), sR = sFromX(R, p);
+  var nOrd = d * Math.abs(sR - sL) / lam;
+  var Nsamp = Math.round(Math.max(4000, Math.min(30000, 160 * p.N * nOrd)));
+  Nsamp = Math.min(Nsamp, Math.round(pw * c.dp * 12));
+
+  function toY(v) { return bot - (sqrtY ? Math.sqrt(Math.max(0, v)) : v) * ph; }
+
+  // ---- 曲线 1：单缝衍射包络（虚线，550 nm 参考）----
+  ox.save();
+  ox.setLineDash([5, 4]);
+  ox.strokeStyle = '#8FA8BD';
+  ox.lineWidth = 1.4;
+  ox.beginPath();
+  for (g = 0; g <= Nsamp; g++) {
+    var xc = -R + 2 * R * g / Nsamp;
+    var ev = envAtP(xc, p, 550);
+    var yc = toY(ev);
+    if (g === 0) ox.moveTo(left, yc); else ox.lineTo(left + pw * g / Nsamp, yc);
+  }
+  ox.stroke();
+  ox.restore();
+
+  // ---- 曲线 2：N 缝干涉因子（细线，仅单色模式）----
+  if (!whiteLight) {
+    ox.save();
+    ox.strokeStyle = 'rgba(120,150,178,.55)';
+    ox.lineWidth = 0.9;
+    ox.beginPath();
+    for (g = 0; g <= Nsamp; g++) {
+      var xi = -R + 2 * R * g / Nsamp;
+      var yv = toY(interAtP(xi, p));
+      if (g === 0) ox.moveTo(left, yv); else ox.lineTo(left + pw * g / Nsamp, yv);
+    }
+    ox.stroke();
+    ox.restore();
+  }
+
+  // ---- 曲线 3：总强度（实线；单色 1 条带填充，白光 3 条代表波长叠加）----
+  var curveLams = whiteLight ? TRI_LAMS : [p.lam];
+  curveLams.forEach(function (lm) {
+    var col = wlToRGB(lm);
+    var cs = 'rgb(' + col[0] + ',' + col[1] + ',' + col[2] + ')';
+    ox.beginPath();
+    for (var g2 = 0; g2 <= Nsamp; g2++) {
+      var xt = -R + 2 * R * g2 / Nsamp;
+      var yt = toY(intensityAtP(xt, p, lm));
+      if (g2 === 0) ox.moveTo(left, yt); else ox.lineTo(left + pw * g2 / Nsamp, yt);
+    }
+    if (!whiteLight) {
+      ox.save();
+      ox.lineTo(right, bot); ox.lineTo(left, bot); ox.closePath();
+      ox.fillStyle = 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',0.14)';
+      ox.fill();
+      ox.restore();
+      ox.beginPath();
+      for (var g3 = 0; g3 <= Nsamp; g3++) {
+        var xt3 = -R + 2 * R * g3 / Nsamp;
+        var yt3 = toY(intensityAtP(xt3, p, lm));
+        if (g3 === 0) ox.moveTo(left, yt3); else ox.lineTo(left + pw * g3 / Nsamp, yt3);
+      }
+    }
+    ox.strokeStyle = cs;
+    ox.lineWidth = whiteLight ? 1.4 : 1.9;
+    ox.globalAlpha = whiteLight ? 0.85 : 1;
+    ox.stroke();
+    ox.globalAlpha = 1;
+  });
+
+  // ---- 主极大竖虚线 + 级次标签；缺级画灰色 ✕ ----
+  ox.font = '10.5px Consolas,monospace';
+  ox.textAlign = 'center';
+  var kmark = Math.min(kmaxOf(p), 20);
+  for (var n = -kmark; n <= kmark; n++) {
+    var xk = xOfK(n, p);
+    if (xk === null || Math.abs(xk) > R) continue;
+    var pxx = left + ((xk + R) / (2 * R)) * pw;
+    if (isMissing(n, p)) {
+      ox.strokeStyle = 'rgba(150,160,172,.9)';
+      ox.lineWidth = 1.4;
+      ox.beginPath(); ox.moveTo(pxx - 4, top + 6); ox.lineTo(pxx + 4, top + 14); ox.stroke();
+      ox.beginPath(); ox.moveTo(pxx + 4, top + 6); ox.lineTo(pxx - 4, top + 14); ox.stroke();
+      if (n !== 0) {
+        ox.fillStyle = 'rgba(150,160,172,.95)';
+        ox.fillText(String(n), pxx, bot - 4);
+      }
+    } else if (n !== 0) {
+      ox.strokeStyle = 'rgba(192,57,43,.30)';
+      ox.lineWidth = 1;
+      ox.setLineDash([3, 4]);
+      ox.beginPath(); ox.moveTo(pxx, top); ox.lineTo(pxx, bot); ox.stroke();
+      ox.setLineDash([]);
+      ox.fillStyle = 'rgba(192,57,43,.9)';
+      ox.fillText(String(n), pxx, bot - 4);
+    }
+  }
+}
+
+// 工具：x(mm) → s = sinθ − sin i
+function sFromX(xmm, p) {
+  var xr = xmm * 1e-3;
+  return xr / Math.sqrt(xr * xr + p.L * p.L) - Math.sin(incRad(p));
+}
+// 工具：x 轴刻度短标签
+function shortNum(v) {
+  if (Math.abs(v) < 0.5) return '0';
+  var a = Math.abs(v);
+  if (a >= 1000) return (v / 1000).toFixed(1) + 'k';
+  return String(Math.round(v));
+}
+
+function paintCurve() {
+  if (!cv.curve) return;
+  var c = cv.curve, ctx = c.ctx, W = c.w, H = c.h;
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(offCurve, 0, 0, W, H);
+
+  if (hoverXmm === null) return;
+  var left = PAD_L, right = W - PAD_R, top = 42, bot = H - 30;
+  var px = left + ((hoverXmm + R) / (2 * R)) * (right - left);
+  var I = intensityAtP(hoverXmm, simParams);
+  var vv = sqrtY ? Math.sqrt(Math.max(0, I)) : I;
+  var py = bot - vv * (bot - top);
+
+  ctx.strokeStyle = 'rgba(0,121,107,.7)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bot); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2);
+  ctx.fillStyle = '#00796B'; ctx.fill();
+  ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.8; ctx.stroke();
+}
+/* ---------------- 读数与统一渲染 ---------------- */
+function updateReadouts() {
+  var p = simParams;
+  var lam = p.lam * 1e-9, d = p.d * 1e-6;
+  var m = missingM(p);
+  var ratio = p.d / p.a;
+  // d 与 a 已解耦，允许出现 a >= d 的非物理组合 —— 提示但不阻止
+  var physWarn = (p.a >= p.d) ? '<small style="color:#D93025"> ⚠ a≥d</small>' : '';
+
+  // ① d/a
+  var elDA = document.getElementById('roDA');
+  if (m > 0) {
+    var miss = [], t;
+    for (t = m; t <= kmaxOf(p); t += m) miss.push(t);
+    var mstr;
+    if (miss.length === 0) mstr = '（无缺级）';
+    else if (miss.length <= 4) mstr = '缺 ±' + miss.join(', ±');
+    else mstr = '缺 ±' + miss[0] + ', ±' + miss[1] + ', …, ±' + miss[miss.length - 1];
+    elDA.innerHTML = ratio.toFixed(2) + '<small>' + mstr + '</small>' + physWarn;
+  } else {
+    elDA.innerHTML = ratio.toFixed(2) + '<small>无缺级</small>' + physWarn;
+  }
+
+  // ② k_max
+  document.getElementById('roKmax').innerHTML = kmaxOf(p);
+
+  // ③ θ₁
+  var s1 = sinOfK(1, p);
+  if (s1 === null) {
+    document.getElementById('roTh1').innerHTML = '—';
+    document.getElementById('roX1').innerHTML = '—';
+    document.getElementById('roDx').innerHTML = '—';
+    document.getElementById('roW').innerHTML = '—';
+  } else {
+    var th1 = Math.asin(s1);
+    document.getElementById('roTh1').innerHTML = (th1 * 180 / Math.PI).toFixed(3) + '<small>°</small>';
+    var x1 = xOfK(1, p);
+    document.getElementById('roX1').innerHTML = x1.toFixed(2) + '<small>mm</small>';
+    var x2 = xOfK(2, p);
+    document.getElementById('roDx').innerHTML = (x2 === null ? '—' : (x2 - x1).toFixed(2) + '<small>mm</small>');
+    var dth = lam / (p.N * d * Math.cos(th1));
+    var halfW = p.L * 1000 * dth / Math.pow(Math.cos(th1), 2);
+    document.getElementById('roW').innerHTML = halfW.toFixed(3) + '<small>mm</small>';
+  }
+
+  // ⑥ Δsinθ ≡ λ/d（严格守恒量）
+  document.getElementById('roDSin').innerHTML = (lam / d).toFixed(6);
+
+  // ⑧ 视野内可见级次
+  var vis = visibleOrders(p, R);
+  var elVis = document.getElementById('roVis');
+  if (vis.length === 0) elVis.innerHTML = '无';
+  else if (vis.length <= 4) elVis.innerHTML = vis.map(function (k) { return '±' + k; }).join(', ');
+  else elVis.innerHTML = '±' + vis[0] + ', ±' + vis[1] + ', …, ±' + vis[vis.length - 1];
+}
+
+function updateProbe() {
+  var el = document.getElementById('roProbe');
+  if (hoverXmm === null) { el.innerHTML = '移动鼠标'; return; }
+  var I = intensityAtP(hoverXmm, simParams);
+  el.innerHTML = hoverXmm.toFixed(1) + '<small>mm</small> · ' + I.toFixed(3);
+}
+
+function renderAll() {
+  drawOptics();
+  buildFringes(); paintFringes();
+  buildCurve(); paintCurve();
+  updateReadouts();
+}
+
+var _rafPending = false;
+function scheduleRender() {
+  if (_rafPending) return;
+  _rafPending = true;
+  requestAnimationFrame(function () {
+    _rafPending = false;
+    renderAll();
+  });
+}
+
+/* ------------- d 与 a 相互独立（互不联动） -------------
+   a 的量程是固定区间 [0.50, 19.00] μm，绝不再随 d 变动；
+   拖动 d 不会改动 a，拖动 a 也不会改动 d。
+   唯一的"吸附"发生在用户拖 a 这一条路径上（只把 a 吸到 d/a 为整数处、不动 d），
+   方便课堂上把 d/a 停成整数以观察缺级。                              */
+var A_MIN = 0.50, A_MAX = 19.00;   // 必须与 #slA 的 min/max（10/380，步 0.05 μm）一致
+function clampA() {                // 只按固定量程夹紧，与 d 无关
+  simParams.a = Math.max(A_MIN, Math.min(A_MAX, simParams.a));
+}
+
+/* ---------------- 控件同步与绑定 ---------------- */
+function nFromSlider(v) {
+  var n = Math.round(2 * Math.pow(100, v / 1000));   // 2 → 200（等比）
+  return Math.max(2, Math.min(200, n));
+}
+function sliderFromN(n) {
+  return Math.round(1000 * Math.log(n / 2) / Math.log(100));
+}
+function rFromSlider(v) {
+  return Math.round(50 * Math.pow(24, v / 1000));    // 50 → 1200 mm（等比）
+}
+function sliderFromR(r) {
+  return Math.round(1000 * Math.log(r / 50) / Math.log(24));
+}
+
+function syncSliders() {
+  var p = simParams;
+  document.getElementById('slLam').value = String(p.lam);
+  document.getElementById('slD').value = String(Math.round(p.d * 10));
+  document.getElementById('slN').value = String(sliderFromN(p.N));
+  document.getElementById('slL').value = String(Math.round(p.L * 100));
+  document.getElementById('slInc').value = String(p.inc);
+  document.getElementById('slR').value = String(sliderFromR(R));
+
+  document.getElementById('slA').value = String(Math.round(p.a * 20));
+
+  document.getElementById('valLam').innerHTML = p.lam + '<small>nm</small>';
+  document.getElementById('valD').innerHTML = p.d.toFixed(1) + '<small>μm</small>';
+  document.getElementById('valA').innerHTML = p.a.toFixed(2) + '<small>μm</small>';
+  document.getElementById('valN').innerHTML = p.N + '<small>条</small>';
+  document.getElementById('valL').innerHTML = p.L.toFixed(2) + '<small>m</small>';
+  document.getElementById('valInc').innerHTML = p.inc.toFixed(1) + '<small>°</small>';
+  document.getElementById('valR').innerHTML = R + '<small>mm</small>';
+
+  document.getElementById('scaleD').textContent = '等效 ' + (1000 / p.d).toFixed(0) + ' 线/mm';
+
+  var bw = document.getElementById('btnWhite');
+  bw.className = 'mini-btn' + (whiteLight ? ' on' : '');
+  bw.textContent = '白光：' + (whiteLight ? '开' : '关');
+  var bs = document.getElementById('btnSqrt');
+  bs.className = 'mini-btn' + (sqrtY ? ' on' : '');
+  bs.textContent = '纵轴 √I：' + (sqrtY ? '开' : '关');
+
+  document.getElementById('capFringe').textContent = whiteLight
+    ? '白光 · 31 个波长样本做光谱积分，自动曝光'
+    : '单色 ' + p.lam + ' nm · 亮度按 I⁰·⁵⁵ 提升';
+  document.getElementById('capCurve').textContent = whiteLight
+    ? '虚线＝单缝包络（550 nm）　实线＝650 / 550 / 450 nm 三条总强度'
+    : '虚线＝单缝包络　细线＝N 缝干涉因子　实线＝总强度';
+}
+
+function bindSliders() {
+  document.getElementById('slLam').addEventListener('input', function () {
+    simParams.lam = parseInt(this.value, 10);
+    syncSliders(); scheduleRender();
+  });
+  document.getElementById('slD').addEventListener('input', function () {
+    simParams.d = parseInt(this.value, 10) / 10;   // 只改 d：a 一动不动
+    syncSliders(); scheduleRender();
+  });
+  document.getElementById('slA').addEventListener('input', function () {
+    var raw = parseInt(this.value, 10) * 0.05;
+    var m = simParams.d / raw;
+    var mr = Math.round(m);
+    if (mr >= 1 && mr <= 12 && Math.abs(m - mr) < 0.03) raw = simParams.d / mr;  // 整数吸附
+    simParams.a = raw;
+    syncSliders(); scheduleRender();
+  });
+  document.getElementById('slN').addEventListener('input', function () {
+    simParams.N = nFromSlider(parseInt(this.value, 10));
+    syncSliders(); scheduleRender();
+  });
+  document.getElementById('slL').addEventListener('input', function () {
+    simParams.L = parseInt(this.value, 10) / 100;
+    syncSliders(); scheduleRender();
+  });
+  document.getElementById('slInc').addEventListener('input', function () {
+    simParams.inc = parseFloat(this.value);
+    syncSliders(); scheduleRender();
+  });
+  document.getElementById('slR').addEventListener('input', function () {
+    R = rFromSlider(parseInt(this.value, 10));
+    syncSliders(); scheduleRender();
+  });
+}
+
+function toggleWhite() {
+  whiteLight = !whiteLight;
+  syncSliders(); scheduleRender();
+}
+function toggleSqrt() {
+  sqrtY = !sqrtY;
+  syncSliders(); scheduleRender();
+}
+
+// 四颗一键预设（课堂上一键抵消"拖两个滑块凑准"的麻烦）
+function applyPreset(name) {
+  if (name === 'standard') {
+    simParams = { lam: 550, d: 10.0, a: 5.0, N: 20, L: 1.00, inc: 0 };
+    whiteLight = false; sqrtY = false; R = 300;
+  } else if (name === 'break') {
+    simParams = { lam: 550, d: 10.0, a: 4.0, N: 20, L: 1.00, inc: 0 };
+    whiteLight = false; R = 300;
+  } else if (name === 'real') {
+    simParams = { lam: 550, d: 10.0, a: 5.0, N: 200, L: 1.00, inc: 0 };
+    whiteLight = false; R = 300;
+  } else if (name === 'white') {
+    simParams = { lam: 550, d: 10.0, a: 5.0, N: 20, L: 1.00, inc: 0 };
+    whiteLight = true; R = 300;
+  }
+  clampA();
+  syncSliders();
+  fitAll();
+  renderAll();
+}
+
+function gotoSimWith(patch) {
+  for (var k in patch) {
+    if (!Object.prototype.hasOwnProperty.call(patch, k)) continue;
+    if (k === 'white') whiteLight = !!patch[k];
+    else if (k === 'sqrt') sqrtY = !!patch[k];
+    else if (k === 'R') R = patch[k];
+    else simParams[k] = patch[k];
+  }
+  clampA();
+  syncSliders();
+  showPage(1);
+  fitAll();
+  renderAll();
+}
+
+function toggleRule(el) {
+  el.classList.toggle('open');
+}
+
+/* ---------------- 鼠标探针 ---------------- */
+function bindHover(el) {
+  if (!el) return;
+  el.addEventListener('pointermove', function (e) {
+    var r = el.getBoundingClientRect();
+    var fx = e.clientX - r.left;
+    var frac = (fx - PAD_L) / Math.max(1, (r.width - PAD_L - PAD_R));
+    hoverXmm = -R + frac * 2 * R;
+    hoverXmm = Math.max(-R, Math.min(R, hoverXmm));
+    paintFringes();
+    paintCurve();
+    updateProbe();
+  });
+  el.addEventListener('pointerleave', function () {
+    hoverXmm = null;
+    paintFringes();
+    paintCurve();
+    updateProbe();
+  });
+}
+
+/* ---------------- 封面条纹 ---------------- */
+function drawCover() {
+  var el = document.getElementById('coverCanvas');
+  if (!el) return;
+  var r = el.getBoundingClientRect();
+  if (r.width < 40 || r.height < 20) return;
+  var dp = Math.min(window.devicePixelRatio || 1, 2);
+  var W = Math.round(r.width), H = Math.round(r.height);
+  el.width = Math.round(W * dp);
+  el.height = Math.round(H * dp);
+  var ctx = el.getContext('2d');
+  ctx.setTransform(dp, 0, 0, dp, 0, 0);
+  ctx.fillStyle = '#05080E';
+  ctx.fillRect(0, 0, W, H);
+
+  var p = { lam: 550, d: 10.0, a: 5.0, N: 20, L: 1.00, inc: 0 };
+  var xr = 300;
+  var sw = Math.max(2, Math.round(W * dp));
+  strip.width = sw;
+  strip.height = 1;
+  var sx = strip.getContext('2d');
+  var img = sx.createImageData(sw, 1);
+  var peaks = buildPeakList(p, [p.lam]);
+  var pi = 0;
+  for (var i = 0; i < sw; i++) {
+    var xa = -xr + 2 * xr * i / sw;
+    var xb = -xr + 2 * xr * (i + 1) / sw;
+    var best = 0, t;
+    for (t = 0; t <= 3; t++) {
+      var I = intensityAtP(xa + (xb - xa) * t / 3, p);
+      if (I > best) best = I;
+    }
+    while (pi < peaks.length && peaks[pi].x < xa) pi++;
+    var pj = pi;
+    while (pj < peaks.length && peaks[pj].x <= xb) { if (peaks[pj].I > best) best = peaks[pj].I; pj++; }
+    var col = wlToRGB(p.lam);
+    var v = Math.pow(best, 0.55);
+    img.data[i * 4] = Math.round(col[0] * v);
+    img.data[i * 4 + 1] = Math.round(col[1] * v);
+    img.data[i * 4 + 2] = Math.round(col[2] * v);
+    img.data[i * 4 + 3] = 255;
+  }
+  sx.putImageData(img, 0, 0);
+  ctx.drawImage(strip, 0, 0, W, H);
+
+  var g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, 'rgba(11,29,48,1)');
+  g.addColorStop(0.22, 'rgba(11,29,48,0)');
+  g.addColorStop(0.78, 'rgba(11,29,48,0)');
+  g.addColorStop(1, 'rgba(11,29,48,1)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+/* ---------------- 初始化 ---------------- */
+bindSliders();
+syncSliders();
+bindHover(document.getElementById('fringeCanvas'));
+bindHover(document.getElementById('curveCanvas'));
+window.addEventListener('resize', function () {
+  fitAll();
+  renderAll();
+});
+
+/* =====================================================================
+   模块 3 · 渐进呈现引擎（骨架内置；本课件无讲授页，保留以兼容骨架）
+   ===================================================================== */
+var pageRevealQueues = {};
+var pageRevealIndex = {};
+var pageRevealActive = {};
+
+function setupReveal(pageId, items) {
+  pageRevealQueues[pageId] = items;
+  pageRevealIndex[pageId] = 0;
+  pageRevealActive[pageId] = items.length > 0;
+  items.forEach(function (item) {
+    var els = document.querySelectorAll('#' + pageId + ' ' + item.sel);
+    els.forEach(function (el) { el.classList.add('reveal-hidden'); });
+  });
+  updateRevealHint(pageId);
+}
+
+function nextReveal(pageId) {
+  if (!pageRevealActive[pageId]) return;
+  var queue = pageRevealQueues[pageId];
+  var idx = pageRevealIndex[pageId];
+  if (!queue || idx >= queue.length) return;
+  var item = queue[idx];
+  var els = document.querySelectorAll('#' + pageId + ' ' + item.sel);
+  var delay = item.delay || 0;
+  els.forEach(function (el, i) {
+    el.style.animationDelay = (delay + (item.seqDelay || 0) * i) + 'ms';
+    el.classList.add(item.anim);
+    el.classList.add('reveal-done');
+  });
+  pageRevealIndex[pageId]++;
+  if (pageRevealIndex[pageId] >= queue.length) pageRevealActive[pageId] = false;
+}
+
+function prevReveal(pageId) {
+  var queue = pageRevealQueues[pageId];
+  var idx = pageRevealIndex[pageId];
+  if (!queue || idx <= 0) return;
+  idx--;
+  var item = queue[idx];
+  document.querySelectorAll('#' + pageId + ' ' + item.sel).forEach(function (el) {
+    el.classList.remove(item.anim, 'reveal-done');
+    el.classList.add('reveal-hidden');
+    el.style.animationDelay = '';
+  });
+  pageRevealIndex[pageId] = idx;
+  pageRevealActive[pageId] = true;
+}
+
+function updateRevealHint(pageId) { /* 本课件无揭示提示条 */ }
+
+/* =====================================================================
+   模块 4 · 图片全屏灯箱（骨架内置；本课件零外部图片，保留以兼容骨架）
+   ===================================================================== */
+function openLightbox(src) {
+  document.getElementById('lbImg').src = src;
+  document.getElementById('imgLightbox').classList.add('show');
+}
+function closeLightbox() {
+  document.getElementById('imgLightbox').classList.remove('show');
+}
+document.addEventListener('click', function (e) {
+  if (e.target.tagName === 'IMG' && !e.target.closest('#imgLightbox') && !e.target.closest('.qr-img-wrap')) {
+    e.stopPropagation();
+    openLightbox(e.target.src);
+  }
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    var lb = document.getElementById('imgLightbox');
+    if (lb.classList.contains('show')) { closeLightbox(); e.preventDefault(); }
+  }
+});
+
+// ===== 初始显示（含 URL 参数跳转，合并执行，避免被覆盖）=====
+var _urlPage = getPageParam('page');
+var _initIdx = (_urlPage && PAGE_IDS.indexOf(_urlPage) >= 0) ? PAGE_IDS.indexOf(_urlPage) : 0;
+showPage(_initIdx);
+</script>
+</body>
+</html>

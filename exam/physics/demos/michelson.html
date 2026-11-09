@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>迈克耳孙干涉仪 · 交互实验台</title>
+<style>
+/* ===== 配色 Scheme A · Deep Blue Academic ===== */
+:root{
+  --primary:#1A3A5C;--primary-light:#3A7DC8;
+  --accent:#E8832A;--accent-soft:#F5C282;
+  --ink:#2C2C2C;--paper:#F4F6F9;--paper-2:#EEF2F6;
+  --line:#D8DEE6;--green:#2E7D32;
+  --deeper:#05070E;
+  --shadow:0 4px 18px rgba(20,40,70,.10);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#08131F}
+body{
+  font-family:"Noto Serif SC","Songti SC","Microsoft YaHei",serif;
+  color:var(--ink);font-size:19px;line-height:1.5;
+}
+
+/* ===== 16:9 舞台：固定 1600×900 设计稿，按视口等比缩放，永不滚动 ===== */
+#stage{
+  position:absolute;left:50%;top:50%;width:1600px;height:900px;
+  transform-origin:50% 50%;transform:translate(-50%,-50%) scale(var(--k,1));
+  background:var(--paper);overflow:hidden;display:flex;flex-direction:column;
+}
+
+/* ===== 顶部标题条 ===== */
+.hero{
+  flex:none;height:52px;display:flex;align-items:center;gap:20px;padding:0 20px;
+  background:linear-gradient(120deg,#1A3A5C 0%,#0D2842 55%,#123152 100%);color:#fff;
+}
+.hero h1{font-size:25px;font-weight:900;letter-spacing:.5px;white-space:nowrap}
+.hero .sub{font-size:15px;color:rgba(255,255,255,.82)}
+.hero .sub b{color:var(--accent-soft)}
+
+/* ===== 主网格 ===== */
+main{
+  flex:1 1 auto;min-height:0;padding:14px;
+  display:grid;grid-template-columns:1fr 560px;grid-template-rows:656px 1fr;gap:14px;
+}
+.card{
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow);padding:10px 14px 12px;display:flex;flex-direction:column;min-height:0;
+}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex:none}
+.card-head h2{font-size:19px;color:var(--primary);font-weight:800;display:flex;align-items:center;gap:8px}
+.card-head h2 .num{
+  display:inline-flex;width:25px;height:25px;border-radius:50%;
+  background:var(--primary);color:#fff;font-size:14px;align-items:center;justify-content:center;font-weight:800;flex:none;
+}
+.badge{
+  font-size:13px;padding:3px 10px;border-radius:20px;font-weight:700;white-space:nowrap;
+  background:rgba(58,125,200,.12);color:var(--primary-light);
+}
+.card-svg{grid-area:1/1/2/2}
+.card-fig{grid-area:1/2/2/3;align-items:center}
+.card-ctl{grid-area:2/1/3/3;display:grid;grid-template-columns:286px 286px 372px 1fr;gap:0 22px;align-content:center}
+
+/* ===== 示意图面板（暗底） ===== */
+.scope-wrap{
+  flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,#123152 0%,#0A2039 55%,#0D2842 100%);
+  border-radius:10px;overflow:hidden;border:1px solid #0A2039;
+}
+#scopeSvg{height:100%;width:auto;max-width:100%;display:block}
+
+/* ===== 干涉图样 ===== */
+#figCanvas{
+  border:2px solid var(--line);border-radius:12px;background:var(--deeper);
+  box-shadow:var(--shadow);display:block;flex:none;
+}
+.card-fig .cap{font-size:14px;color:var(--primary-light);margin-top:6px;font-weight:700;text-align:center;flex:none}
+
+/* ===== 参数组 ===== */
+.grp{border-left:4px solid var(--primary-light);padding:0 0 0 12px}
+.grp.g1{border-left-color:#E8832A}
+.grp.g2{border-left-color:#2E7D32}
+.grp.g3{border-left-color:#3A7DC8}
+.grp h3{font-size:16px;color:var(--primary);font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.grp h3 .dot{width:9px;height:9px;border-radius:50%;background:var(--primary-light);flex:none}
+.grp.g1 h3 .dot{background:#E8832A}
+.grp.g2 h3 .dot{background:#2E7D32}
+.grp.g3 h3 .dot{background:#3A7DC8}
+
+.ctrl-row{margin-bottom:5px}
+.ctrl-head{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;font-weight:600;color:var(--primary)}
+.ctrl-head .val{color:var(--accent);font-weight:800;font-variant-numeric:tabular-nums;font-family:Consolas,monospace}
+.ctrl-row input[type=range]{width:100%;height:22px;cursor:pointer;accent-color:var(--accent)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.ctrl-row input[type=range]:focus{outline:none}
+.sub-hint{font-size:12.5px;color:#7B8794;line-height:1.35}
+
+/* ===== 读数 + 按钮 ===== */
+.rd-wrap{display:flex;flex-direction:column;gap:9px;border-left:2px dashed var(--line);padding-left:22px}
+.readout{display:grid;grid-template-columns:1fr 1fr;gap:2px 22px}
+.r-item{display:flex;justify-content:space-between;align-items:baseline;font-size:14.5px;gap:10px}
+.r-item .k{color:#5A6B7C;font-weight:600;white-space:nowrap}
+.r-item .v{color:var(--primary);font-weight:800;font-variant-numeric:tabular-nums;font-family:Consolas,monospace;white-space:nowrap}
+.r-item .v.hot{color:var(--accent)}
+.btn-row{display:flex;gap:10px}
+.btn-row button{
+  flex:1;padding:8px 10px;border-radius:20px;border:2px solid var(--primary);
+  background:#fff;color:var(--primary);font-size:15px;font-weight:700;cursor:pointer;
+  font-family:inherit;transition:all .2s;
+}
+.btn-row button:hover{background:var(--primary);color:#fff}
+.btn-row button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+</style>
+<style>@media(max-width:900px){html,body{height:auto;overflow:auto}#stage{position:static;width:100%;height:auto;transform:none;overflow:visible}.hero{height:auto;display:block;padding:12px}.hero h1{white-space:normal;font-size:22px}main{display:flex;flex-direction:column;padding:10px}.card{min-width:0}.card-ctl{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}.scope-wrap{display:block}#scopeSvg{width:100%;height:auto}#figCanvas{width:min(100%,512px);height:auto}.rd-wrap{padding-left:10px}.readout{column-gap:6px}.btn-row{flex-wrap:wrap}}</style></head>
+<body>
+
+<div id="stage">
+
+  <header class="hero">
+    <h1>迈克耳孙干涉仪 · 交互实验台</h1>
+    <p class="sub">拖动下方 <b>三个参数</b>：上方的光路示意图与右边的干涉图样同时变化</p>
+  </header>
+
+  <main>
+
+    <!-- ① 干涉仪光路示意图 -->
+    <section class="card card-svg">
+      <div class="card-head">
+        <h2><span class="num">1</span>干涉仪光路示意图</h2>
+        <span class="badge">两臂等长 L · 板内折射已画出</span>
+      </div>
+      <div class="scope-wrap">
+        <svg id="scopeSvg" viewBox="0 0 700 490" width="700" height="490" role="img" aria-label="迈克耳孙干涉仪光路示意图">
+          <defs>
+            <marker id="arY" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#F5C282"/></marker>
+            <marker id="arO" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#F5A623"/></marker>
+            <marker id="arB" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#5FB0FF"/></marker>
+            <marker id="arG" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#7FE3A0"/></marker>
+            <marker id="dimA" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 z" fill="#9FD0FF"/></marker>
+            <marker id="dimB" markerWidth="9" markerHeight="9" refX="1" refY="3" orient="auto"><path d="M8,0 L0,3 L8,6 z" fill="#9FD0FF"/></marker>
+          </defs>
+
+          <!-- 水平光轴 -->
+          <line x1="120" y1="360" x2="575" y2="360" stroke="rgba(255,255,255,.08)" stroke-width="1" stroke-dasharray="5 6"/>
+
+          <!-- 等效空气膜色带（动态：M₁ 与 M₂′ 之间） -->
+          <rect id="filmBand" x="236.2" y="52" width="130" height="66" fill="rgba(95,176,255,.14)" rx="3"/>
+
+          <!-- 光源 S -->
+          <rect x="70" y="343" width="30" height="34" rx="5" fill="#F5C282"/>
+          <text x="85" y="408" fill="#F5C282" font-size="14.5" text-anchor="middle" font-family="Microsoft YaHei,sans-serif">光源 S</text>
+
+          <!-- ── 两块平行平面玻璃板（等厚、平行） ── -->
+          <polygon points="344,298 362,316 256,422 238,404" fill="rgba(120,215,255,.14)" stroke="rgba(150,222,255,.58)" stroke-width="1.3"/>
+          <polygon points="489,298 507,316 401,422 383,404" fill="rgba(120,215,255,.14)" stroke="rgba(150,222,255,.58)" stroke-width="1.3"/>
+          <!-- 半反半透膜：镀在 G₁ 背面（位于 M₂ 一侧的那一面） -->
+          <line x1="362" y1="316" x2="256" y2="422" stroke="rgba(255,255,255,.72)" stroke-width="2.4" stroke-dasharray="8 4"/>
+          <text x="238" y="436" fill="rgba(255,255,255,.75)" font-size="14" text-anchor="end" font-family="Microsoft YaHei,sans-serif">G₁ 分束板</text>
+          <text x="374" y="332" fill="rgba(255,255,255,.6)" font-size="12.5" font-family="Microsoft YaHei,sans-serif">半反膜</text>
+          <text x="393" y="430" fill="rgba(255,255,255,.75)" font-size="14" font-family="Microsoft YaHei,sans-serif">G₂ 补偿板</text>
+          <text x="393" y="448" fill="rgba(255,255,255,.5)" font-size="12" font-family="Microsoft YaHei,sans-serif">与 G₁ 等厚、平行</text>
+
+          <!-- ================= 光路（自左向右：入射 → 板内折射 → 分束 → 两臂 → 反射回程 → 合束） ================= -->
+
+          <!-- 光源 → G₁ 前面 -->
+          <line x1="102" y1="360" x2="282" y2="360" stroke="#F5C282" stroke-width="2.4" marker-end="url(#arY)"/>
+          <!-- 折射进入 G₁ 玻璃：入射点 (282,360) → 半反膜 (309.6,368.4) -->
+          <line x1="282" y1="360" x2="309.6" y2="368.4" stroke="#F5C282" stroke-width="2.2"/>
+
+          <!-- M₁ 支路：反射后穿过玻璃出射 (301.2,340.8) -->
+          <line x1="309.6" y1="368.4" x2="301.2" y2="340.8" stroke="#F5A623" stroke-width="2.2"/>
+          <!-- M₁ 支路：出射后竖直上行 → M₁（动态端点） -->
+          <line id="rayUp" x1="301.2" y1="340.8" x2="301.2" y2="96" stroke="#F5A623" stroke-width="2.4" marker-end="url(#arO)"/>
+          <!-- M₁ 处反射连接（动态） -->
+          <line id="m1Link" x1="301.2" y1="96" x2="307.2" y2="96" stroke="#F5A623" stroke-width="2" opacity=".9"/>
+          <!-- M₁ 支路回程（虚线）：M₁ → 再入 G₁ 前面 (307.2,334.8) -->
+          <line id="rayDn" x1="307.2" y1="96" x2="307.2" y2="334.8" stroke="#F5A623" stroke-width="1.7" stroke-dasharray="7 5" marker-end="url(#arO)" opacity=".85"/>
+          <!-- M₁ 回程在玻璃内折射 → 抵达半反膜 (315.6,362.4) -->
+          <line x1="307.2" y1="334.8" x2="315.6" y2="362.4" stroke="#F5A623" stroke-width="1.7" stroke-dasharray="7 5" opacity=".85"/>
+
+          <!-- M₂ 支路：透过半反膜出射 → G₂ 前面 (418.6,368.4) -->
+          <line x1="309.6" y1="368.4" x2="418.6" y2="368.4" stroke="#5FB0FF" stroke-width="2.4" marker-end="url(#arB)"/>
+          <!-- G₂ 内折射 (418.6,368.4) → (446.2,376.8) -->
+          <line x1="418.6" y1="368.4" x2="446.2" y2="376.8" stroke="#5FB0FF" stroke-width="2.2"/>
+          <!-- → M₂ -->
+          <line x1="446.2" y1="376.8" x2="560" y2="376.8" stroke="#5FB0FF" stroke-width="2.4" marker-end="url(#arB)"/>
+          <!-- M₂ 处反射连接 -->
+          <line x1="560" y1="376.8" x2="560" y2="370.8" stroke="#5FB0FF" stroke-width="2" opacity=".9"/>
+          <!-- M₂ 支路回程（虚线）：M₂ → 再入 G₂ 背面 (452.2,370.8) -->
+          <line x1="560" y1="370.8" x2="452.2" y2="370.8" stroke="#5FB0FF" stroke-width="1.7" stroke-dasharray="7 5" opacity=".85"/>
+          <!-- G₂ 回程折射 (452.2,370.8) → (424.6,362.4) -->
+          <line x1="452.2" y1="370.8" x2="424.6" y2="362.4" stroke="#5FB0FF" stroke-width="1.7" stroke-dasharray="7 5" opacity=".85"/>
+          <!-- 回程 → 半反膜 (315.6,362.4) 处反射向下 -->
+          <line x1="424.6" y1="362.4" x2="315.6" y2="362.4" stroke="#5FB0FF" stroke-width="1.7" stroke-dasharray="7 5" marker-end="url(#arB)" opacity=".85"/>
+
+          <!-- 合束输出 → 观察屏 -->
+          <line x1="315.6" y1="362.4" x2="315.6" y2="438" stroke="#7FE3A0" stroke-width="2.4" marker-end="url(#arG)"/>
+          <circle cx="315.6" cy="362.4" r="2.6" fill="#7FE3A0"/>
+
+          <!-- M₂ 固定镜 -->
+          <line x1="560" y1="311.8" x2="560" y2="441.8" stroke="#5FB0FF" stroke-width="5.5" stroke-linecap="round"/>
+          <text x="560" y="462" fill="#5FB0FF" font-size="14.5" text-anchor="middle" font-family="Microsoft YaHei,sans-serif">M₂ 固定镜</text>
+
+          <!-- M₂′ 虚像（M₂ 经半反膜所成 → 到半反膜与 M₂ 等距） -->
+          <line x1="236.2" y1="118" x2="366.2" y2="118" stroke="#5FB0FF" stroke-width="3.2" stroke-dasharray="9 6" stroke-linecap="round"/>
+          <text x="430" y="114" fill="#5FB0FF" font-size="14.5" font-family="Microsoft YaHei,sans-serif">M₂′ 虚像</text>
+          <text x="430" y="132" fill="rgba(95,176,255,.75)" font-size="12.5" font-family="Microsoft YaHei,sans-serif">（M₂ 经半反膜所成）</text>
+
+          <!-- M₁ 动镜（动态：平移 + 倾斜） -->
+          <g id="m1Group">
+            <line id="m1Line" x1="236.2" y1="96" x2="366.2" y2="96" stroke="#F5A623" stroke-width="5.5" stroke-linecap="round"/>
+          </g>
+          <text id="m1Txt" x="430" y="101" fill="#F5A623" font-size="14.5" font-family="Microsoft YaHei,sans-serif">M₁ 可移动 · 可倾斜</text>
+
+          <!-- 倾角参考线 + α 角标（动态） -->
+          <line id="refLine" x1="301.2" y1="96" x2="426.2" y2="96" stroke="rgba(245,166,35,.4)" stroke-width="1.4" stroke-dasharray="5 5" opacity="0"/>
+          <path id="alphaArc" d="" fill="none" stroke="#7FE3A0" stroke-width="2.4" stroke-linecap="round" opacity="0"/>
+          <text id="alphaTxt" x="380" y="90" fill="#7FE3A0" font-size="18" font-weight="bold" font-family="Microsoft YaHei,sans-serif" opacity="0">α</text>
+
+          <!-- 两臂等长 L 标注 -->
+          <line x1="318" y1="300" x2="560" y2="300" stroke="#9FD0FF" stroke-width="1.6" marker-start="url(#dimB)" marker-end="url(#dimA)" opacity=".8"/>
+          <text x="439" y="292" fill="#9FD0FF" font-size="15" font-weight="bold" text-anchor="middle" font-family="Microsoft YaHei,sans-serif">L</text>
+          <line x1="205" y1="120" x2="205" y2="358" stroke="#9FD0FF" stroke-width="1.6" marker-start="url(#dimB)" marker-end="url(#dimA)" opacity=".8"/>
+          <text x="194" y="241" fill="#9FD0FF" font-size="15" font-weight="bold" text-anchor="end" font-family="Microsoft YaHei,sans-serif">L</text>
+
+          <!-- 等效膜厚 d 标注（动态，M₂′ → M₁） -->
+          <line id="dDim" x1="224" y1="118" x2="224" y2="96" stroke="#9FD0FF" stroke-width="1.6" marker-start="url(#dimB)" marker-end="url(#dimA)"/>
+          <text id="dTxt" x="216" y="112" fill="#9FD0FF" font-size="14" text-anchor="end" font-family="Microsoft YaHei,sans-serif">d = 8.00 μm</text>
+
+          <!-- 薄片（动态，插在 M₁ 竖直臂中，垂直入射） -->
+          <g id="filmGroup" opacity="0">
+            <rect id="thinFilmRect" x="240" y="219" width="120" height="12" rx="2" fill="rgba(120,220,255,.30)" stroke="#78DCFF" stroke-width="1.5"/>
+            <text id="thinFilmTxt" x="372" y="230" fill="#78DCFF" font-size="14" font-family="Microsoft YaHei,sans-serif">薄片</text>
+          </g>
+
+          <!-- 观察屏 -->
+          <rect x="260.6" y="442" width="110" height="10" rx="3" fill="#7FE3A0"/>
+          <text x="315.6" y="470" fill="#7FE3A0" font-size="14.5" text-anchor="middle" font-family="Microsoft YaHei,sans-serif">观察屏（干涉图样）</text>
+
+          <!-- 图内说明 -->
+          <text x="20" y="24" fill="rgba(255,255,255,.55)" font-size="13.5" font-family="Microsoft YaHei,sans-serif">λ = 633 nm（He–Ne）</text>
+          <text x="690" y="150" fill="rgba(255,255,255,.45)" font-size="13" text-anchor="end" font-family="Microsoft YaHei,sans-serif">半反半透膜镀在 G₁ 背面（朝 M₂ 的一面）</text>
+          <text x="690" y="172" fill="rgba(255,255,255,.45)" font-size="13" text-anchor="end" font-family="Microsoft YaHei,sans-serif">光在板面按折射定律折转：空气 45° → 玻璃内 28°</text>
+          <text x="690" y="194" fill="rgba(255,255,255,.45)" font-size="13" text-anchor="end" font-family="Microsoft YaHei,sans-serif">出射光与入射光平行，仅横向平移一小段</text>
+          <text x="690" y="216" fill="rgba(255,255,255,.45)" font-size="13" text-anchor="end" font-family="Microsoft YaHei,sans-serif">实线＝出射光　虚线＝镜面反射回程光</text>
+          <text x="690" y="264" fill="rgba(255,255,255,.45)" font-size="13" text-anchor="end" font-family="Microsoft YaHei,sans-serif">两束光在玻璃中往返各 2 次，两臂光程相等（板厚已放大）</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- ② 干涉图样 -->
+    <section class="card card-fig">
+      <div class="card-head" style="width:100%">
+        <h2><span class="num">2</span>干涉图样</h2>
+        <span class="badge">逐像素实时光强计算</span>
+      </div>
+      <canvas id="figCanvas" width="512" height="512"></canvas>
+      <p class="cap">观察屏上的干涉条纹（等倾圆环 ↔ 等厚直条纹）</p>
+    </section>
+
+    <!-- ③ 参数控制台（横条） -->
+    <aside class="card card-ctl">
+      <div class="grp g1">
+        <h3><span class="dot"></span>① M₁ 的移动</h3>
+        <div class="ctrl-row">
+          <div class="ctrl-head"><span>M₁ 位移 Δd</span><span class="val" id="vlDelta">0.00 μm</span></div>
+          <input type="range" id="rgDelta" min="-6" max="12" step="0.01" value="0">
+          <p class="sub-hint">d = 8.00 μm + Δd，M₁ 沿光轴平动</p>
+        </div>
+      </div>
+
+      <div class="grp g2">
+        <h3><span class="dot"></span>② 角度控制</h3>
+        <div class="ctrl-row">
+          <div class="ctrl-head"><span>M₁ 与 M₂′ 夹角 α</span><span class="val" id="vlAlpha">0.00</span></div>
+          <input type="range" id="rgAlpha" min="0" max="10" step="0.05" value="0">
+          <p class="sub-hint">α×10⁻³ rad；α = 0 圆环，α↑ 直条纹</p>
+        </div>
+      </div>
+
+      <div class="grp g3">
+        <h3><span class="dot"></span>③ 在一臂中插入薄片</h3>
+        <div class="two">
+          <div class="ctrl-row">
+            <div class="ctrl-head"><span>薄片厚度 L</span><span class="val" id="vlL">0.0 μm</span></div>
+            <input type="range" id="rgL" min="0" max="20" step="0.1" value="0">
+          </div>
+          <div class="ctrl-row">
+            <div class="ctrl-head"><span>折射率 n</span><span class="val" id="vlN">1.500</span></div>
+            <input type="range" id="rgN" min="1" max="2" step="0.005" value="1.5">
+          </div>
+        </div>
+        <p class="sub-hint">插在 M₁ 竖直臂中（垂直入射），附加光程 2(n−1)L</p>
+      </div>
+
+      <div class="rd-wrap">
+        <div class="readout">
+          <div class="r-item"><span class="k">等效膜厚 d</span><span class="v" id="rdD">8.00 μm</span></div>
+          <div class="r-item"><span class="k">中心光程差 Δ₀</span><span class="v" id="rdOPD">16.00 μm</span></div>
+          <div class="r-item"><span class="k">中心级次 k₀</span><span class="v" id="rdK">25.28</span></div>
+          <div class="r-item"><span class="k">条纹移动数 N</span><span class="v hot" id="rdN">0</span></div>
+          <div class="r-item"><span class="k">条纹形态</span><span class="v" id="rdShape">等倾圆环</span></div>
+          <div class="r-item"><span class="k">等厚条纹间距 e</span><span class="v" id="rdE">—</span></div>
+        </div>
+        <div class="btn-row">
+          <button id="btnAuto">自动演示 M₁</button>
+          <button id="btnReset">全部重置</button>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+</div>
+
+<script>
+/* ============================================================
+   工具
+   ============================================================ */
+function $(id){ return document.getElementById(id); }
+function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+
+/* 波长 → 单色 RGB（Dan Bruton 近似） */
+function wl2rgb(wl){
+  var r=0,g=0,b=0;
+  if(wl>=380&&wl<440){r=-(wl-440)/60;b=1;}
+  else if(wl>=440&&wl<490){g=(wl-440)/50;b=1;}
+  else if(wl>=490&&wl<510){g=1;b=-(wl-510)/20;}
+  else if(wl>=510&&wl<580){r=(wl-510)/70;g=1;}
+  else if(wl>=580&&wl<645){r=1;g=-(wl-645)/65;}
+  else if(wl>=645&&wl<=780){r=1;}
+  var f=1;
+  if(wl>=380&&wl<420) f=0.3+0.7*(wl-380)/40;
+  else if(wl>700&&wl<=780) f=0.3+0.7*(780-wl)/80;
+  return{
+    r:Math.round(255*Math.pow(Math.max(0,r)*f,0.8)),
+    g:Math.round(255*Math.pow(Math.max(0,g)*f,0.8)),
+    b:Math.round(255*Math.pow(Math.max(0,b)*f,0.8))
+  };
+}
+
+/* ============================================================
+   几何常量（SVG 用户单位）
+
+   板厚 t = 25.5（沿 45° 法向）→ 两面间 Δ(x+y) = 36。
+   玻璃 n = 1.5、45° 入射 → 板内折射角 28.13°，一进一出横向平移
+   δ = t·sin(i−r)/cos(r) = 8.4（沿 45° 板面表现为 (8.4, 8.4)）。
+
+   关键点（由上而下的推导结果）：
+     入射点   (282, 360)     —— G₁ 前面
+     分束点   (309.6, 368.4) —— 半反膜（G₁ 背面）
+     M₁ 出射  (301.2, 340.8) —— 反射支路折回穿出 G₁ 前面，出射后严格竖直
+     回程汇聚 (315.6, 362.4) —— 两路回程在半反膜上会合，再向下输出
+   ============================================================ */
+var LAMBDA   = 633;                     // nm，固定 He–Ne
+var D0       = 8.0;                     // μm，初始等效空气膜厚
+var COAT_X   = 309.6, COAT_Y = 368.4;   // 半反膜上的分束点
+var M1_AXIS  = 301.2;                   // M₁ 竖直臂光轴 x
+var M2P_Y    = 118;                     // M₂′ 虚像平面 y（到分束点距离 = 250.5）
+var RET_OFF  = 6;                       // 回程光与出射光的示意平行间距
+var M1_RET_X = M1_AXIS + RET_OFF;       // 307.2
+var M1_RET_IN_Y = 334.8;                // 回程再入 G₁ 前面的 y
+var FILM_PX_0 = 22;                     // d = D_MIN 时膜厚显示像素
+var FILM_PX_1 = 66;                     // d = D_MAX 时膜厚显示像素
+var THIN_FILM_Y = 225;                  // 薄片中心 y（M₁ 竖直臂中）
+var D_MIN = 2.0, D_MAX = 20.0;
+
+var st = {
+  delta: 0,      // μm，M₁ 位移
+  alpha: 0,      // rad，夹角
+  L: 0,          // μm，薄片厚度
+  n: 1.50,       // 薄片折射率
+  auto: false,
+  raf: null,
+  dir: 1
+};
+
+function curD(){ return clamp(D0 + st.delta, D_MIN, D_MAX); }   // μm
+
+/* ============================================================
+   渲染：干涉仪示意图（SVG）
+   ============================================================ */
+function renderScope(){
+  var d  = curD();
+  /* 等效膜厚 d(μm) → 显示像素：D_MIN..D_MAX 映射到 22..66 px（视觉放大，非等比） */
+  var filmPx = FILM_PX_0 + (d - D_MIN) / (D_MAX - D_MIN) * (FILM_PX_1 - FILM_PX_0);
+  var y1 = M2P_Y - filmPx;     // M₁ 位于 M₂′ 上方，两者间距即等效膜厚 d
+
+  /* 等效空气膜色带 */
+  var band = $('filmBand');
+  band.setAttribute('y', Math.min(y1, M2P_Y));
+  band.setAttribute('height', Math.max(3, Math.abs(M2P_Y - y1)));
+
+  /* M₁ 动镜：平移 + 绕自身中心倾斜 */
+  var deg = st.alpha * 1000 * 1.6;   // 教学夸张：0–10 → 0–16°
+  var m1 = $('m1Line');
+  m1.setAttribute('y1', y1);
+  m1.setAttribute('y2', y1);
+  $('m1Group').setAttribute('transform', 'rotate(' + (-deg) + ' ' + M1_AXIS + ' ' + y1 + ')');
+  $('m1Txt').setAttribute('y', y1 + 5);
+
+  /* M₁ 臂往返光路端点跟着 M₁ 走 */
+  var ySurf = y1 + 3;                       // 镜面
+  $('rayUp').setAttribute('y2', ySurf);
+  var dn = $('rayDn');
+  dn.setAttribute('y1', ySurf);
+  dn.setAttribute('y2', M1_RET_IN_Y);
+  var lk = $('m1Link');
+  lk.setAttribute('y1', ySurf); lk.setAttribute('y2', ySurf);
+
+  /* 膜厚 d 标注 */
+  var dim = $('dDim');
+  dim.setAttribute('y2', y1);
+  var dTxt = $('dTxt');
+  dTxt.setAttribute('y', (M2P_Y + y1) / 2 + 5);
+  dTxt.textContent = 'd = ' + d.toFixed(2) + ' μm';
+
+  /* 倾角参考线 + α 角标 */
+  var refL = $('refLine'), arc = $('alphaArc'), aTxt = $('alphaTxt');
+  if (st.alpha > 1e-5){
+    refL.setAttribute('y1', y1); refL.setAttribute('y2', y1);
+    refL.setAttribute('opacity', 1);
+    var rad = deg * Math.PI / 180;
+    var r0 = 74;
+    var ax = M1_AXIS + r0, ay = y1;
+    var bx = M1_AXIS + r0 * Math.cos(rad), by = y1 - r0 * Math.sin(rad);
+    arc.setAttribute('d', 'M' + ax + ',' + ay + ' A' + r0 + ',' + r0 + ' 0 0 0 ' + bx + ',' + by);
+    arc.setAttribute('opacity', 1);
+    aTxt.setAttribute('x', M1_AXIS + 92 * Math.cos(rad / 2));
+    aTxt.setAttribute('y', y1 - 92 * Math.sin(rad / 2) + 6);
+    aTxt.setAttribute('opacity', 1);
+  } else {
+    refL.setAttribute('opacity', 0);
+    arc.setAttribute('opacity', 0);
+    aTxt.setAttribute('opacity', 0);
+  }
+
+  /* 薄片：厚度随 L，n=1 时不显示 */
+  var fg = $('filmGroup');
+  if (st.L > 0.05 && st.n > 1.0005){
+    var hpx = 3 + st.L * 0.75;               // 0–20 μm → 3–18 px
+    var rct = $('thinFilmRect');
+    rct.setAttribute('height', hpx);
+    rct.setAttribute('y', THIN_FILM_Y - hpx / 2);
+    $('thinFilmTxt').textContent = '薄片 L=' + st.L.toFixed(1) + ' μm, n=' + st.n.toFixed(3);
+    fg.setAttribute('opacity', 1);
+  } else {
+    fg.setAttribute('opacity', 0);
+  }
+}
+
+/* ============================================================
+   渲染：干涉图样（Canvas，逐像素 2×2 超采样）
+
+   相位 = (2π·h/λ)·cosθ + 2π(n−1)L/λ ，h = d + α·x
+   性能优化（结果与逐点求 cos(θ) 等价，误差 < 1e-7）：
+     · θ = (r/R)·θmax，故 cosθ 仅是 rr/R² 的函数 → 查表 + 线性插值
+     · 亮度 gamma 也走查表，512² 每帧约 25 ms（≈40 fps）
+   ============================================================ */
+var figCv, figCtx;
+var THETA_MAX = 0.5;      // 视场半角 rad
+var L_EFF     = 500e-6;   // 屏幕横向 1 mm 对应的膜厚采样尺度（m）
+
+/* cosθ 查表 */
+var C_N = 2048, C_LUT = new Float64Array(C_N + 2);
+for (var ci = 0; ci <= C_N + 1; ci++){
+  var cu = Math.min(1, ci / C_N);
+  C_LUT[ci] = Math.cos(Math.sqrt(cu) * THETA_MAX);
+}
+/* gamma 查表 */
+var G_N = 1024, G_LUT = new Float64Array(G_N + 2);
+for (var gi = 0; gi <= G_N + 1; gi++) G_LUT[gi] = Math.pow(Math.min(1, gi / G_N), 0.72);
+
+function renderFig(){
+  if (!figCtx) return;
+  var W = figCv.width, H = figCv.height;
+  var cx = W / 2, cy = H / 2, R = Math.min(cx, cy) - 3, R2 = R * R;
+  var img = figCtx.createImageData(W, H), data = img.data;
+
+  var lam   = LAMBDA * 1e-9;
+  var rgb   = wl2rgb(LAMBDA);
+  var kH0   = Math.PI * 2 * curD() * 1e-6 / lam;              // 中心膜厚对应相位系数
+  var kAlp  = Math.PI * 2 * st.alpha * L_EFF / (lam * R);     // 楔形膜厚相位系数（×dx）
+  var kPhi  = Math.PI * 2 * (st.n - 1) * st.L * 1e-6 / lam;   // 薄片附加相位
+  var kT    = C_N / R2;
+  var dOff  = [-0.25, 0.25];
+
+  for (var y = 0; y < H; y++){
+    var dy0 = y + dOff[0] - cy, dy1 = y + dOff[1] - cy;
+    var dy0s = dy0 * dy0, dy1s = dy1 * dy1;
+    for (var x = 0; x < W; x++){
+      var idx = (y * W + x) * 4;
+      var acc = 0, cnt = 0;
+      for (var sy = 0; sy < 2; sy++){
+        var dy2 = sy ? dy1s : dy0s;
+        for (var sx = 0; sx < 2; sx++){
+          var dx = x + dOff[sx] - cx;
+          var rr = dx * dx + dy2;
+          if (rr > R2) continue;
+          var t = rr * kT, i0 = t | 0, fr = t - i0;
+          var cosT = C_LUT[i0] * (1 - fr) + C_LUT[i0 + 1] * fr;
+          var cs = Math.cos((kH0 + kAlp * dx) * cosT + kPhi);
+          acc += cs * cs;
+          cnt++;
+        }
+      }
+      if (cnt === 0){
+        data[idx] = 6; data[idx+1] = 8; data[idx+2] = 14; data[idx+3] = 255;
+        continue;
+      }
+      var I = G_LUT[(acc / cnt * G_N) | 0];   // gamma 提亮暗纹
+      data[idx]   = rgb.r * I;
+      data[idx+1] = rgb.g * I;
+      data[idx+2] = rgb.b * I;
+      data[idx+3] = 255;
+    }
+  }
+  figCtx.putImageData(img, 0, 0);
+}
+
+/* ============================================================
+   读数 + 统一刷新（rAF 节流）
+   ============================================================ */
+var _pending = false;
+function schedule(){ if (_pending) return; _pending = true; requestAnimationFrame(function(){ _pending = false; renderAll(); }); }
+
+function renderAll(){
+  renderScope();
+  renderFig();
+  updateReadout();
+}
+
+function updateReadout(){
+  var d    = curD();
+  var lam  = LAMBDA * 1e-3;                    // nm → μm
+  var film = 2 * (st.n - 1) * st.L;            // μm，薄片附加光程
+  var opd  = 2 * d + film;                     // μm
+  var N    = (2 * st.delta + film) / lam;      // 相对初始态的条纹移动总数
+
+  $('rdD').textContent   = d.toFixed(2) + ' μm';
+  $('rdOPD').textContent = opd.toFixed(2) + ' μm';
+  $('rdK').textContent   = (opd / lam).toFixed(2);
+  $('rdN').textContent   = (Math.abs(N) < 0.05 ? '0' : (N > 0 ? '+' : '') + N.toFixed(1));
+
+  var shape, eTxt;
+  if (st.alpha < 2e-4){ shape = '等倾圆环'; eTxt = '—（α ≈ 0）'; }
+  else if (st.alpha < 2e-3){
+    shape = '圆环 → 弧线过渡';
+    eTxt = (LAMBDA * 1e-9 / (2 * st.alpha) * 1e6).toFixed(1) + ' μm';
+  } else {
+    shape = '等厚直条纹';
+    eTxt = (LAMBDA * 1e-9 / (2 * st.alpha) * 1e6).toFixed(1) + ' μm';
+  }
+  $('rdShape').textContent = shape;
+  $('rdE').textContent = eTxt;
+}
+
+/* ============================================================
+   事件绑定
+   ============================================================ */
+function bindUI(){
+  $('rgDelta').addEventListener('input', function(){
+    st.delta = parseFloat(this.value);
+    $('vlDelta').textContent = (st.delta >= 0 ? '+' : '') + st.delta.toFixed(2) + ' μm';
+    schedule();
+  });
+  $('rgAlpha').addEventListener('input', function(){
+    st.alpha = parseFloat(this.value) / 1000;   // ×10⁻³ rad
+    $('vlAlpha').textContent = parseFloat(this.value).toFixed(2);
+    schedule();
+  });
+  $('rgL').addEventListener('input', function(){
+    st.L = parseFloat(this.value);
+    $('vlL').textContent = st.L.toFixed(1) + ' μm';
+    schedule();
+  });
+  $('rgN').addEventListener('input', function(){
+    st.n = parseFloat(this.value);
+    $('vlN').textContent = st.n.toFixed(3);
+    schedule();
+  });
+  $('btnReset').addEventListener('click', resetAll);
+  $('btnAuto').addEventListener('click', toggleAuto);
+}
+
+function syncUI(){
+  $('rgDelta').value = st.delta;
+  $('vlDelta').textContent = (st.delta >= 0 ? '+' : '') + st.delta.toFixed(2) + ' μm';
+  $('rgAlpha').value = (st.alpha * 1000).toFixed(2);
+  $('vlAlpha').textContent = (st.alpha * 1000).toFixed(2);
+  $('rgL').value = st.L;
+  $('vlL').textContent = st.L.toFixed(1) + ' μm';
+  $('rgN').value = st.n;
+  $('vlN').textContent = st.n.toFixed(3);
+}
+
+function resetAll(){
+  stopAuto();
+  st.delta = 0; st.alpha = 0; st.L = 0; st.n = 1.50;
+  syncUI();
+  renderAll();
+}
+
+function stopAuto(){
+  st.auto = false;
+  if (st.raf) cancelAnimationFrame(st.raf);
+  st.raf = null;
+  $('btnAuto').classList.remove('on');
+}
+
+function toggleAuto(){
+  st.auto = !st.auto;
+  $('btnAuto').classList.toggle('on', st.auto);
+  if (st.auto){
+    st.dir = 1;
+    st.raf = requestAnimationFrame(autoStep);
+  } else {
+    stopAuto();
+  }
+}
+
+function autoStep(){
+  if (!st.auto) return;
+  st.delta += 0.06 * st.dir;
+  if (st.delta >= 12){ st.delta = 12; st.dir = -1; }
+  if (st.delta <= -6){ st.delta = -6; st.dir = 1; }
+  $('rgDelta').value = st.delta;
+  $('vlDelta').textContent = (st.delta >= 0 ? '+' : '') + st.delta.toFixed(2) + ' μm';
+  renderAll();
+  st.raf = requestAnimationFrame(autoStep);
+}
+
+/* ============================================================
+   16:9 舞台缩放
+   ============================================================ */
+function fitStage(){
+  var k = Math.min(window.innerWidth / 1600, window.innerHeight / 900);
+  document.documentElement.style.setProperty('--k', k);
+}
+
+/* ============================================================
+   启动
+   ============================================================ */
+(function init(){
+  figCv = $('figCanvas');
+  figCtx = figCv.getContext('2d');
+
+  /* URL 参数预设：#d=位移μm & a=夹角×10⁻³rad & l=薄片μm & n=折射率 */
+  var q = (location.hash || '') + '&' + (location.search || '');
+  function gp(k){
+    var m = new RegExp('[#&?]' + k + '=([^&#]*)').exec(q);
+    return m ? parseFloat(decodeURIComponent(m[1])) : null;
+  }
+  var pd = gp('d'), pa = gp('a'), pl = gp('l'), pn = gp('n');
+  if (pd !== null && isFinite(pd)) st.delta = clamp(pd, -6, 12);
+  if (pa !== null && isFinite(pa)) st.alpha = clamp(pa, 0, 10) / 1000;
+  if (pl !== null && isFinite(pl)) st.L = clamp(pl, 0, 20);
+  if (pn !== null && isFinite(pn)) st.n = clamp(pn, 1, 2);
+
+  bindUI();
+  syncUI();
+  fitStage();
+  window.addEventListener('resize', fitStage);
+  renderAll();
+})();
+</script>
+
+</body>
+</html>

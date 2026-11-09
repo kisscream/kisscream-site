@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>单缝的夫琅禾费衍射 · 互动实验室</title>
+<style>
+/* ===== 配色方案：Deep Blue 学术深蓝 ===== */
+:root {
+  --primary: #1A3A5C; --primary-light: #5B84A8;
+  --accent: #D9822B; --accent-soft: #FBE7CB;
+  --ink: #16283A; --paper: #F4F7FA; --paper-2: #E8F0F7;
+  --line: #C9D8E5; --green: #00796B; --red: #C0392B;
+  --shadow: 0 4px 16px rgba(26,58,92,.10);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{overflow:hidden;height:100%}
+body{
+  font-family:"Segoe UI","Microsoft YaHei","Noto Sans SC",-apple-system,sans-serif;
+  background:var(--paper);color:var(--ink);
+  height:100dvh;overflow:hidden;position:relative;
+  font-size:21px;line-height:1.65;
+  display:flex;flex-direction:column;
+}
+
+/* ===== 导航条 ===== */
+nav#topNav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  background:linear-gradient(135deg,var(--primary),#2C5A85);
+  padding:6px 12px;display:flex;align-items:center;gap:10px;
+  flex-wrap:nowrap;overflow-x:auto;
+  box-shadow:0 2px 12px rgba(0,0,0,.15);
+  -webkit-overflow-scrolling:touch;
+}
+nav#topNav::-webkit-scrollbar{height:3px}
+nav#topNav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3);border-radius:2px}
+nav#topNav .chip{
+  flex-shrink:0;padding:5px 14px;border-radius:20px;
+  background:rgba(255,255,255,.15);color:rgba(255,255,255,.8);
+  font-size:16px;cursor:pointer;transition:all .25s;
+  white-space:nowrap;border:1px solid transparent;font-weight:500;
+}
+nav#topNav .chip:hover{background:rgba(255,255,255,.25)}
+nav#topNav .chip.active{
+  background:var(--accent);color:#fff;font-weight:700;
+  border-color:var(--accent);box-shadow:0 2px 8px rgba(217,130,43,.4);
+}
+nav#topNav .chip.sim{background:rgba(21,101,192,.25);color:#fff}
+nav#topNav .chip.sum{background:rgba(0,121,107,.25);color:#fff}
+
+/* ===== 进度条 ===== */
+#progressWrap{
+  position:fixed;top:44px;left:0;right:0;height:4px;z-index:201;
+  background:rgba(0,0,0,.08);
+}
+#progressBar{
+  height:100%;background:var(--accent);
+  width:0%;transition:width .4s ease;border-radius:0 2px 2px 0;
+}
+
+/* ===== 翻页容器 ===== */
+#pageContainer{flex:1;position:relative;overflow:hidden;margin-top:48px}
+
+/* ===== 页面通用 ===== */
+.page{
+  position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;
+  display:none;padding:18px 36px 32px;
+  animation:fadeSlide .4s ease;
+}
+.page.active{display:block}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.page::-webkit-scrollbar{width:5px}
+.page::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+
+/* ===== 翻页按钮 ===== */
+#navBtns{
+  position:fixed !important;bottom:20px !important;left:50% !important;
+  right:auto !important;top:auto !important;transform:translateX(-50%) !important;
+  display:flex !important;align-items:center;justify-content:center;gap:16px;z-index:150;
+}
+#navBtns button{
+  width:48px;height:48px;border-radius:50%;border:2px solid var(--primary);
+  background:var(--paper);color:var(--primary);font-size:22px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .2s;box-shadow:var(--shadow);
+}
+#navBtns button:hover{background:var(--primary);color:#fff}
+#navBtns button:disabled{opacity:.35;cursor:default}
+#navBtns button:disabled:hover{background:var(--paper);color:var(--primary)}
+#pageIndicator{font-size:20px;font-weight:700;color:var(--primary);min-width:80px;text-align:center}
+
+/* ===== 封面页 ===== */
+.page.active .cover-page{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  width:100%;height:100%;color:#fff;
+}
+.cover-page h1{font-size:44px;font-weight:900;color:#fff;margin-bottom:10px;text-shadow:0 3px 12px rgba(0,0,0,.5);letter-spacing:2px}
+.cover-page .sub{font-size:22px;color:rgba(255,255,255,.88);margin-bottom:14px;letter-spacing:1px}
+.cover-page .tags{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:16px 0 18px}
+.cover-page .tag{padding:7px 18px;border-radius:24px;background:rgba(217,130,43,.78);color:#fff;font-size:17px;font-weight:600}
+.cover-page .hint{margin-top:22px;font-size:17px;color:rgba(255,255,255,.62)}
+#coverCanvas{
+  width:88%;max-width:900px;height:96px;display:block;margin:4px 0;
+  border-radius:10px;box-shadow:0 6px 30px rgba(120,190,255,.28);
+}
+.cover-note{font-size:14px;color:rgba(255,255,255,.5);margin-top:4px}
+
+/* ===== 仿真页 ===== */
+.sim-title{font-size:27px;font-weight:900;color:var(--primary);margin-bottom:2px;text-align:center}
+.sim-desc{text-align:center;font-size:17px;color:var(--primary-light);margin-bottom:14px}
+.sim-layout{display:grid;grid-template-columns:306px 1fr;gap:18px;align-items:start}
+
+.ctrl-panel{
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:15px 17px 13px;box-shadow:var(--shadow);
+}
+.ctrl-group{margin-bottom:11px}
+.ctrl-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+.ctrl-head .cname{font-size:15.5px;font-weight:700;color:var(--primary)}
+.ctrl-head .cval{font-size:17px;font-weight:800;color:var(--accent);font-family:Consolas,"Courier New",monospace}
+.ctrl-head .cval small{font-size:12px;font-weight:600;color:var(--primary-light);margin-left:3px}
+input[type="range"]{width:100%;height:20px;accent-color:var(--accent);cursor:pointer;background:transparent}
+.ctrl-scale{display:flex;justify-content:space-between;font-size:12px;color:var(--primary-light);margin-top:-2px}
+.ctrl-note{font-size:12.5px;color:var(--primary-light);margin-top:3px;line-height:1.45}
+.ctrl-sub{
+  font-size:13px;font-weight:800;color:var(--primary-light);letter-spacing:1.5px;
+  margin:14px 0 9px;padding-top:10px;border-top:1px dashed var(--line);
+}
+
+.preset-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px;padding-top:10px;border-top:1px dashed var(--line)}
+.obs-box{margin-top:11px;padding-top:10px;border-top:1px dashed var(--line)}
+.obs-title{font-size:14px;font-weight:800;color:var(--primary);margin-bottom:5px}
+.obs-list{margin:0;padding-left:18px}
+.obs-list li{font-size:12px;line-height:1.5;color:var(--ink);margin-bottom:4px}
+.obs-list li b{color:var(--accent)}
+.mini-btn{
+  padding:5px 10px;border-radius:18px;border:1.5px solid var(--primary-light);
+  background:#fff;color:var(--primary);font-size:13.5px;font-weight:600;cursor:pointer;
+  transition:all .18s;font-family:inherit;
+}
+.mini-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.mini-btn.amber{border-color:var(--accent);color:#A5620F;margin-left:auto}
+.mini-btn.amber:hover{background:var(--accent);color:#fff}
+.mini-btn.on{background:var(--green);border-color:var(--green);color:#fff}
+.mini-btn.on:hover{background:#00695C;border-color:#00695C}
+
+/* ===== Canvas 区 ===== */
+.view-panel{min-width:0}
+.canvas-box{margin-bottom:2px}
+.canvas-box canvas{display:block;width:100%;border-radius:10px;border:1px solid var(--line);background:#fff}
+#opticsCanvas{height:258px;background:#F8FBFD}
+#fringeCanvas{height:96px;background:#04070C;cursor:crosshair}
+#curveCanvas{height:176px;cursor:crosshair}
+.canvas-box .cap{font-size:13.5px;color:var(--primary);margin:2px 0 7px 2px;font-weight:600;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.canvas-box .cap em{font-style:normal;color:var(--primary-light);font-weight:500;font-size:12.5px}
+
+/* ===== 读数条 ===== */
+.readout-bar{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:10px}
+.ro{
+  background:#fff;border:1px solid var(--line);border-left:4px solid var(--primary-light);
+  border-radius:10px;padding:6px 9px;box-shadow:0 2px 8px rgba(26,58,92,.05);
+}
+.ro .rl{font-size:12px;color:var(--primary-light);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ro .rv{font-size:16.5px;font-weight:800;color:var(--primary);font-family:Consolas,"Courier New",monospace;line-height:1.32;white-space:nowrap}
+.ro .rv small{font-size:12px;font-weight:600;color:var(--primary-light);margin-left:2px}
+.ro.hl{border-left-color:var(--accent)}
+.ro.hl .rv{color:#A5620F}
+.ro.probe{border-left-color:var(--green)}
+.ro.probe .rv{color:var(--green);font-size:15px}
+.ro.probe .rv small{color:var(--primary-light)}
+
+.formula-bar{
+  margin-top:9px;background:var(--paper-2);border-radius:10px;padding:6px 16px;
+  text-align:center;font-size:15px;color:var(--primary);letter-spacing:.5px;
+}
+.formula-bar b{color:var(--accent);font-family:Consolas,"Courier New",monospace;font-size:17px}
+
+/* ===== 总结页 ===== */
+.sum-title{font-size:29px;font-weight:900;color:var(--primary);text-align:center;margin-bottom:2px}
+.sum-desc{text-align:center;font-size:17px;color:var(--primary-light);margin-bottom:18px}
+.rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;align-items:start}
+.rule-card{
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  overflow:hidden;box-shadow:var(--shadow);transition:border-color .2s;
+}
+.rule-card.open{border-color:var(--accent)}
+.rule-head{display:flex;align-items:center;gap:13px;padding:14px 17px;cursor:pointer;user-select:none}
+.rule-head:hover{background:var(--paper-2)}
+.rule-ico{
+  flex-shrink:0;width:44px;height:44px;border-radius:12px;
+  background:linear-gradient(135deg,var(--primary),#2C5A85);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:800;
+  font-family:Consolas,"Courier New",monospace;
+}
+.rule-tt{flex:1;min-width:0}
+.rule-tt h4{font-size:18px;color:var(--primary);font-weight:800;line-height:1.35}
+.rule-tt .rule-sub{font-size:13.5px;color:var(--accent);font-family:Consolas,"Courier New",monospace;font-weight:700}
+.rule-arrow{font-size:19px;color:var(--primary-light);transition:transform .3s;flex-shrink:0}
+.rule-card.open .rule-arrow{transform:rotate(180deg)}
+.rule-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.rule-card.open .rule-body{max-height:620px}
+.rule-group{grid-column:1/-1;display:flex;align-items:center;gap:9px;margin:4px 0 -3px 2px;font-size:16.5px;font-weight:800;color:var(--primary)}
+.rule-group span{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:8px;background:var(--accent);color:#fff;font-size:14px;font-family:Consolas,"Courier New",monospace}
+.rule-group em{font-style:normal;color:var(--accent)}
+.rule-body-in{padding:0 17px 15px;font-size:16.5px;line-height:1.7;color:var(--ink)}
+.rule-body-in .kv{
+  background:var(--paper-2);border-radius:8px;padding:7px 12px;margin:9px 0;
+  font-family:Consolas,"Courier New",monospace;font-size:15.5px;color:var(--primary);font-weight:700;
+}
+
+.sum-formula{
+  margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:14px 20px;box-shadow:var(--shadow);
+}
+.sum-formula h4{font-size:18px;color:var(--primary);margin-bottom:8px;font-weight:800}
+.sum-formula .fl{display:flex;flex-wrap:wrap;gap:8px 26px}
+.sum-formula .fi{font-size:16.5px;color:var(--ink)}
+.sum-formula .fi b{color:var(--accent);font-family:Consolas,"Courier New",monospace;font-size:17.5px;margin-left:6px}
+
+/* ===== 响应式 ===== */
+@media(max-width:1400px){ .readout-bar{grid-template-columns:repeat(4,1fr)} }
+@media(max-width:900px){
+  .page{padding:16px 15px 56px}
+  .cover-page h1{font-size:29px;letter-spacing:1px}
+  .cover-page .sub{font-size:17px}
+  #coverCanvas{height:74px;width:96%}
+  .sim-layout{grid-template-columns:1fr}
+  .sim-title{font-size:22px}
+  .sim-desc{font-size:15.5px}
+  #opticsCanvas{height:252px}
+  #fringeCanvas{height:86px}
+  #curveCanvas{height:164px}
+  .readout-bar{grid-template-columns:repeat(3,1fr);gap:7px}
+  .ro{padding:6px 8px}
+  .ro .rv{font-size:15px}
+  .rule-grid{grid-template-columns:1fr}
+  nav#topNav{padding:4px 8px;gap:6px}
+  nav#topNav .chip{padding:4px 10px;font-size:14px}
+  #navBtns button{width:40px;height:40px;font-size:18px}
+  .formula-bar{font-size:13.5px}
+}
+@media(max-width:520px){ .readout-bar{grid-template-columns:repeat(2,1fr)} }
+
+/* ===== 图片全屏灯箱（骨架内置，保留） ===== */
+#imgLightbox{
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,.92);justify-content:center;align-items:center;
+  cursor:zoom-out;
+}
+#imgLightbox.show{display:flex}
+#imgLightbox img{
+  max-width:95vw;max-height:95vh;object-fit:contain;
+  border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5);
+  animation:lightboxIn .3s ease;
+}
+@keyframes lightboxIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+#imgLightbox .lb-close{
+  position:absolute;top:20px;right:24px;width:44px;height:44px;
+  border-radius:50%;background:rgba(255,255,255,.15);color:#fff;
+  font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  border:none;transition:background .2s;
+}
+#imgLightbox .lb-close:hover{background:rgba(255,255,255,.3)}
+
+/* ===== 伪全屏兜底 CSS（第四代标准件 §3）===== */
+body.fs-pseudo #pageContainer{position:fixed;inset:0;z-index:9999}
+body.fs-pseudo #topNav{z-index:10001 !important}
+body.fs-pseudo #navBtns, body.fs-pseudo #mqttStatus{z-index:10000 !important}
+</style>
+</head>
+<body>
+
+<nav id="topNav">
+  <span class="chip active" data-page="0">封面</span>
+  <span class="chip sim" data-page="1">参数实验室</span>
+  <span class="chip sum" data-page="2">规律总结</span>
+</nav>
+
+<div id="progressWrap"><div id="progressBar"></div></div>
+
+<div id="pageContainer">
+
+<!-- ===== p0: 封面 ===== -->
+<section class="page active" id="p0" style="background:radial-gradient(circle at 50% 32%,#24547F 0%,#142F4C 46%,#0B1D30 100%);padding:20px 24px">
+<div class="cover-page">
+  <h1>🌈 单缝的夫琅禾费衍射</h1>
+  <p class="sub">大学物理 · 光的衍射 · 参数互动实验室</p>
+  <canvas id="coverCanvas"></canvas>
+  <p class="cover-note">默认参数（λ = 550 nm，a = 0.10 mm，L = 1.00 m）下屏上的光强分布</p>
+  <div class="tags">
+    <span class="tag">惠更斯-菲涅耳原理</span>
+    <span class="tag">暗纹条件 a sinθ = nλ</span>
+    <span class="tag">光强分布 (sinα/α)²</span>
+  </div>
+  <p style="font-size:18px;color:rgba(255,255,255,.82);max-width:700px;line-height:1.8;">
+    拖一拖波长、缝宽、屏距，再动一动单缝、透镜和入射角——<br>
+    看条纹怎样变宽、变窄、变密，又怎样整体平移，甚至是……<b style="color:#F0B36A">纹丝不动</b>。
+  </p>
+  <p class="hint">点击右下角箭头开始 或 点击顶部导航跳转</p>
+</div>
+</section>
+
+<!-- ===== p1: 参数实验室 ===== -->
+<section class="page" id="p1">
+  <h2 class="sim-title">参数实验室</h2>
+  <p class="sim-desc">拖动滑块，观察衍射条纹的宽度、疏密、亮度与位置如何随之改变</p>
+
+  <div class="sim-layout">
+    <aside class="ctrl-panel">
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">波长 λ</span><span class="cval" id="valLam">550<small>nm</small></span></div>
+        <input type="range" id="slLam" min="400" max="700" step="1" value="550" aria-label="波长">
+        <div class="ctrl-scale"><span>400 紫</span><span>700 红</span></div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">缝宽 a</span><span class="cval" id="valA">0.100<small>mm</small></span></div>
+        <input type="range" id="slA" min="20" max="300" step="1" value="100" aria-label="缝宽">
+        <div class="ctrl-scale"><span>0.020 窄缝</span><span>0.300 宽缝</span></div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">屏距 L</span><span class="cval" id="valL">1.00<small>m</small></span></div>
+        <input type="range" id="slL" min="30" max="300" step="1" value="100" aria-label="屏距">
+        <div class="ctrl-scale"><span>0.30 m</span><span>3.00 m</span></div>
+      </div>
+
+      <div class="ctrl-sub">位置与角度</div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">单缝平移 yₛ</span><span class="cval" id="valYs">0.0<small>mm</small></span></div>
+        <input type="range" id="slYs" min="-25" max="25" step="0.5" value="0" aria-label="单缝平移">
+        <div class="ctrl-scale"><span>−25 下移</span><span>+25 上移</span></div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">透镜平移 y_L</span><span class="cval" id="valYl">0.0<small>mm</small></span></div>
+        <input type="range" id="slYl" min="-25" max="25" step="0.5" value="0" aria-label="透镜平移">
+        <div class="ctrl-scale"><span>−25 下移</span><span>+25 上移</span></div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-head"><span class="cname">入射角 i</span><span class="cval" id="valInc">0.0<small>°</small></span></div>
+        <input type="range" id="slInc" min="-15" max="15" step="0.1" value="0" aria-label="入射角">
+        <div class="ctrl-scale"><span>−15°</span><span>+15°</span></div>
+      </div>
+
+      <div class="ctrl-group">
+        <button class="mini-btn" id="btnFollow" onclick="toggleFollow()">视野跟随零级：关</button>
+      </div>
+
+      <div class="preset-row">
+        <button class="mini-btn" onclick="applyPreset(660)">红光 660</button>
+        <button class="mini-btn" onclick="applyPreset(550)">绿光 550</button>
+        <button class="mini-btn" onclick="applyPreset(450)">蓝光 450</button>
+        <button class="mini-btn amber" onclick="resetParams()">重置</button>
+      </div>
+
+      <div class="obs-box">
+        <div class="obs-title">观察要点</div>
+        <ol class="obs-list">
+          <li><b>λ</b> ↑（450→660）：条纹变宽，颜色由蓝转红。</li>
+          <li><b>a</b> ↓（0.300→0.020）：条纹急剧变宽、变暗。</li>
+          <li><b>L</b> ↑（0.30→3.00）：条纹线性铺开，强度比不变。</li>
+          <li><b>单缝</b>平移 → 条纹<b>纹丝不动</b>；<b>透镜</b>平移 → 条纹<b>整体平移</b>。</li>
+          <li><b>入射角 i</b> → 零级沿入射方向走，条纹整体平移，间距仍不变。</li>
+          <li>鼠标移到图 ②③：探针给出该点位置与光强。</li>
+        </ol>
+      </div>
+    </aside>
+
+    <div class="view-panel">
+      <div class="canvas-box">
+        <canvas id="opticsCanvas"></canvas>
+        <div class="cap"><span>① 光路示意图（单缝 → 透镜 L → 焦平面屏 E）</span><em>衍射角已放大显示</em></div>
+      </div>
+      <div class="canvas-box">
+        <canvas id="fringeCanvas"></canvas>
+        <div class="cap"><span>② 屏上衍射图样</span><em>视野 ±25 mm · 亮度按 I⁰·⁵⁵ 提升，便于看清次极大</em></div>
+      </div>
+      <div class="canvas-box">
+        <canvas id="curveCanvas"></canvas>
+        <div class="cap"><span>③ 相对光强分布 I / I₀（横轴与上图对齐）</span><em>鼠标移到图上可读数</em></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="readout-bar">
+    <div class="ro"><div class="rl">第一暗纹衍射角 θ₁</div><div class="rv" id="roTh">—</div></div>
+    <div class="ro hl"><div class="rl">第一暗纹间距 x₁</div><div class="rv" id="roX1">—</div></div>
+    <div class="ro hl"><div class="rl">中央明纹线宽 Δx</div><div class="rv" id="roDx">—</div></div>
+    <div class="ro hl"><div class="rl">中央明纹位置 y₀</div><div class="rv" id="roY0">—</div></div>
+    <div class="ro"><div class="rl">缝宽/波长 a ⁄ λ</div><div class="rv" id="roRatio">—</div></div>
+    <div class="ro"><div class="rl">视野内可见暗纹</div><div class="rv" id="roN">—</div></div>
+    <div class="ro probe"><div class="rl">探针（鼠标位置）</div><div class="rv" id="roProbe">移动鼠标</div></div>
+  </div>
+
+  <div class="formula-bar">暗纹条件 <b>a(sinθ − sin i) = kλ</b>（k = ±1, ±2, …）&nbsp;&nbsp;→&nbsp;&nbsp;屏上位置 <b>x_k = y_L + L·tan θ_k</b></div>
+</section>
+
+<!-- ===== p2: 规律总结 ===== -->
+<section class="page" id="p2">
+  <h2 class="sum-title">形态 · 位置 · 一个公式</h2>
+  <p class="sum-desc">点击卡片展开推理，再点「在仿真中验证」回到实验室亲手复现</p>
+
+  <div class="rule-grid">
+    <div class="rule-group"><span>A</span>改变条纹的<em>形态</em>（宽窄 · 疏密 · 颜色）</div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">λ</span>
+        <div class="rule-tt"><h4>波长变长 → 条纹变宽</h4><p class="rule-sub">x₁ ∝ λ</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        第一暗纹位置 x₁ = λL/a 与波长成正比。波长增大 20%，整幅条纹同步变宽 20%，光的颜色也由紫转红。
+        <div class="kv">λ：450 nm → 660 nm　⇒　x₁ 变大约 1.47 倍</div>
+        课堂提示：用白光入射时，各波长条纹宽度不同、彼此错开，中央为白色，两侧依次呈现由紫到红的彩色条纹。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({lam:660})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">a</span>
+        <div class="rule-tt"><h4>缝变窄 → 衍射更显著、条纹变宽</h4><p class="rule-sub">x₁ ∝ 1/a</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        缝越窄，光越"绕"得过缝，衍射现象越明显：条纹变宽、亮度下降，中央明纹占据的范围随之扩大。
+        <div class="kv">a：0.100 mm → 0.050 mm　⇒　x₁ 变为 2 倍</div>
+        极限情形：a 与 λ 同量级时，屏上只剩一片中央明纹——衍射强到看不见暗纹。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({a:0.05})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">L</span>
+        <div class="rule-tt"><h4>屏移远 → 条纹线性变宽</h4><p class="rule-sub">x₁ ∝ L</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        衍射角 θ₁ 由 λ 与 a 共同决定，与屏的位置无关；屏越远，同样张角的条纹在屏上铺得越开。
+        <div class="kv">L：1.00 m → 2.00 m　⇒　x₁ 变为 2 倍，而 θ₁ 不变</div>
+        这也解释了为什么"屏距"是实验室里最容易调节条纹尺度的旋钮。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({L:2.0})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">I</span>
+        <div class="rule-tt"><h4>中央明纹最亮、最宽</h4><p class="rule-sub">I = I₀(sinα / α)²</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        能量集中在中央：中央明纹约占总光强的 84%，线宽是其他亮纹的 2 倍，各级亮纹强度迅速衰减。
+        <div class="kv">次极大强度：+1 级 ≈ 4.7%　+2 级 ≈ 1.7%　+3 级 ≈ 0.8%</div>
+        注意：③ 图上标出的 ±1、±2 级位置是"暗纹"（满足 a sinθ = nλ）；亮纹恰好夹在相邻两条暗纹的正中间。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({lam:550,a:0.10,L:1.0})">回到默认参数看一次 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-group"><span>B</span>改变条纹的<em>位置</em>（谁在动 · 谁不动）</div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">y<sub>s</sub></span>
+        <div class="rule-tt"><h4>单缝平移 → 条纹纹丝不动</h4><p class="rule-sub">yₛ 不进任何公式</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        把单缝整体上下平移，屏上的条纹<b>完全不动</b>——位置、间距、宽度、强度分布全都一模一样。原因是缝的平移只给透射波加上一个线性相位因子，取模之后强度分布不变。
+        <div class="kv">yₛ：0 → +25 mm　⇒　x₁ = 5.50 mm、Δx = 11.00 mm、y₀ = 0.00 mm 全部不变</div>
+        奇妙之处：光路图里缝已明显偏出光轴，屏上却"无动于衷"。这正是夫琅禾费图样只携带"衍射角信息"的直接证据。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({ys:25})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">y<sub>L</sub></span>
+        <div class="rule-tt"><h4>透镜平移 → 条纹整体平移</h4><p class="rule-sub">x_k = y_L + L·tanθ_k</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        透镜上下平移，整幅图样跟着<b>刚性平移</b>，平移量恰好等于透镜的平移量；各级间距 Δx 与中央明纹宽度<b>纹丝不变</b>。透镜只是"角度 → 位置"的转换器，光轴搬到哪，图样就跟到哪。
+        <div class="kv">y_L：0 → +25 mm　⇒　y₀ 同步 +25 mm，而 Δx 仍为 11.00 mm</div>
+        移到底（±25 mm）时整幅条纹会滑出固定的 ±25 mm 视野——这本身就是真实物理。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({yl:15})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="rule-card" onclick="toggleRule(this)">
+      <div class="rule-head">
+        <span class="rule-ico">i</span>
+        <div class="rule-tt"><h4>斜入射 → 零级随入射方向走</h4><p class="rule-sub">a(sinθ − sin i) = kλ</p></div>
+        <span class="rule-arrow">▾</span>
+      </div>
+      <div class="rule-body"><div class="rule-body-in">
+        光斜射入缝时，零级主极大不再沿法线，而是沿<b>入射方向</b>偏出（θ₀ = i）；整幅图样随之平移 x₀ = L·tan i，而条纹间距 Δx = λL/a 与正入射<b>完全相同</b>。
+        <div class="kv">i：0° → 1.2°　⇒　y₀ ≈ 20.9 mm（仍可见）；i = 5°　⇒　y₀ ≈ 87.5 mm（整幅出屏）</div>
+        注意：斜入射与"移透镜"在屏上都表现为整体平移、肉眼分不出——区别只在光路图：移镜是光轴偏、入射光仍垂直；斜入射是入射光真的歪了。角度超过 1.43° 后条纹完全出屏，可打开实验室的「视野跟随零级」开关把它拉回视野。
+        <div style="margin-top:10px">
+          <button class="mini-btn amber" onclick="event.stopPropagation();gotoSimWith({inc:1.2})">在仿真中验证 →</button>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="sum-formula">
+    <h4>核心公式速查</h4>
+    <div class="fl">
+      <span class="fi">暗纹条件<b>a(sinθ − sin i) = nλ</b></span>
+      <span class="fi">零级方向<b>θ₀ = i</b></span>
+      <span class="fi">第一暗纹角<b>θ₁ = arcsin(sin i + λ/a)</b></span>
+      <span class="fi">屏上位置<b>x_k = y_L + L·tan θ_k</b></span>
+      <span class="fi">中央明纹线宽<b>Δx = 2λL / a（与 i、y_L 无关）</b></span>
+      <span class="fi">相对光强<b>I = I₀(sinα/α)²，α = πa(sinθ − sin i)/λ</b></span>
+    </div>
+  </div>
+</section>
+
+</div><!-- /pageContainer -->
+
+<div id="imgLightbox" onclick="closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()">✕</button>
+  <img id="lbImg" src="" alt="全屏查看">
+</div>
+
+<div id="navBtns">
+  <button id="btnPrev" onclick="prevPage()" disabled>◀</button>
+  <span id="pageIndicator">1/3</span>
+  <button id="btnNext" onclick="nextPage()">▶</button>
+</div>
+
+<script>
+/* =====================================================================
+   模块 1 · 翻页系统
+   复制自 templates/page-flip-system.js，仅改 PAGE_IDS / PAGE_LABELS。
+   ⚠ 必须最先定义：getPageParam 是全课件唯一的 URL 参数入口。
+   ===================================================================== */
+
+// ===== URL 参数解析（hash → search → parent）=====
+function getPageParam(k) {
+  try {
+    var h = location.hash || '';
+    if (h.indexOf(k + '=') >= 0) {
+      var m1 = new RegExp('[#&]' + k + '=([^&#]*)').exec(h);
+      if (m1) return decodeURIComponent(m1[1]);
+    }
+    var q = location.search || '';
+    if (q.indexOf(k + '=') >= 0) {
+      var m2 = new RegExp('[?&]' + k + '=([^&#]*)').exec(q);
+      if (m2) return decodeURIComponent(m2[1]);
+    }
+    if (window.parent && window.parent !== window) {
+      try {
+        var psrc = (window.parent.location.hash || '') + '&' + (window.parent.location.search || '');
+        if (psrc.indexOf(k + '=') >= 0) {
+          var m3 = new RegExp('[#&?]' + k + '=([^&#]*)').exec(psrc);
+          if (m3) return decodeURIComponent(m3[1]);
+        }
+      } catch (e) { /* 跨源不可读 → 忽略 */ }
+    }
+  } catch (e) {}
+  return null;
+}
+
+// ===== 配置块 =====
+var PAGE_IDS = ['p0', 'p1', 'p2'];
+var PAGE_LABELS = ['封面', '参数实验室', '规律总结'];
+var IMG_PREFIX = 'img/';
+var curPage = 0;
+
+function showPage(i) {
+  if (i < 0 || i >= PAGE_IDS.length) return;
+  var oldEl = document.querySelector('.page.active');
+  if (oldEl) oldEl.classList.remove('active');
+  var newEl = document.getElementById(PAGE_IDS[i]);
+  if (newEl) {
+    newEl.classList.add('active');
+    newEl.scrollTop = 0;
+  }
+  curPage = i;
+  document.querySelectorAll('#topNav .chip').forEach(function (c, idx) {
+    c.classList.toggle('active', idx === i);
+  });
+  document.getElementById('progressBar').style.width = ((i + 1) / PAGE_IDS.length * 100) + '%';
+  document.getElementById('pageIndicator').textContent = (i + 1) + '/' + PAGE_IDS.length;
+  document.getElementById('btnPrev').disabled = (i === 0);
+  document.getElementById('btnNext').disabled = (i === PAGE_IDS.length - 1);
+  onPageEnter(i);
+  var activeChip = document.querySelector('#topNav .chip.active');
+  if (activeChip && typeof activeChip.scrollIntoView === 'function') {
+    activeChip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }
+}
+
+function nextPage() { if (curPage < PAGE_IDS.length - 1) showPage(curPage + 1); }
+function prevPage() { if (curPage > 0) showPage(curPage - 1); }
+
+document.querySelectorAll('#topNav .chip').forEach(function (chip) {
+  chip.addEventListener('click', function () {
+    showPage(parseInt(this.getAttribute('data-page'), 10));
+  });
+});
+
+// 键盘导航 — 揭示优先（本课件无 reveal 队列，等价于纯翻页）
+document.addEventListener('keydown', function (e) {
+  var pid = PAGE_IDS[curPage];
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+    e.preventDefault();
+    if (typeof pageRevealActive !== 'undefined' && pageRevealActive[pid] &&
+        pageRevealQueues[pid] && pageRevealIndex[pid] < pageRevealQueues[pid].length) {
+      nextReveal(pid);
+    } else {
+      nextPage();
+    }
+  } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (typeof pageRevealQueues !== 'undefined' && pageRevealQueues[pid] && pageRevealIndex[pid] > 0) {
+      prevReveal(pid);
+    } else {
+      prevPage();
+    }
+  }
+});
+
+// 触摸滑动翻页
+var touchStartX = 0, touchStartY = 0;
+document.addEventListener('touchstart', function (e) {
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+document.addEventListener('touchend', function (e) {
+  var dx = e.changedTouches[0].clientX - touchStartX;
+  var dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 60) {
+    if (dx < 0) nextPage(); else prevPage();
+  }
+});
+
+// ===== 页面进入回调 =====
+var pageEntered = {};
+function onPageEnter(i) {
+  var id = PAGE_IDS[i];
+  if (pageEntered[id]) return;
+  pageEntered[id] = true;
+  if (id === 'p0') drawCover();
+  if (id === 'p1') { fitAll(); renderAll(); }
+}
+
+/* =====================================================================
+   模块 2 · 单缝夫琅禾费衍射仿真（含斜入射 + 单缝/透镜平移）
+   ---------------------------------------------------------------------
+   坐标系：屏上位置 x（mm），原点 = 原光轴与屏的交点，向上为正。
+   物理内核（唯一公式）：
+       sinθ_k = sin i + k·λ/a          k = 0 → 零级；k = ±1,±2 → 暗纹
+       x_k    = y_L + L·tan θ_k
+       I(x)   = I₀·[sinα/α]² ,  α = πa(sinθ − sin i)/λ ,  sinθ = (x−y_L)/√((x−y_L)²+L²)
+   ⚠ 单缝平移 y_S 不进入任何公式 —— 这正是要让学生看见的结论。
+   ===================================================================== */
+
+// ---- 状态 ----
+var simParams = { lam: 550, a: 0.10, L: 1.00, ys: 0, yl: 0, inc: 0 };  // nm / mm / m / mm / mm / °
+var followZero = false;       // 视野是否跟随零级
+var XMAX = 25;                // 屏上视野半宽 (mm)
+var PAD_L = 48, PAD_R = 16;   // 条纹图与曲线图共用的左右内边距，保证横轴对齐
+var hoverXmm = null;
+
+// ---- 离屏画布 ----
+var offFringe = document.createElement('canvas');
+var offCurve = document.createElement('canvas');
+var strip = document.createElement('canvas');
+var cv = {};
+
+// ---- 物理计算 ----
+function incRad(p) { return p.inc * Math.PI / 180; }
+
+// k 级对应的屏上位置（mm）；该级不存在时返回 ±Infinity
+function xOfK(k, p) {
+  var s = Math.sin(incRad(p)) + k * (p.lam * 1e-9) / (p.a * 1e-3);
+  if (s >= 1) return Infinity;
+  if (s <= -1) return -Infinity;
+  return p.yl + Math.tan(Math.asin(s)) * p.L * 1000;
+}
+
+// 零级（中央明纹）屏上位置：θ₀ = i
+function zeroXmm(p) { return xOfK(0, p); }
+
+// 视野中心（mm）
+function viewCenter() {
+  if (!followZero) return 0;
+  var x0 = zeroXmm(simParams);
+  return isFinite(x0) ? x0 : 0;
+}
+
+function intensityAtP(xmm, p) {
+  var lam = p.lam * 1e-9;
+  var a = p.a * 1e-3;
+  var L = p.L;
+  var xr = (xmm - p.yl) * 1e-3;                    // 相对透镜光轴
+  var sinT = xr / Math.sqrt(xr * xr + L * L);
+  var alpha = Math.PI * a * (sinT - Math.sin(incRad(p))) / lam;
+  if (Math.abs(alpha) < 1e-12) return 1;
+  var s = Math.sin(alpha) / alpha;
+  return s * s;
+}
+
+// ---- 波长 → RGB（含视觉亮度均衡，保证各色条纹亮度可比）----
+function wlToRGB(wl) {
+  var R = 0, G = 0, B = 0;
+  if (wl >= 380 && wl < 440) { R = -(wl - 440) / 60; B = 1; }
+  else if (wl < 490) { G = (wl - 440) / 50; B = 1; }
+  else if (wl < 510) { G = 1; B = -(wl - 510) / 20; }
+  else if (wl < 580) { R = (wl - 510) / 70; G = 1; }
+  else if (wl < 645) { R = 1; G = -(wl - 645) / 65; }
+  else { R = 1; }
+  var r = R * 255, g = G * 255, b = B * 255;
+  var luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  var target = 150;
+  if (luma < target) {
+    var t = (target - luma) / target * 0.62;
+    r += (255 - r) * t; g += (255 - g) * t; b += (255 - b) * t;
+  }
+  return [Math.round(Math.max(0, Math.min(255, r))),
+          Math.round(Math.max(0, Math.min(255, g))),
+          Math.round(Math.max(0, Math.min(255, b)))];
+}
+
+function apertureColor(wl, val) {
+  var c = wlToRGB(wl);
+  return [Math.round(c[0] * val), Math.round(c[1] * val), Math.round(c[2] * val)];
+}
+
+function wlCss(wl) {
+  var c = wlToRGB(wl);
+  return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')';
+}
+
+// ---- Canvas 尺寸适配（devicePixelRatio）----
+var CANVAS_DEFS = [
+  { id: 'opticsCanvas', key: 'optics' },
+  { id: 'fringeCanvas', key: 'fringe' },
+  { id: 'curveCanvas', key: 'curve' }
+];
+
+function fitAll() {
+  var dp = Math.min(window.devicePixelRatio || 1, 2);
+  CANVAS_DEFS.forEach(function (d) {
+    var el = document.getElementById(d.id);
+    if (!el) return;
+    var r = el.getBoundingClientRect();
+    var w = Math.round(r.width), h = Math.round(r.height);
+    if (w < 40 || h < 20) return;   // 页面隐藏时跳过
+    el.width = Math.round(w * dp);
+    el.height = Math.round(h * dp);
+    var ctx = el.getContext('2d');
+    ctx.setTransform(dp, 0, 0, dp, 0, 0);
+    cv[d.key] = { el: el, ctx: ctx, w: w, h: h, dp: dp };
+  });
+}
+
+/* ---------------- 视图 ① 光路示意图 ---------------- */
+function drawLensShape(ctx, cx, cy, hh, hw) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - hh);
+  ctx.quadraticCurveTo(cx + hw * 1.6, cy, cx, cy + hh);
+  ctx.quadraticCurveTo(cx - hw * 1.6, cy, cx, cy - hh);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(140,190,225,.38)';
+  ctx.fill();
+  ctx.strokeStyle = '#5B84A8';
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawOptics() {
+  if (!cv.optics) return;
+  var c = cv.optics, ctx = c.ctx, W = c.w, H = c.h, p = simParams;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#F8FBFD';
+  ctx.fillRect(0, 0, W, H);
+
+  var y0 = H * 0.50;                                  // 原光轴
+  var slitX = W * 0.27, lensX = W * 0.45, screenX = W * 0.89;
+  var KT = Math.min(0.70, H * 0.155 / 25);            // mm → px（① 图的竖直放大倍率）
+  var LENS_HALF = 100;                                // ① 图透镜固定半高（px）：不随参数变化
+
+  // 缝的视觉半宽：a 越大缝越"宽"
+  var ra = (p.a - 0.02) / 0.28;
+  ra = Math.max(0, Math.min(1, ra));
+  var visA = 6 + ra * 16;                             // 6 ~ 22 px
+
+  var ySlit = y0 - p.ys * KT;                         // 单缝中心
+  var yLens = y0 - p.yl * KT;                         // 透镜光心
+  var visI = incRad(p) * 0.45;                        // 入射角视觉系数
+
+  // 视觉衍射角：对真实 θ₁ 做对数映射（2.6° ~ 7.2°），保证 ±1 级落在画布内
+  var s1 = Math.min(1, (p.lam * 1e-9) / (p.a * 1e-3));
+  var th1deg = Math.asin(s1) * 180 / Math.PI;
+  var thMin = Math.asin(400e-9 / 0.30e-3) * 180 / Math.PI;
+  var thMax = Math.asin(700e-9 / 0.02e-3) * 180 / Math.PI;
+  var u = (Math.log(th1deg) - Math.log(thMin)) / (Math.log(thMax) - Math.log(thMin));
+  u = Math.max(0, Math.min(1, u));
+  var visTh = (2.6 + 4.6 * u) * Math.PI / 180;
+
+  // 原光轴（屏坐标基准）
+  ctx.save();
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = '#B9CBDB';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(14, y0); ctx.lineTo(screenX, y0); ctx.stroke();
+  ctx.restore();
+
+  // ① 入射平行光（按入射角 i 倾斜）
+  var nL = 5, i;
+  var beamHalf = Math.max(visA + 3, 19);
+  var tanI = Math.tan(visI);
+  ctx.strokeStyle = '#5E7E9B';
+  ctx.lineWidth = 1.6;
+  for (i = 0; i < nL; i++) {
+    var yyS = ySlit - beamHalf + (2 * beamHalf) * i / (nL - 1);
+    var yyL = yyS + (slitX - 16) * tanI;
+    ctx.beginPath(); ctx.moveTo(16, yyL); ctx.lineTo(slitX - 5, yyS); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(slitX - 5, yyS);
+    ctx.lineTo(slitX - 12, yyS - 3.6);
+    ctx.lineTo(slitX - 12, yyS + 3.6);
+    ctx.closePath();
+    ctx.fillStyle = '#5E7E9B';
+    ctx.fill();
+  }
+  ctx.fillStyle = '#5E7E9B';
+  ctx.font = '13px "Segoe UI",sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('平行光 λ', 16, Math.max(13, ySlit - beamHalf - 9));
+
+  // ② 缝法线 + 入射角 i 角弧
+  ctx.save();
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = '#C4D4E2';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(slitX, ySlit); ctx.lineTo(slitX + 66, ySlit); ctx.stroke();
+  ctx.restore();
+
+  if (Math.abs(p.inc) > 0.05) {
+    var rr = 34;
+    ctx.strokeStyle = '#D9822B';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(slitX, ySlit, rr, Math.PI, Math.PI - visI, visI > 0);
+    ctx.stroke();
+    ctx.fillStyle = '#D9822B';
+    ctx.font = 'bold 14px Consolas,monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('i', slitX - rr * 0.78, ySlit - Math.sign(visI) * rr * 0.78 + (visI > 0 ? -2 : 12));
+  }
+
+  // ③ 单缝挡板
+  ctx.fillStyle = '#2F4256';
+  ctx.fillRect(slitX - 3, 15, 6, Math.max(0, (ySlit - visA) - 15));
+  ctx.fillRect(slitX - 3, ySlit + visA, 6, Math.max(0, (H - 15) - (ySlit + visA)));
+
+  // 缝宽 a 标注
+  var axp = slitX + 13;
+  ctx.strokeStyle = '#2F4256';
+  ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(axp, ySlit - visA); ctx.lineTo(axp, ySlit + visA); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(axp - 4, ySlit - visA); ctx.lineTo(axp + 4, ySlit - visA); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(axp - 4, ySlit + visA); ctx.lineTo(axp + 4, ySlit + visA); ctx.stroke();
+  ctx.fillStyle = '#2F4256';
+  ctx.font = 'bold 14px Consolas,monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('a', axp + 6, ySlit + 5);
+  ctx.font = '13px "Segoe UI",sans-serif';
+  ctx.fillStyle = '#5E7E9B';
+  ctx.textAlign = 'center';
+  ctx.fillText('单缝', slitX + 3, Math.max(12, ySlit - visA - 6));
+
+  // ④ 衍射光：0 级 → 中央明纹；±1 级 → 第一对暗纹
+  var dSlitLens = lensX - slitX;
+
+  function beam(k, color, lw) {
+    var thVis = visI + k * visTh;                 // 物理视觉角（>0 表示向上）
+    var tanV = Math.tan(-thVis);                  // canvas 斜率
+    var yA = (ySlit - visA) + dSlitLens * tanV;
+    var yB = (ySlit + visA) + dSlitLens * tanV;
+    var xk = xOfK(k, p);
+    if (!isFinite(xk)) return null;
+    var yP = y0 - xk * KT;
+    if (Math.abs(yP - y0) > H * 0.42) return null;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.moveTo(slitX, ySlit - visA); ctx.lineTo(lensX, yA); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(slitX, ySlit + visA); ctx.lineTo(lensX, yB); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(lensX, yA); ctx.lineTo(screenX, yP); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(lensX, yB); ctx.lineTo(screenX, yP); ctx.stroke();
+    return yP;
+  }
+
+  beam(0, '#4A6076', 1.6);
+  beam(1, '#D9822B', 1.5);
+  beam(-1, 'rgba(217,130,43,.28)', 1.2);
+
+  // ⑤ 透镜（位置随 y_L 平移）+ 透镜光轴
+  // 半高固定（LENS_HALF）：不随参数变化；仅保留「不越出画布」的保险夹紧
+  var hLcap = Math.max(14, Math.min(yLens - 3, H - 3 - yLens));
+  var hL = Math.min(LENS_HALF, hLcap);
+  if (Math.abs(p.yl) > 0.2) {
+    ctx.save();
+    ctx.setLineDash([3, 5]);
+    ctx.strokeStyle = '#9FC4DE';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(lensX - 40, yLens); ctx.lineTo(screenX, yLens); ctx.stroke();
+    ctx.restore();
+  }
+  drawLensShape(ctx, lensX, yLens, hL, 11);
+  ctx.fillStyle = '#5E7E9B';
+  ctx.font = '13px "Segoe UI",sans-serif';
+  ctx.textAlign = 'center';
+  var lblY = yLens + hL + 17;
+  if (lblY > H - 30) lblY = yLens - hL - 8;      // 透镜过高时把标签移到上方
+  ctx.fillText('透镜 L', lensX, Math.max(12, lblY));
+
+  // ⑥ 屏
+  ctx.strokeStyle = '#2F4256';
+  ctx.lineWidth = 3.5;
+  ctx.beginPath(); ctx.moveTo(screenX, 15); ctx.lineTo(screenX, H - 15); ctx.stroke();
+  ctx.fillStyle = '#5E7E9B';
+  ctx.font = '13px "Segoe UI",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('屏 E', screenX, 12);
+
+  // 视野框 ±25 mm（有偏移时才画，帮助看清"跑出去了"）
+  if (Math.abs(p.yl) > 0.2 || Math.abs(p.inc) > 0.05) {
+    var yV1 = y0 - XMAX * KT, yV2 = y0 + XMAX * KT;
+    ctx.save();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = 'rgba(0,121,107,.45)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(screenX + 4, yV1); ctx.lineTo(screenX + 4, yV2); ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(0,121,107,.8)';
+    ctx.font = '11px "Segoe UI",sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('视野', screenX + 8, yV1 - 3);
+  }
+
+  // ⑦ 屏上标记：零级（实心亮点）/ ±1 级暗纹（叉号）
+  var rgbStr = wlCss(p.lam);
+  var x0 = xOfK(0, p);
+  if (isFinite(x0)) {
+    var yP0 = y0 - x0 * KT;
+    if (Math.abs(yP0 - y0) <= H * 0.42) {
+      ctx.beginPath(); ctx.arc(screenX, yP0, 6, 0, Math.PI * 2);
+      ctx.fillStyle = rgbStr; ctx.fill();
+      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+  }
+  [-1, 1].forEach(function (kk) {
+    var xd = xOfK(kk, p);
+    if (!isFinite(xd)) return;
+    var yp = y0 - xd * KT;
+    if (Math.abs(yp - y0) > H * 0.42) return;
+    ctx.strokeStyle = '#D9822B';
+    ctx.lineWidth = 1.6;
+    var s = 5;
+    ctx.beginPath(); ctx.moveTo(screenX - s, yp - s); ctx.lineTo(screenX + s, yp + s); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(screenX + s, yp - s); ctx.lineTo(screenX - s, yp + s); ctx.stroke();
+  });
+
+  // ⑧ θ₁ 角标注（相对零级方向）
+  ctx.strokeStyle = '#D9822B';
+  ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.arc(slitX, ySlit, 52, -visI - visTh, -visI); ctx.stroke();
+  ctx.fillStyle = '#D9822B';
+  ctx.font = 'bold 14px Consolas,monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('θ₁', slitX + 56, ySlit - visI * 52 - 6);
+
+  // ⑨ 图例
+  ctx.font = '13px "Segoe UI",sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = rgbStr;
+  ctx.fillText('● 中央明纹（零级 θ = i）', 14, H - 25);
+  ctx.fillStyle = '#D9822B';
+  ctx.fillText('✕ ±1 级暗纹（a(sinθ − sin i) = λ）', 14, H - 7);
+}
+
+/* ---------------- 视图 ② 屏上衍射图样 ---------------- */
+function buildFringes() {
+  if (!cv.fringe) return;
+  var c = cv.fringe;
+  offFringe.width = c.el.width;
+  offFringe.height = c.el.height;
+  var ox = offFringe.getContext('2d');
+  ox.setTransform(c.dp, 0, 0, c.dp, 0, 0);
+  var W = c.w, H = c.h;
+  var vc = viewCenter();
+
+  ox.fillStyle = '#04070C';
+  ox.fillRect(0, 0, W, H);
+
+  var usable = W - PAD_L - PAD_R;
+  if (usable > 4) {
+    var sw = Math.max(2, Math.round(usable * c.dp));
+    strip.width = sw;
+    strip.height = 1;
+    var sx = strip.getContext('2d');
+    var img = sx.createImageData(sw, 1);
+    for (var i = 0; i < sw; i++) {
+      var kk = (i + 0.5) / sw;
+      var xmm = vc + (kk - 0.5) * 2 * XMAX;
+      var I = intensityAtP(xmm, simParams);
+      var col = apertureColor(simParams.lam, Math.pow(I, 0.55));
+      var idx = i * 4;
+      img.data[idx] = col[0];
+      img.data[idx + 1] = col[1];
+      img.data[idx + 2] = col[2];
+      img.data[idx + 3] = 255;
+    }
+    sx.putImageData(img, 0, 0);
+    ox.drawImage(strip, PAD_L, 0, usable, H);
+  }
+
+  // 上边缘淡线，界定视野
+  ox.strokeStyle = 'rgba(255,255,255,.14)';
+  ox.lineWidth = 1;
+  ox.strokeRect(PAD_L + 0.5, 0.5, usable - 1, H - 1);
+}
+
+function paintFringes() {
+  if (!cv.fringe) return;
+  var c = cv.fringe, ctx = c.ctx, W = c.w, H = c.h;
+  var vc = viewCenter();
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(offFringe, 0, 0, W, H);
+
+  // 零级位置参考线
+  var x0 = zeroXmm(simParams);
+  if (isFinite(x0)) {
+    var px0 = PAD_L + ((x0 - vc + XMAX) / (2 * XMAX)) * (W - PAD_L - PAD_R);
+    if (px0 >= PAD_L - 1 && px0 <= W - PAD_R + 1) {
+      ctx.strokeStyle = 'rgba(255,255,255,.42)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 5]);
+      ctx.beginPath(); ctx.moveTo(px0, 0); ctx.lineTo(px0, H); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  if (hoverXmm !== null) {
+    var xx = PAD_L + ((hoverXmm - vc + XMAX) / (2 * XMAX)) * (W - PAD_L - PAD_R);
+    ctx.strokeStyle = 'rgba(255,255,255,.85)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(xx, 0); ctx.lineTo(xx, H); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+/* ---------------- 视图 ③ 相对光强曲线 ---------------- */
+function buildCurve() {
+  if (!cv.curve) return;
+  var c = cv.curve;
+  offCurve.width = c.el.width;
+  offCurve.height = c.el.height;
+  var ox = offCurve.getContext('2d');
+  ox.setTransform(c.dp, 0, 0, c.dp, 0, 0);
+  var W = c.w, H = c.h, p = simParams;
+  var vc = viewCenter();
+
+  var left = PAD_L, right = W - PAD_R, top = 42, bot = H - 30;
+  var pw = Math.max(10, right - left), ph = Math.max(10, bot - top);
+
+  ox.clearRect(0, 0, W, H);
+  ox.fillStyle = '#FFFFFF';
+  ox.fillRect(0, 0, W, H);
+
+  // y 网格
+  ox.strokeStyle = '#EDF3F8';
+  ox.lineWidth = 1;
+  var g, yy, px, xv;
+  for (g = 1; g <= 5; g++) {
+    yy = bot - ph * g / 5;
+    ox.beginPath(); ox.moveTo(left, yy); ox.lineTo(right, yy); ox.stroke();
+  }
+
+  // 坐标轴
+  ox.strokeStyle = '#9FB6C9';
+  ox.lineWidth = 1.4;
+  ox.beginPath(); ox.moveTo(left, top); ox.lineTo(left, bot); ox.lineTo(right, bot); ox.stroke();
+
+  // x 轴刻度（每 5 mm，标签为屏上绝对坐标）
+  ox.fillStyle = '#5B84A8';
+  ox.font = '12px "Segoe UI",sans-serif';
+  ox.textAlign = 'center';
+  for (xv = -25; xv <= 25; xv += 5) {
+    px = left + ((xv + XMAX) / (2 * XMAX)) * pw;
+    ox.strokeStyle = '#C9D8E5';
+    ox.lineWidth = 1;
+    ox.beginPath(); ox.moveTo(px, bot); ctxLine(ox, px, bot + 4); ox.stroke();
+    ox.fillText(Math.round(vc + xv), px, bot + 16);
+  }
+  ox.textAlign = 'right';
+  ox.fillText('x / mm', right, 18);
+
+  // y 轴刻度
+  ox.textAlign = 'right';
+  for (g = 0; g <= 5; g++) {
+    yy = bot - ph * g / 5;
+    ox.fillText((g / 5).toFixed(1), left - 6, yy + 4);
+  }
+  ox.textAlign = 'left';
+  ox.fillStyle = '#1A3A5C';
+  ox.font = 'bold 12.5px "Segoe UI",sans-serif';
+  ox.fillText('I / I₀', 4, 18);
+
+  // 曲线采样
+  var N = 760, pts = [], i;
+  for (i = 0; i <= N; i++) {
+    var xmm = vc - XMAX + (2 * XMAX) * i / N;
+    var I = intensityAtP(xmm, p);
+    pts.push([left + (i / N) * pw, bot - I * ph]);
+  }
+
+  var col = wlToRGB(p.lam);
+  var cs = 'rgb(' + col[0] + ',' + col[1] + ',' + col[2] + ')';
+
+  // 填充
+  ox.beginPath();
+  ox.moveTo(pts[0][0], bot);
+  for (i = 0; i < pts.length; i++) ox.lineTo(pts[i][0], pts[i][1]);
+  ox.lineTo(pts[N][0], bot);
+  ox.closePath();
+  ox.fillStyle = 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',0.15)';
+  ox.fill();
+
+  // 曲线
+  ox.beginPath();
+  for (i = 0; i < pts.length; i++) {
+    if (i === 0) ox.moveTo(pts[i][0], pts[i][1]);
+    else ox.lineTo(pts[i][0], pts[i][1]);
+  }
+  ox.strokeStyle = cs;
+  ox.lineWidth = 2;
+  ox.stroke();
+
+  // 中央明纹线宽 Δx 标注（一级暗纹下、上两条之间）
+  var xLo = xOfK(-1, p), xHi = xOfK(1, p);
+  if (isFinite(xLo) && isFinite(xHi)) {
+    var pxa = left + ((xLo - vc + XMAX) / (2 * XMAX)) * pw;
+    var pxb = left + ((xHi - vc + XMAX) / (2 * XMAX)) * pw;
+    if (pxb - pxa > 6 && pxb > left && pxa < right) {
+      var ybar = 22;
+      ox.strokeStyle = '#00796B';
+      ox.lineWidth = 1.3;
+      ox.beginPath(); ox.moveTo(pxa, ybar); ox.lineTo(pxb, ybar); ox.stroke();
+      ox.beginPath(); ox.moveTo(pxa, ybar - 4); ox.lineTo(pxa, ybar + 4); ox.stroke();
+      ox.beginPath(); ox.moveTo(pxb, ybar - 4); ox.lineTo(pxb, ybar + 4); ox.stroke();
+      ox.fillStyle = '#00796B';
+      ox.font = 'bold 12.5px Consolas,monospace';
+      ox.textAlign = 'center';
+      ox.fillText('Δx', (pxa + pxb) / 2, ybar - 6);
+    }
+  }
+
+  // 暗纹竖虚线 + 级次标签
+  ox.font = '11px Consolas,monospace';
+  ox.textAlign = 'center';
+  for (var n = 1; n <= 6; n++) {
+    [-1, 1].forEach(function (sg) {
+      var xd = xOfK(sg * n, p);
+      if (!isFinite(xd)) return;
+      var pxx = left + ((xd - vc + XMAX) / (2 * XMAX)) * pw;
+      if (pxx < left || pxx > right) return;
+      ox.strokeStyle = 'rgba(192,57,43,.42)';
+      ox.lineWidth = 1;
+      ox.setLineDash([3, 4]);
+      ox.beginPath(); ox.moveTo(pxx, top); ox.lineTo(pxx, bot); ox.stroke();
+      ox.setLineDash([]);
+      ox.fillStyle = 'rgba(192,57,43,.9)';
+      ox.fillText((sg > 0 ? '+' : '-') + n, pxx, bot - 4);
+    });
+  }
+}
+
+// 小工具：确保 x 轴刻度线绘制（避免与 ctx 混淆）
+function ctxLine(o, x1, y1) { o.lineTo(x1, y1); }
+
+function paintCurve() {
+  if (!cv.curve) return;
+  var c = cv.curve, ctx = c.ctx, W = c.w, H = c.h;
+  var vc = viewCenter();
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(offCurve, 0, 0, W, H);
+
+  if (hoverXmm !== null) {
+    var left = PAD_L, right = W - PAD_R, top = 42, bot = H - 30;
+    var xm = hoverXmm;
+    var px = left + ((xm - vc + XMAX) / (2 * XMAX)) * (right - left);
+    var I = intensityAtP(xm, simParams);
+    var py = bot - I * (bot - top);
+
+    ctx.strokeStyle = 'rgba(0,121,107,.7)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath(); ctx.moveTo(px, top); ctx.lineTo(px, bot); ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#00796B'; ctx.fill();
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.8; ctx.stroke();
+  }
+}
+
+/* ---------------- 读数与统一渲染 ---------------- */
+function updateReadouts() {
+  var p = simParams;
+  var lam = p.lam * 1e-9, a = p.a * 1e-3;
+  var s1 = Math.min(1, lam / a);
+  var th1 = Math.asin(s1);
+
+  var x0 = xOfK(0, p);
+  var x1p = xOfK(1, p), x1m = xOfK(-1, p);
+  var x1 = isFinite(x1p) ? Math.abs(x1p - x0) : NaN;
+  var dx = (isFinite(x1p) && isFinite(x1m)) ? Math.abs(x1p - x1m) : NaN;
+
+  document.getElementById('roTh').innerHTML = (th1 * 180 / Math.PI).toFixed(3) + '<small>°</small>';
+  document.getElementById('roX1').innerHTML = (isFinite(x1) ? x1.toFixed(2) : '—') + '<small>mm</small>';
+  document.getElementById('roDx').innerHTML = (isFinite(dx) ? dx.toFixed(2) : '—') + '<small>mm</small>';
+  document.getElementById('roY0').innerHTML = (isFinite(x0) ? x0.toFixed(2) : '—') + '<small>mm</small>';
+  document.getElementById('roRatio').innerHTML = (a / lam).toFixed(1);
+
+  var vc = viewCenter(), cnt = 0, n;
+  for (n = -40; n <= 40; n++) {
+    if (n === 0) continue;
+    var xd = xOfK(n, p);
+    if (isFinite(xd) && Math.abs(xd - vc) <= XMAX) cnt++;
+  }
+  document.getElementById('roN').innerHTML = cnt + ' 条';
+}
+
+function updateProbe() {
+  var el = document.getElementById('roProbe');
+  if (hoverXmm === null) { el.innerHTML = '移动鼠标'; return; }
+  var I = intensityAtP(hoverXmm, simParams);
+  el.innerHTML = hoverXmm.toFixed(1) + '<small>mm</small> · ' + I.toFixed(3);
+}
+
+function renderAll() {
+  drawOptics();
+  buildFringes(); paintFringes();
+  buildCurve(); paintCurve();
+  updateReadouts();
+}
+
+var _rafPending = false;
+function scheduleRender() {
+  if (_rafPending) return;
+  _rafPending = true;
+  requestAnimationFrame(function () {
+    _rafPending = false;
+    renderAll();
+  });
+}
+
+/* ---------------- 控件绑定 ---------------- */
+function syncSliders() {
+  document.getElementById('slLam').value = String(simParams.lam);
+  document.getElementById('slA').value = String(Math.round(simParams.a * 1000));
+  document.getElementById('slL').value = String(Math.round(simParams.L * 100));
+  document.getElementById('slYs').value = String(simParams.ys);
+  document.getElementById('slYl').value = String(simParams.yl);
+  document.getElementById('slInc').value = String(simParams.inc);
+  document.getElementById('valLam').innerHTML = simParams.lam + '<small>nm</small>';
+  document.getElementById('valA').innerHTML = simParams.a.toFixed(3) + '<small>mm</small>';
+  document.getElementById('valL').innerHTML = simParams.L.toFixed(2) + '<small>m</small>';
+  document.getElementById('valYs').innerHTML = simParams.ys.toFixed(1) + '<small>mm</small>';
+  document.getElementById('valYl').innerHTML = simParams.yl.toFixed(1) + '<small>mm</small>';
+  document.getElementById('valInc').innerHTML = simParams.inc.toFixed(1) + '<small>°</small>';
+  document.getElementById('btnFollow').className = 'mini-btn' + (followZero ? ' on' : '');
+  document.getElementById('btnFollow').textContent = '视野跟随零级：' + (followZero ? '开' : '关');
+}
+
+function bindSliders() {
+  document.getElementById('slLam').addEventListener('input', function () {
+    simParams.lam = parseInt(this.value, 10);
+    document.getElementById('valLam').innerHTML = simParams.lam + '<small>nm</small>';
+    scheduleRender();
+  });
+  document.getElementById('slA').addEventListener('input', function () {
+    simParams.a = parseInt(this.value, 10) / 1000;
+    document.getElementById('valA').innerHTML = simParams.a.toFixed(3) + '<small>mm</small>';
+    scheduleRender();
+  });
+  document.getElementById('slL').addEventListener('input', function () {
+    simParams.L = parseInt(this.value, 10) / 100;
+    document.getElementById('valL').innerHTML = simParams.L.toFixed(2) + '<small>m</small>';
+    scheduleRender();
+  });
+  document.getElementById('slYs').addEventListener('input', function () {
+    simParams.ys = parseFloat(this.value);
+    document.getElementById('valYs').innerHTML = simParams.ys.toFixed(1) + '<small>mm</small>';
+    scheduleRender();
+  });
+  document.getElementById('slYl').addEventListener('input', function () {
+    simParams.yl = parseFloat(this.value);
+    document.getElementById('valYl').innerHTML = simParams.yl.toFixed(1) + '<small>mm</small>';
+    scheduleRender();
+  });
+  document.getElementById('slInc').addEventListener('input', function () {
+    simParams.inc = parseFloat(this.value);
+    document.getElementById('valInc').innerHTML = simParams.inc.toFixed(1) + '<small>°</small>';
+    scheduleRender();
+  });
+}
+
+function applyPreset(lam) {
+  simParams.lam = lam;
+  syncSliders();
+  scheduleRender();
+}
+
+function toggleFollow() {
+  followZero = !followZero;
+  syncSliders();
+  scheduleRender();
+}
+
+function resetParams() {
+  simParams.lam = 550;
+  simParams.a = 0.10;
+  simParams.L = 1.00;
+  simParams.ys = 0;
+  simParams.yl = 0;
+  simParams.inc = 0;
+  followZero = false;
+  syncSliders();
+  scheduleRender();
+}
+
+function gotoSimWith(patch) {
+  for (var k in patch) {
+    if (Object.prototype.hasOwnProperty.call(patch, k)) simParams[k] = patch[k];
+  }
+  syncSliders();
+  showPage(1);
+  fitAll();
+  renderAll();
+}
+
+function toggleRule(el) {
+  el.classList.toggle('open');
+}
+
+/* ---------------- 鼠标探针 ---------------- */
+function bindHover(el) {
+  if (!el) return;
+  el.addEventListener('pointermove', function (e) {
+    var r = el.getBoundingClientRect();
+    var fx = e.clientX - r.left;
+    var frac = (fx - PAD_L) / Math.max(1, (r.width - PAD_L - PAD_R));
+    var vc = viewCenter();
+    hoverXmm = vc + (frac - 0.5) * 2 * XMAX;
+    hoverXmm = Math.max(vc - XMAX, Math.min(vc + XMAX, hoverXmm));
+    paintFringes();
+    paintCurve();
+    updateProbe();
+  });
+  el.addEventListener('pointerleave', function () {
+    hoverXmm = null;
+    paintFringes();
+    paintCurve();
+    updateProbe();
+  });
+}
+
+/* ---------------- 封面条纹 ---------------- */
+function drawCover() {
+  var el = document.getElementById('coverCanvas');
+  if (!el) return;
+  var r = el.getBoundingClientRect();
+  if (r.width < 40 || r.height < 20) return;
+  var dp = Math.min(window.devicePixelRatio || 1, 2);
+  var W = Math.round(r.width), H = Math.round(r.height);
+  el.width = Math.round(W * dp);
+  el.height = Math.round(H * dp);
+  var ctx = el.getContext('2d');
+  ctx.setTransform(dp, 0, 0, dp, 0, 0);
+  ctx.fillStyle = '#05080E';
+  ctx.fillRect(0, 0, W, H);
+
+  var p = { lam: 550, a: 0.10, L: 1.00, ys: 0, yl: 0, inc: 0 };
+  var xr = 22;
+  var sw = Math.max(2, Math.round(W * dp));
+  strip.width = sw;
+  strip.height = 1;
+  var sx = strip.getContext('2d');
+  var img = sx.createImageData(sw, 1);
+  for (var i = 0; i < sw; i++) {
+    var kk = (i + 0.5) / sw;
+    var xmm = (kk - 0.5) * 2 * xr;
+    var I = intensityAtP(xmm, p);
+    var col = apertureColor(p.lam, Math.pow(I, 0.55));
+    img.data[i * 4] = col[0];
+    img.data[i * 4 + 1] = col[1];
+    img.data[i * 4 + 2] = col[2];
+    img.data[i * 4 + 3] = 255;
+  }
+  sx.putImageData(img, 0, 0);
+  ctx.drawImage(strip, 0, 0, W, H);
+
+  var g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, 'rgba(11,29,48,1)');
+  g.addColorStop(0.2, 'rgba(11,29,48,0)');
+  g.addColorStop(0.8, 'rgba(11,29,48,0)');
+  g.addColorStop(1, 'rgba(11,29,48,1)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+/* =====================================================================
+   模块 3 · 渐进呈现引擎（骨架内置；本课件无讲授页，保留以兼容骨架）
+   ===================================================================== */
+var pageRevealQueues = {};
+var pageRevealIndex = {};
+var pageRevealActive = {};
+
+function setupReveal(pageId, items) {
+  pageRevealQueues[pageId] = items;
+  pageRevealIndex[pageId] = 0;
+  pageRevealActive[pageId] = items.length > 0;
+  items.forEach(function (item) {
+    var els = document.querySelectorAll('#' + pageId + ' ' + item.sel);
+    els.forEach(function (el) { el.classList.add('reveal-hidden'); });
+  });
+  updateRevealHint(pageId);
+}
+
+function nextReveal(pageId) {
+  if (!pageRevealActive[pageId]) return;
+  var queue = pageRevealQueues[pageId];
+  var idx = pageRevealIndex[pageId];
+  if (!queue || idx >= queue.length) return;
+  var item = queue[idx];
+  var els = document.querySelectorAll('#' + pageId + ' ' + item.sel);
+  var delay = item.delay || 0;
+  els.forEach(function (el, i) {
+    el.style.animationDelay = (delay + (item.seqDelay || 0) * i) + 'ms';
+    el.classList.add(item.anim);
+    el.classList.add('reveal-done');
+  });
+  pageRevealIndex[pageId]++;
+  if (pageRevealIndex[pageId] >= queue.length) pageRevealActive[pageId] = false;
+}
+
+function prevReveal(pageId) {
+  var queue = pageRevealQueues[pageId];
+  var idx = pageRevealIndex[pageId];
+  if (!queue || idx <= 0) return;
+  idx--;
+  var item = queue[idx];
+  document.querySelectorAll('#' + pageId + ' ' + item.sel).forEach(function (el) {
+    el.classList.remove(item.anim, 'reveal-done');
+    el.classList.add('reveal-hidden');
+    el.style.animationDelay = '';
+  });
+  pageRevealIndex[pageId] = idx;
+  pageRevealActive[pageId] = true;
+}
+
+function updateRevealHint(pageId) { /* 本课件无揭示提示条 */ }
+
+/* =====================================================================
+   模块 4 · 图片全屏灯箱（骨架内置）
+   ===================================================================== */
+function openLightbox(src) {
+  document.getElementById('lbImg').src = src;
+  document.getElementById('imgLightbox').classList.add('show');
+}
+function closeLightbox() {
+  document.getElementById('imgLightbox').classList.remove('show');
+}
+document.addEventListener('click', function (e) {
+  if (e.target.tagName === 'IMG' && !e.target.closest('#imgLightbox')) {
+    e.stopPropagation();
+    openLightbox(e.target.src);
+  }
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    var lb = document.getElementById('imgLightbox');
+    if (lb.classList.contains('show')) { closeLightbox(); e.preventDefault(); }
+  }
+});
+
+/* =====================================================================
+   模块 5 · 初始化（必须放在最后：需要全部分区已定义）
+   ===================================================================== */
+bindSliders();
+syncSliders();
+bindHover(document.getElementById('fringeCanvas'));
+bindHover(document.getElementById('curveCanvas'));
+
+window.addEventListener('resize', function () {
+  var id = PAGE_IDS[curPage];
+  if (id === 'p0') drawCover();
+  if (id === 'p1') { fitAll(); renderAll(); }
+});
+
+var _urlPage = getPageParam('page');
+var _initIdx = (_urlPage && PAGE_IDS.indexOf(_urlPage) >= 0) ? PAGE_IDS.indexOf(_urlPage) : 0;
+showPage(_initIdx);
+</script>
+</body>
+</html>

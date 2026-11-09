@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>量子谐振子：波函数 · 势能 & 概率密度 (双轴) | 互动动画</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Roboto', 'Noto Sans', system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(145deg, #f5f7fc 0%, #eef2f5 100%);
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .card {
+            max-width: 1300px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 2rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .header {
+            background: #1e2a3e;
+            color: white;
+            padding: 1.5rem 2rem;
+            border-bottom: 3px solid #3b82f6;
+        }
+
+        .header h1 {
+            margin: 0 0 0.25rem 0;
+            font-weight: 600;
+            font-size: 1.8rem;
+            letter-spacing: -0.3px;
+        }
+
+        .header p {
+            margin: 0;
+            opacity: 0.8;
+            font-size: 0.95rem;
+        }
+
+        .controls {
+            background: #ffffffdd;
+            backdrop-filter: blur(4px);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: #f8fafc;
+            padding: 0.5rem 1rem;
+            border-radius: 60px;
+            box-shadow: inset 0 0 0 1px #e2e8f0, 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        input[type="range"] {
+            width: 260px;
+            cursor: pointer;
+            accent-color: #3b82f6;
+        }
+
+        .n-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            background: #1e293b;
+            color: white;
+            padding: 0.2rem 0.8rem;
+            border-radius: 36px;
+            min-width: 70px;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .energy {
+            font-family: 'JetBrains Mono', 'SF Mono', monospace;
+            background: #eef2ff;
+            padding: 0.4rem 1rem;
+            border-radius: 40px;
+            font-weight: 500;
+            color: #1e40af;
+        }
+
+        .formula-panel {
+            background: #f1f5f9;
+            margin: 0 2rem 1rem 2rem;
+            padding: 1rem 1.5rem;
+            border-radius: 1.2rem;
+            font-family: 'Courier New', 'SF Mono', 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            border-left: 5px solid #3b82f6;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+
+        .formula-panel .math {
+            font-size: 1.05rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: #0c4a6e;
+        }
+
+        .formula-panel .sub {
+            font-size: 0.85rem;
+            color: #334155;
+            margin-top: 0.5rem;
+        }
+
+        .canvas-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.8rem;
+            padding: 1.5rem 2rem 2rem 2rem;
+        }
+
+        .canvas-card {
+            background: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 0.8rem 0.5rem 0.5rem 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .canvas-title {
+            font-weight: 600;
+            margin-left: 1rem;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+            color: #1e293b;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            padding-right: 1rem;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #ffffff;
+            border-radius: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .legend {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+            margin-left: 1rem;
+            font-size: 0.75rem;
+        }
+        .legend span {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .legend .color-box {
+            width: 18px;
+            height: 2px;
+            display: inline-block;
+            border-radius: 2px;
+        }
+        .legend .solid-box {
+            height: 3px;
+            width: 18px;
+            background: currentColor;
+        }
+
+        .footnote {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #475569;
+            padding: 1rem 2rem 1.8rem;
+            border-top: 1px solid #e2e8f0;
+            background: #f9fafb;
+        }
+
+        @media (max-width: 700px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .control-group {
+                justify-content: space-between;
+            }
+            input[type="range"] {
+                width: 100%;
+            }
+            .formula-panel {
+                margin: 0 1rem 1rem 1rem;
+            }
+            .canvas-container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="header">
+        <h1>⚛️ 一维量子谐振子 · 势能与概率密度同图</h1>
+        <p>波函数 ψₙ(x) · 势能 V(x) 与概率密度 Pₙ(x) (双纵轴) | 坐标 x 以特征长度 σ = √(ħ/(mω)) 为单位 | n = 0 ~ 6</p>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>主量子数 <strong>n</strong> :</label>
+            <input type="range" id="nSlider" min="0" max="6" step="1" value="0">
+            <span id="nValueDisplay" class="n-value">0</span>
+        </div>
+        <div class="control-group">
+            <span class="energy">💡 能量 Eₙ = (n + ½) ħω</span>
+            <span id="energyDisplay" style="font-weight:600;">(0.5) ħω</span>
+        </div>
+    </div>
+
+    <!-- 波函数解析表达式 -->
+    <div class="formula-panel" id="formulaPanel">
+        <div class="math" id="wavefunctionFormula">
+            ψₙ(x) = <span style="font-family: monospace;">Nₙ Hₙ(x) e^{-x²/2}</span> &nbsp;&nbsp; ( x = 坐标 / σ )
+        </div>
+        <div class="sub" id="normDetail">
+            归一化常数 Nₙ = 1/√(2ⁿ n! √π) &nbsp; 厄米多项式 Hₙ(x) &nbsp; 势能 V(x) = ½ ħω x² (无量纲)
+        </div>
+    </div>
+
+    <div class="canvas-container">
+        <!-- 图1: 波函数单独展示 -->
+        <div class="canvas-card">
+            <div class="canvas-title">
+                <span>📐 波函数 ψₙ(x) &nbsp; (实函数, 可正可负)</span>
+                <span style="font-size:0.75rem; font-family:monospace;">x 单位: σ = √(ħ/(mω))</span>
+            </div>
+            <canvas id="psiCanvas" width="800" height="360" style="width:100%; height:auto; aspect-ratio:800/360"></canvas>
+        </div>
+        
+        <!-- 图2: 势能曲线 + 概率密度 (双纵轴) + 能级线 -->
+        <div class="canvas-card">
+            <div class="canvas-title">
+                <span>📈 势能 V(x) (左轴) 与 概率密度 Pₙ(x) (右轴) &nbsp; 能级线 (左轴)</span>
+                <span style="font-size:0.75rem;">当前能级高亮为 <span style="color:#dc2626; font-weight:bold;">红色实线</span></span>
+            </div>
+            <canvas id="combinedCanvas" width="800" height="360" style="width:100%; height:auto; aspect-ratio:800/360"></canvas>
+            <div class="legend">
+                <span><span class="color-box" style="background:#2c3e66; height:3px;"></span> 势能 V(x) = ½ ħω x²</span>
+                <span><span class="color-box" style="background:#d97706; height:3px;"></span> 概率密度 Pₙ(x) (右轴)</span>
+                <span><span class="color-box" style="background:#94a3b8; border-bottom: 2px dashed #94a3b8; width:18px;"></span> 其他能级 (左轴)</span>
+                <span><span class="color-box" style="background:#dc2626; height:2px;"></span> 当前能级 Eₙ</span>
+            </div>
+        </div>
+    </div>
+    <div class="footnote">
+        ※ 坐标 x 以特征长度 σ = √(ħ/(mω)) 为单位，因此无量纲化后 x 数值上等于 ξ。波函数满足 ∫|ψ|² dx = 1 。<strong>双轴绘图</strong>：左侧纵轴表示能量 (ħω单位)，右侧纵轴表示概率密度。左轴刻度已改为每间隔 1，势能曲线超出左轴范围的部分不再显示。
+    </div>
+</div>
+
+<script>
+    (function(){
+        // ---------- 物理参数 ----------
+        // 横坐标 x (自然单位，以 σ = √(ħ/(mω)) 为单位)
+        const X_MIN = -5.8;     // 左边界
+        const X_MAX = 5.8;      // 右边界
+        const POINTS = 500;       // 采样点数
+        
+        // DOM 元素
+        const nSlider = document.getElementById('nSlider');
+        const nValueDisplay = document.getElementById('nValueDisplay');
+        const energyDisplaySpan = document.getElementById('energyDisplay');
+        const psiCanvas = document.getElementById('psiCanvas');
+        const combinedCanvas = document.getElementById('combinedCanvas');
+        const formulaDiv = document.getElementById('wavefunctionFormula');
+        const normDetailSpan = document.getElementById('normDetail');
+        
+        // 设置canvas分辨率 (固定800x360)
+        function setCanvasSize() {
+            psiCanvas.width = 800;
+            psiCanvas.height = 360;
+            combinedCanvas.width = 800;
+            combinedCanvas.height = 360;
+        }
+        setCanvasSize();
+        window.addEventListener('resize', () => { drawAll(); });
+        
+        // ---------- 辅助函数: 阶乘 ----------
+        function factorial(n) {
+            if (n < 0) return 1;
+            let f = 1;
+            for (let i = 2; i <= n; i++) f *= i;
+            return f;
+        }
+        
+        // ---------- 厄米多项式 H_n(x) ----------
+        function hermite(n, x) {
+            if (n === 0) return 1;
+            if (n === 1) return 2 * x;
+            let h0 = 1;
+            let h1 = 2 * x;
+            for (let i = 2; i <= n; i++) {
+                let h2 = 2 * x * h1 - 2 * (i - 1) * h0;
+                h0 = h1;
+                h1 = h2;
+            }
+            return h1;
+        }
+        
+        // ---------- 归一化波函数 ψ_n(x) (x 为自然单位) ----------
+        function psi(n, x) {
+            const norm = 1 / Math.sqrt(Math.pow(2, n) * factorial(n) * Math.sqrt(Math.PI));
+            const Hn = hermite(n, x);
+            const gaussian = Math.exp(-x * x / 2);
+            return norm * Hn * gaussian;
+        }
+        
+        // 概率密度
+        function probDensity(n, x) {
+            const val = psi(n, x);
+            return val * val;
+        }
+        
+        // 势能函数 (无量纲形式 V/(ħω) = ½ x²)
+        function potential(x) {
+            return 0.5 * x * x;
+        }
+        
+        // 能级值 (无量纲)
+        function energyLevel(n) {
+            return n + 0.5;
+        }
+        
+        // ---------- 更新公式与能量显示 ----------
+        function updateFormulaDisplay(n) {
+            const Nnorm = `1/√(2^${n} · ${n}! · √π)`;
+            let hermiteStr = `H_${n}(x)`;
+            if (n === 0) hermiteStr = `H_0(x) = 1`;
+            else if (n === 1) hermiteStr = `H_1(x) = 2x`;
+            else if (n === 2) hermiteStr = `H_2(x) = 4x² - 2`;
+            else if (n === 3) hermiteStr = `H_3(x) = 8x³ - 12x`;
+            else if (n === 4) hermiteStr = `H_4(x) = 16x⁴ - 48x² + 12`;
+            else if (n === 5) hermiteStr = `H_5(x) = 32x⁵ - 160x³ + 120x`;
+            else if (n === 6) hermiteStr = `H_6(x) = 64x⁶ - 480x⁴ + 720x² - 120`;
+            else {
+                hermiteStr = `H_${n}(x) (厄米多项式)`;
+            }
+            const fullExpr = `ψ_${n}(x) = ${Nnorm} · [${hermiteStr}] · e^{-x²/2} ,   x = 坐标 / σ , σ = √(ħ/(mω))`;
+            formulaDiv.innerHTML = `🧾 当前波函数: <strong style="font-weight:700;">${fullExpr}</strong>`;
+            normDetailSpan.innerHTML = `归一化常数 Nₙ = 1/√(2ⁿ n! √π) &nbsp; 能量 Eₙ = (${n}+1/2) ħω &nbsp; 节点数 = ${n} &nbsp; 势能 V(x) = ½ ħω x²`;
+        }
+        
+        function updateEnergyDisplay(n) {
+            const energyVal = (n + 0.5).toFixed(2);
+            energyDisplaySpan.innerHTML = `${energyVal} ħω  (Eₙ = (${n}+½)ħω)`;
+        }
+        
+        // ========== 绘制波函数 (单轴，自适应) ==========
+        function drawPsi(n) {
+            const ctx = psiCanvas.getContext('2d');
+            const width = psiCanvas.width;
+            const height = psiCanvas.height;
+            
+            // 采样计算y范围
+            const xList = [];
+            const yList = [];
+            for (let i = 0; i <= POINTS; i++) {
+                const x = X_MIN + (i / POINTS) * (X_MAX - X_MIN);
+                const y = psi(n, x);
+                xList.push(x);
+                yList.push(y);
+            }
+            const absMax = Math.max(Math.abs(Math.min(...yList)), Math.abs(Math.max(...yList)));
+            let yMin = -absMax - Math.max(0.08, absMax*0.12);
+            let yMax = absMax + Math.max(0.08, absMax*0.12);
+            if (absMax < 0.02) { yMin = -0.3; yMax = 0.3; }
+            
+            // 通用单轴绘图设置
+            const margin = { top: 28, right: 32, bottom: 32, left: 48 };
+            const plotWidth = width - margin.left - margin.right;
+            const plotHeight = height - margin.top - margin.bottom;
+            const mapX = (x) => margin.left + ((x - X_MIN) / (X_MAX - X_MIN)) * plotWidth;
+            const mapY = (y) => margin.top + plotHeight - ((y - yMin) / (yMax - yMin)) * plotHeight;
+            
+            ctx.clearRect(0, 0, width, height);
+            // 绘制网格和轴线
+            drawGridAndAxes(ctx, width, height, margin, X_MIN, X_MAX, yMin, yMax, "ψ(x)");
+            
+            // 绘制曲线
+            ctx.beginPath();
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = "#2563eb";
+            let first = true;
+            for (let i = 0; i <= POINTS; i++) {
+                const x = xList[i];
+                const y = yList[i];
+                const xPix = mapX(x);
+                const yPix = mapY(y);
+                if (first) { ctx.moveTo(xPix, yPix); first = false; }
+                else { ctx.lineTo(xPix, yPix); }
+            }
+            ctx.stroke();
+            
+            ctx.font = "10px monospace";
+            ctx.fillStyle = "#2563eb";
+            ctx.textAlign = "right";
+            ctx.fillText(`ψₙ(x) , n = ${n}`, width - margin.right - 5, margin.top + 15);
+        }
+        
+        // 通用网格和轴线绘制 (单轴)
+        function drawGridAndAxes(ctx, width, height, margin, xMin, xMax, yMin, yMax, yLabel) {
+            const plotWidth = width - margin.left - margin.right;
+            const plotHeight = height - margin.top - margin.bottom;
+            const mapX = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotWidth;
+            const mapY = (y) => margin.top + plotHeight - ((y - yMin) / (yMax - yMin)) * plotHeight;
+            
+            ctx.save();
+            ctx.strokeStyle = "#e2e8f0";
+            ctx.lineWidth = 0.6;
+            ctx.fillStyle = "#334155";
+            ctx.font = "11px 'Segoe UI', 'system-ui'";
+            ctx.textAlign = "center";
+            
+            // 垂直网格线
+            const xTicks = 6;
+            for (let i = 0; i <= xTicks; i++) {
+                const xi = xMin + (i / xTicks) * (xMax - xMin);
+                const xPix = mapX(xi);
+                ctx.beginPath();
+                ctx.moveTo(xPix, margin.top);
+                ctx.lineTo(xPix, height - margin.bottom);
+                ctx.stroke();
+                ctx.fillStyle = "#334155";
+                ctx.fillText(xi.toFixed(1), xPix, height - margin.bottom + 14);
+            }
+            // 水平网格线
+            const yTicks = 5;
+            for (let i = 0; i <= yTicks; i++) {
+                const yVal = yMin + (i / yTicks) * (yMax - yMin);
+                const yPix = mapY(yVal);
+                ctx.beginPath();
+                ctx.moveTo(margin.left, yPix);
+                ctx.lineTo(width - margin.right, yPix);
+                ctx.stroke();
+                ctx.fillStyle = "#334155";
+                ctx.textAlign = "right";
+                ctx.fillText(yVal.toFixed(2), margin.left - 6, yPix + 3);
+            }
+            
+            // 坐标轴实线
+            ctx.beginPath();
+            ctx.lineWidth = 1.2;
+            ctx.strokeStyle = "#1e293b";
+            const yZeroPix = mapY(0);
+            ctx.beginPath();
+            ctx.moveTo(margin.left, yZeroPix);
+            ctx.lineTo(width - margin.right, yZeroPix);
+            ctx.stroke();
+            const xZeroPix = mapX(0);
+            ctx.beginPath();
+            ctx.moveTo(xZeroPix, margin.top);
+            ctx.lineTo(xZeroPix, height - margin.bottom);
+            ctx.stroke();
+            
+            // 轴标签
+            ctx.fillStyle = "#1e293b";
+            ctx.font = "12px 'Segoe UI'";
+            ctx.textAlign = "center";
+            ctx.fillText("x (单位: σ = √(ħ/(mω)))", width/2, height - 6);
+            ctx.save();
+            ctx.translate(18, height/2);
+            ctx.rotate(-Math.PI/2);
+            ctx.fillText(yLabel, 0, 0);
+            ctx.restore();
+            ctx.restore();
+        }
+        
+        // ========== 双轴绘图：势能(左轴) + 概率密度(右轴) + 能级线(左轴) ==========
+        function drawCombined(n) {
+            const ctx = combinedCanvas.getContext('2d');
+            const width = combinedCanvas.width;
+            const height = combinedCanvas.height;
+            const margin = { top: 28, right: 58, bottom: 32, left: 52 };
+            const plotWidth = width - margin.left - margin.right;
+            const plotHeight = height - margin.top - margin.bottom;
+            
+            // 左侧Y轴范围 (0 到 8，间隔1)
+            const yLeftMin = 0;
+            const yLeftMax = 8.0;
+            
+            // 右侧Y轴范围: 概率密度动态 (根据当前n的最大密度)
+            let maxProb = 0;
+            for (let i = 0; i <= POINTS; i++) {
+                const x = X_MIN + (i / POINTS) * (X_MAX - X_MIN);
+                const p = probDensity(n, x);
+                if (p > maxProb) maxProb = p;
+            }
+            let yRightMax = maxProb * 1.12 + 0.02;
+            if (yRightMax < 0.05) yRightMax = 0.5;
+            const yRightMin = 0;
+            
+            // 映射函数
+            const mapX = (x) => margin.left + ((x - X_MIN) / (X_MAX - X_MIN)) * plotWidth;
+            const mapYLeft = (y) => margin.top + plotHeight - ((y - yLeftMin) / (yLeftMax - yLeftMin)) * plotHeight;
+            const mapYRight = (y) => margin.top + plotHeight - ((y - yRightMin) / (yRightMax - yRightMin)) * plotHeight;
+            
+            ctx.clearRect(0, 0, width, height);
+            ctx.save();
+            ctx.strokeStyle = "#e2e8f0";
+            ctx.lineWidth = 0.6;
+            ctx.fillStyle = "#334155";
+            ctx.font = "11px 'Segoe UI', 'system-ui'";
+            ctx.textAlign = "center";
+            
+            // 垂直网格线 (X轴)
+            const xTicks = 6;
+            for (let i = 0; i <= xTicks; i++) {
+                const xi = X_MIN + (i / xTicks) * (X_MAX - X_MIN);
+                const xPix = mapX(xi);
+                ctx.beginPath();
+                ctx.moveTo(xPix, margin.top);
+                ctx.lineTo(xPix, height - margin.bottom);
+                ctx.stroke();
+                ctx.fillStyle = "#334155";
+                ctx.fillText(xi.toFixed(1), xPix, height - margin.bottom + 14);
+            }
+            
+            // 水平网格线 (基于左侧Y轴，每间隔1)
+            const leftTickStep = 1.0;
+            const leftTicks = [];
+            for (let y = yLeftMin; y <= yLeftMax + 1e-6; y += leftTickStep) {
+                leftTicks.push(y);
+            }
+            for (let yVal of leftTicks) {
+                const yPix = mapYLeft(yVal);
+                ctx.beginPath();
+                ctx.moveTo(margin.left, yPix);
+                ctx.lineTo(width - margin.right, yPix);
+                ctx.stroke();
+                ctx.fillStyle = "#334155";
+                ctx.textAlign = "right";
+                ctx.fillText(yVal.toFixed(1), margin.left - 8, yPix + 3);
+            }
+            
+            // 绘制X轴和Y轴主线 (左轴)
+            ctx.beginPath();
+            ctx.lineWidth = 1.2;
+            ctx.strokeStyle = "#1e293b";
+            const yZeroLeftPix = mapYLeft(0);
+            ctx.beginPath();
+            ctx.moveTo(margin.left, yZeroLeftPix);
+            ctx.lineTo(width - margin.right, yZeroLeftPix);
+            ctx.stroke();
+            const xZeroPix = mapX(0);
+            ctx.beginPath();
+            ctx.moveTo(xZeroPix, margin.top);
+            ctx.lineTo(xZeroPix, height - margin.bottom);
+            ctx.stroke();
+            
+            // 绘制右侧Y轴刻度线和标签 (保持原样)
+            ctx.fillStyle = "#d97706";
+            ctx.strokeStyle = "#d97706";
+            ctx.font = "11px 'Segoe UI'";
+            ctx.textAlign = "left";
+            for (let i = 0; i <= 4; i++) {
+                const yVal = yRightMin + (i / 4) * yRightMax;
+                const yPix = mapYRight(yVal);
+                ctx.beginPath();
+                ctx.moveTo(width - margin.right + 4, yPix);
+                ctx.lineTo(width - margin.right - 4, yPix);
+                ctx.stroke();
+                ctx.fillStyle = "#b45309";
+                ctx.fillText(yVal.toFixed(3), width - margin.right + 8, yPix + 3);
+            }
+            // 右轴标签
+            ctx.save();
+            ctx.translate(width - 18, height/2);
+            ctx.rotate(Math.PI/2);
+            ctx.fillStyle = "#d97706";
+            ctx.font = "12px 'Segoe UI'";
+            ctx.textAlign = "center";
+            ctx.fillText("概率密度 Pₙ(x)", 0, 0);
+            ctx.restore();
+            
+            // 左轴标签
+            ctx.fillStyle = "#1e293b";
+            ctx.font = "12px 'Segoe UI'";
+            ctx.textAlign = "center";
+            ctx.fillText("x (单位: σ = √(ħ/(mω)))", width/2, height - 6);
+            ctx.save();
+            ctx.translate(22, height/2);
+            ctx.rotate(-Math.PI/2);
+            ctx.fillStyle = "#1e293b";
+            ctx.fillText("能量 E / (ħω)   &   V(x)", 0, 0);
+            ctx.restore();
+            
+            // 绘制势能曲线 (左轴) —— 超出 yLeftMax 的部分断开不显示
+            ctx.beginPath();
+            ctx.lineWidth = 2.2;
+            ctx.strokeStyle = "#2c3e66";
+            ctx.setLineDash([]);
+            let first = true;
+            let prevValid = false;
+            for (let i = 0; i <= POINTS; i++) {
+                const x = X_MIN + (i / POINTS) * (X_MAX - X_MIN);
+                const v = potential(x);
+                const isValid = (v <= yLeftMax);
+                const xPix = mapX(x);
+                if (isValid) {
+                    const yPix = mapYLeft(v);
+                    if (!prevValid) {
+                        // 新的一段开始，移动到当前点
+                        ctx.beginPath();
+                        ctx.moveTo(xPix, yPix);
+                        first = false;
+                    } else {
+                        ctx.lineTo(xPix, yPix);
+                    }
+                    prevValid = true;
+                } else {
+                    // 无效点：结束当前路径并描边，重置标志
+                    if (prevValid) {
+                        ctx.stroke();
+                        ctx.beginPath();
+                        prevValid = false;
+                    }
+                }
+            }
+            if (prevValid) {
+                ctx.stroke();
+            }
+            
+            // 绘制概率密度曲线 (右轴)
+            ctx.beginPath();
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = "#d97706";
+            first = true;
+            for (let i = 0; i <= POINTS; i++) {
+                const x = X_MIN + (i / POINTS) * (X_MAX - X_MIN);
+                const p = probDensity(n, x);
+                const xPix = mapX(x);
+                const yPix = mapYRight(p);
+                if (first) { ctx.moveTo(xPix, yPix); first = false; }
+                else { ctx.lineTo(xPix, yPix); }
+            }
+            ctx.stroke();
+            
+            // 绘制能级线 (n=0..6, 基于左轴)
+            const maxN = 6;
+            ctx.lineWidth = 1.6;
+            for (let lev = 0; lev <= maxN; lev++) {
+                const e = energyLevel(lev);
+                if (e > yLeftMax) continue; // 超出范围不绘制
+                const yPix = mapYLeft(e);
+                const isCurrent = (lev === n);
+                ctx.beginPath();
+                ctx.moveTo(mapX(X_MIN), yPix);
+                ctx.lineTo(mapX(X_MAX), yPix);
+                if (isCurrent) {
+                    ctx.strokeStyle = "#dc2626";
+                    ctx.setLineDash([]);
+                    ctx.lineWidth = 2.5;
+                } else {
+                    ctx.strokeStyle = "#94a3b8";
+                    ctx.setLineDash([8, 6]);
+                    ctx.lineWidth = 1.5;
+                }
+                ctx.stroke();
+                // 标注能级文字：只显示偶数能级(0,2,4,6)以及当前能级
+                const shouldLabel = (lev % 2 === 0) || (lev === n);
+                if (shouldLabel) {
+                    ctx.font = "10px 'Segoe UI'";
+                    ctx.fillStyle = isCurrent ? "#b91c1c" : "#475569";
+                    ctx.textAlign = "left";
+                    ctx.setLineDash([]);
+                    ctx.fillText(`E_${lev}`, mapX(X_MAX) - 42, yPix - 3);
+                }
+            }
+            
+            // 标注当前n和概率密度最大值
+            ctx.font = "9px monospace";
+            ctx.fillStyle = "#d97706";
+            ctx.textAlign = "right";
+            ctx.fillText(`max Pₙ = ${maxProb.toFixed(4)}`, width - margin.right - 10, margin.top + 20);
+            ctx.fillStyle = "#2c3e66";
+            ctx.fillText(`V(x) = ½ x²`, width - margin.right - 10, margin.top + 35);
+            ctx.fillStyle = "#dc2626";
+            ctx.fillText(`n = ${n} , Eₙ = ${(n+0.5).toFixed(2)} ħω`, width - margin.right - 10, margin.top + 50);
+            ctx.setLineDash([]);
+            ctx.restore();
+        }
+        
+        // ---------- 主刷新 ----------
+        function drawAll() {
+            const n = parseInt(nSlider.value, 10);
+            nValueDisplay.innerText = n;
+            updateEnergyDisplay(n);
+            updateFormulaDisplay(n);
+            drawPsi(n);
+            drawCombined(n);
+        }
+        
+        nSlider.addEventListener('input', () => { drawAll(); });
+        drawAll();
+    })();
+</script>
+</body>
+</html>

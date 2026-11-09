@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>大学物理：驻波 | 三分损益五音 | 一页紧凑版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #eef2f7;
+            font-family: 'Segoe UI', Roboto, Helvetica, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 8px;
+        }
+        /* 主卡片 - 极致紧凑 */
+        .card {
+            max-width: 1050px;
+            width: 100%;
+            background: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+        .header {
+            background: #1e2a3e;
+            padding: 0.4rem 1rem;
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        .header p {
+            font-size: 0.65rem;
+            opacity: 0.8;
+        }
+        /* 画布区域 - 高度压缩至200px左右实际显示区域 */
+        .canvas-container {
+            padding: 0.6rem 1rem 0.2rem 1rem;
+            background: #ffffff;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            background: #fefef7;
+            border-radius: 16px;
+            border: 1px solid #e2e9f2;
+        }
+        .controls {
+            padding: 0 1rem 1rem 1rem;
+            background: white;
+        }
+        .control-card {
+            background: #f8fafd;
+            border-radius: 1rem;
+            padding: 0.5rem 1rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #eef2f8;
+        }
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.5rem;
+        }
+        .slider-row label {
+            font-weight: 600;
+            width: 75px;
+            font-size: 0.75rem;
+            color: #1f4662;
+        }
+        input[type="range"] {
+            flex: 2;
+            height: 3px;
+            background: #cbdde9;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            width: 12px;
+            height: 12px;
+            background: #1e6f9f;
+            border: 1px solid white;
+        }
+        .value-badge {
+            background: #e9f0f5;
+            padding: 0.1rem 0.5rem;
+            border-radius: 20px;
+            font-family: monospace;
+            font-weight: 600;
+            font-size: 0.7rem;
+            min-width: 65px;
+            text-align: center;
+            color: #005c8a;
+        }
+        /* 三分损益面板压缩 */
+        .pentatonic-panel {
+            background: #f0f4e8;
+            border-radius: 0.8rem;
+            padding: 0.4rem 0.7rem;
+            margin: 0.4rem 0;
+            border-left: 3px solid #b86f2c;
+        }
+        .pentatonic-title {
+            font-size: 0.65rem;
+            font-weight: bold;
+            color: #8b5a2b;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 0.2rem;
+        }
+        .note-buttons {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.2rem;
+        }
+        .note-btn {
+            background: #fef6e0;
+            border: 1px solid #d4b87a;
+            padding: 0.15rem 0.8rem;
+            border-radius: 1.2rem;
+            font-size: 0.7rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: #7a4a1a;
+        }
+        .set-gong-btn {
+            background: #d9c89e;
+            border: none;
+            padding: 0.1rem 0.6rem;
+            border-radius: 1rem;
+            font-size: 0.6rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .gong-baseline {
+            font-size: 0.6rem;
+            font-family: monospace;
+            color: #7a5a3a;
+        }
+        /* 模式与边界行压缩 */
+        .mode-group, .boundary-switch {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin: 0.2rem 0;
+        }
+        .mode-btn, .boundary-btn {
+            background: white;
+            border: 1px solid #c4d4e4;
+            padding: 0.15rem 0.8rem;
+            border-radius: 1.2rem;
+            font-size: 0.7rem;
+            font-weight: 500;
+            cursor: pointer;
+            color: #2c577c;
+        }
+        .mode-btn.active, .boundary-btn.active {
+            background: #1e6f9f;
+            border-color: #1e6f9f;
+            color: white;
+        }
+        /* 音频条压缩 */
+        .audio-bar {
+            background: #eef3fc;
+            border-radius: 0.8rem;
+            padding: 0.3rem 0.8rem;
+            margin-top: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .play-btn {
+            background: #2c7a4d;
+            border: none;
+            color: white;
+            padding: 0.2rem 0.8rem;
+            border-radius: 1.2rem;
+            font-size: 0.7rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .stop-btn { background: #9e5e3c; }
+        .freq-chip {
+            font-family: monospace;
+            background: #ffffffcc;
+            padding: 0.1rem 0.6rem;
+            border-radius: 1rem;
+            font-size: 0.65rem;
+            font-weight: bold;
+            color: #014175;
+        }
+        /* 信息统计压缩为一行两行自适应 */
+        .info-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            background: #eef3fc;
+            border-radius: 0.8rem;
+            padding: 0.3rem 0.8rem;
+            margin-top: 0.5rem;
+            font-size: 0.65rem;
+            font-weight: 500;
+            justify-content: space-between;
+        }
+        .info-stats span { color: #1a4d6b; }
+        .info-stats strong {
+            background: #e2edf8;
+            padding: 0 4px;
+            border-radius: 12px;
+            font-family: monospace;
+        }
+        .footnote {
+            text-align: center;
+            font-size: 0.55rem;
+            color: #5f7d9c;
+            margin-top: 0.4rem;
+        }
+        /* 用于隐藏滚动条或确保一页 */
+        @media (max-width: 700px) {
+            .slider-row label { width: 65px; }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="header">
+        <h1>🎵 驻波 · 三分损益定音律 | 宫商角徵羽</h1>
+        <p>左端固定 | 右端波节/波腹可调 | 纵轴恒定 | 声速340m/s</p>
+    </div>
+
+    <div class="canvas-container">
+        <!-- 画布高度压缩：实际显示区域约200px -->
+        <canvas id="waveCanvas" width="1000" height="200" style="width:100%; height:auto; max-width:1000px; margin:0 auto; display:block"></canvas>
+    </div>
+
+    <div class="controls">
+        <div class="control-card">
+            <!-- 长度调节 -->
+            <div class="slider-row">
+                <label>🎻 长度 L :</label>
+                <input type="range" id="lengthSlider" min="0.3" max="2.5" step="0.002" value="1.0">
+                <span id="lengthValue" class="value-badge">1.000 m</span>
+            </div>
+
+            <!-- 三分损益五音面板 -->
+            <div class="pentatonic-panel">
+                <div class="pentatonic-title">
+                    <span>🎼 三分损益 · 五音（基于宫）</span>
+                    <button id="setGongBaseBtn" class="set-gong-btn">📌 设当前为宫</button>
+                </div>
+                <div class="note-buttons" id="pentatonicButtons">
+                    <button data-note="gong" class="note-btn">宫</button>
+                    <button data-note="shang" class="note-btn">商</button>
+                    <button data-note="jue" class="note-btn">角</button>
+                    <button data-note="zhi" class="note-btn">徵</button>
+                    <button data-note="yu" class="note-btn">羽</button>
+                </div>
+                <div class="gong-baseline" id="gongBaseInfo">📐 宫基准: 1.000 m</div>
+            </div>
+
+            <!-- 模式与边界（一行紧凑） -->
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin-top: 4px;">
+                <div style="flex:1; min-width: 120px;">
+                    <div style="font-size:0.7rem; font-weight:600;">🎼 模式 n</div>
+                    <div class="mode-group" id="modeButtons"></div>
+                </div>
+                <div style="flex:1; min-width: 130px;">
+                    <div style="font-size:0.7rem; font-weight:600;">🔚 右端边界</div>
+                    <div class="boundary-switch" id="boundarySwitch">
+                        <button id="nodeEndBtn" class="boundary-btn active">波节</button>
+                        <button id="antinodeEndBtn" class="boundary-btn">波腹</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 音频控制条 -->
+            <div class="audio-bar">
+                <div>
+                    <button id="playBtn" class="play-btn">🔊 播放</button>
+                    <button id="stopBtn" class="play-btn stop-btn">⏹️ 停止</button>
+                </div>
+                <div class="freq-chip" id="freqDisplay">-- Hz</div>
+                <div class="freq-chip">v=340 m/s</div>
+            </div>
+
+            <!-- 物理参数行 -->
+            <div class="info-stats" id="infoPanel">
+                <span>模式:<strong id="modeNumber">1</strong></span>
+                <span>节点:<strong id="nodeCount">2</strong></span>
+                <span>腹点:<strong id="antinodeCount">1</strong></span>
+                <span>λ=<strong id="wavelength">2.000</strong>m</span>
+                <span>f=<strong id="freqValue">170.0</strong>Hz</span>
+                <span>k=<strong id="wavenumber">3.142</strong></span>
+            </div>
+            <div class="footnote">
+                ※ 三分损益比例: 宫1, 商8/9, 角64/81, 徵2/3, 羽16/27 | 振幅归一化±1固定
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        const SOUND_SPEED = 340.0;
+
+        let length = 1.0;
+        let modeN = 1;
+        let rightBoundary = 'node';
+        const MAX_MODE = 8;
+
+        // 三分损益相关
+        let gongBaseLength = 1.0;
+        const noteRatios = { gong:1, shang:8/9, jue:64/81, zhi:2/3, yu:16/27 };
+
+        // Audio
+        let audioCtx = null;
+        let currentSource = null;
+        let isPlaying = false;
+
+        // DOM
+        const lengthSlider = document.getElementById('lengthSlider');
+        const lengthValueSpan = document.getElementById('lengthValue');
+        const modeNumberSpan = document.getElementById('modeNumber');
+        const nodeCountSpan = document.getElementById('nodeCount');
+        const antinodeCountSpan = document.getElementById('antinodeCount');
+        const wavelengthSpan = document.getElementById('wavelength');
+        const wavenumberSpan = document.getElementById('wavenumber');
+        const freqValueSpan = document.getElementById('freqValue');
+        const freqDisplayDiv = document.getElementById('freqDisplay');
+        const playBtn = document.getElementById('playBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const modeDiv = document.getElementById('modeButtons');
+        const nodeEndBtn = document.getElementById('nodeEndBtn');
+        const antinodeEndBtn = document.getElementById('antinodeEndBtn');
+        const setGongBaseBtn = document.getElementById('setGongBaseBtn');
+        const gongBaseInfoSpan = document.getElementById('gongBaseInfo');
+        const pentatonicBtns = document.querySelectorAll('.note-btn');
+
+        function getWaveParams(L, n, boundary) {
+            if (boundary === 'node') {
+                const lambda = (2 * L) / n;
+                const freq = (n * SOUND_SPEED) / (2 * L);
+                const k = (2 * Math.PI) / lambda;
+                return { lambda, freq, k };
+            } else {
+                const harmonicOrder = 2 * n - 1;
+                const lambda = (4 * L) / harmonicOrder;
+                const freq = (harmonicOrder * SOUND_SPEED) / (4 * L);
+                const k = (2 * Math.PI) / lambda;
+                return { lambda, freq, k };
+            }
+        }
+        function getNodeCount(L,n,boundary) { return boundary==='node'? n+1 : n; }
+        function getAntinodeCount(L,n,boundary) { return n; }
+
+        function updateInfoDisplay() {
+            const { lambda,freq,k } = getWaveParams(length, modeN, rightBoundary);
+            const nodes = getNodeCount(length,modeN,rightBoundary);
+            const ants = getAntinodeCount(length,modeN,rightBoundary);
+            modeNumberSpan.innerText = modeN;
+            nodeCountSpan.innerText = nodes;
+            antinodeCountSpan.innerText = ants;
+            wavelengthSpan.innerText = lambda.toFixed(3);
+            wavenumberSpan.innerText = k.toFixed(3);
+            freqValueSpan.innerText = freq.toFixed(1);
+            freqDisplayDiv.innerHTML = `🎵 ${freq.toFixed(1)} Hz  (${rightBoundary==='node'?'固定端':'自由端'})`;
+        }
+
+        function setGongBase() { gongBaseLength = length; updateGongBaseDisplay(); }
+        function updateGongBaseDisplay() { gongBaseInfoSpan.innerText = `📐 宫基准: ${gongBaseLength.toFixed(4)} m`; }
+        function setNoteLength(noteKey) {
+            const ratio = noteRatios[noteKey];
+            if(!ratio) return;
+            const newLen = gongBaseLength * ratio;
+            if(newLen>=0.3 && newLen<=2.5) setLength(newLen);
+        }
+        function setLength(L) {
+            length = L;
+            lengthValueSpan.innerText = length.toFixed(3)+' m';
+            lengthSlider.value = length;
+            updateInfoDisplay();
+            drawWave();
+            if(isPlaying) { stopSound(); playSound(); }
+        }
+        function setMode(n) {
+            if(n===modeN) return;
+            modeN = n;
+            document.querySelectorAll('.mode-btn').forEach(btn=>{
+                if(parseInt(btn.dataset.mode)===modeN) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+            updateInfoDisplay(); drawWave();
+            if(isPlaying) { stopSound(); playSound(); }
+        }
+        function setBoundary(b) {
+            if(b===rightBoundary) return;
+            rightBoundary = b;
+            if(rightBoundary==='node') { nodeEndBtn.classList.add('active'); antinodeEndBtn.classList.remove('active'); }
+            else { nodeEndBtn.classList.remove('active'); antinodeEndBtn.classList.add('active'); }
+            updateInfoDisplay(); drawWave();
+            if(isPlaying) { stopSound(); playSound(); }
+        }
+        function generateModeButtons() {
+            modeDiv.innerHTML = '';
+            for(let i=1;i<=MAX_MODE;i++) {
+                const btn = document.createElement('button');
+                btn.className = 'mode-btn';
+                btn.textContent = `n=${i}`;
+                btn.dataset.mode = i;
+                btn.addEventListener('click',()=>setMode(i));
+                modeDiv.appendChild(btn);
+                if(i===modeN) btn.classList.add('active');
+            }
+        }
+        // 音频
+        function initAudio() { if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); return audioCtx; }
+        function stopSound() { if(currentSource) { try{ currentSource.stop(); }catch(e){} currentSource=null; } isPlaying=false; }
+        function playSound() { if(!audioCtx) initAudio(); if(audioCtx.state==='suspended') { audioCtx.resume().then(()=>actuallyPlay()).catch(e=>{}); } else actuallyPlay(); }
+        function actuallyPlay() {
+            if(!audioCtx) return;
+            if(currentSource) { try{ currentSource.stop(); }catch(e){} currentSource=null; }
+            const {freq} = getWaveParams(length,modeN,rightBoundary);
+            let playFreq = Math.min(4800, Math.max(28, freq)); if(playFreq<20) playFreq=20;
+            const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.2, audioCtx.currentTime); gain.connect(audioCtx.destination);
+            const osc = audioCtx.createOscillator(); osc.type='sine'; osc.frequency.value=playFreq; osc.connect(gain); osc.start();
+            currentSource=osc; isPlaying=true;
+            osc.onended = ()=>{ if(currentSource===osc) { currentSource=null; isPlaying=false; } };
+        }
+        // 绘图压缩版 (纵轴恒定)
+        function drawWave() {
+            if(!canvas || !ctx) return;
+            const rect = canvas.getBoundingClientRect();
+            const w = rect.width, h = rect.height;
+            if(canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+            const width = canvas.width, height = canvas.height;
+            if(width===0 || height===0) return;
+            ctx.clearRect(0,0,width,height);
+            const marginLeft=50, marginRight=50, marginTop=20, marginBottom=18;
+            const drawWidth = width - marginLeft - marginRight;
+            const drawHeight = height - marginTop - marginBottom;
+            if(drawWidth<=0) return;
+            const pixelAmpHeight = (drawHeight/2)*0.72;
+            const toX = (x) => marginLeft + (x/(length)) * drawWidth;
+            const toY = (yNorm) => {
+                const centerY = marginTop + drawHeight/2;
+                return centerY - yNorm * pixelAmpHeight;
+            };
+            // 基线
+            ctx.beginPath(); ctx.moveTo(marginLeft, toY(0)); ctx.lineTo(marginLeft+drawWidth, toY(0));
+            ctx.strokeStyle='#aab7c4'; ctx.setLineDash([4,4]); ctx.stroke(); ctx.setLineDash([]);
+            const {k, lambda, freq} = getWaveParams(length,modeN,rightBoundary);
+            const steps = Math.max(300, Math.floor(drawWidth*1.5));
+            // 上包络
+            ctx.beginPath(); let first=true;
+            for(let i=0;i<=steps;i++) {
+                const x = (i/steps)*length;
+                let yNorm = Math.sin(k*x);
+                if(x<1e-8) yNorm=0;
+                if(rightBoundary==='node' && Math.abs(x-length)<1e-8) yNorm=0;
+                const xp=toX(x), yp=toY(yNorm);
+                if(first) { ctx.moveTo(xp,yp); first=false; } else ctx.lineTo(xp,yp);
+            }
+            ctx.strokeStyle='#d64531'; ctx.lineWidth=2; ctx.stroke();
+            // 下包络虚线
+            ctx.beginPath(); first=true;
+            for(let i=0;i<=steps;i++) {
+                const x = (i/steps)*length;
+                let yNorm = Math.sin(k*x);
+                if(x<1e-8) yNorm=0;
+                if(rightBoundary==='node' && Math.abs(x-length)<1e-8) yNorm=0;
+                const xp=toX(x), yp=toY(-yNorm);
+                if(first) { ctx.moveTo(xp,yp); first=false; } else ctx.lineTo(xp,yp);
+            }
+            ctx.strokeStyle='#d64531'; ctx.lineWidth=1.5; ctx.setLineDash([5,5]); ctx.stroke(); ctx.setLineDash([]);
+            // 半透明填充
+            ctx.globalAlpha=0.1; ctx.beginPath();
+            let up=[], low=[];
+            for(let i=0;i<=steps;i++) {
+                const x=(i/steps)*length;
+                let yNorm=Math.sin(k*x);
+                if(x<1e-8) yNorm=0;
+                if(rightBoundary==='node' && Math.abs(x-length)<1e-8) yNorm=0;
+                const xp=toX(x);
+                up.push({x:xp, y:toY(yNorm)});
+                low.unshift({x:xp, y:toY(-yNorm)});
+            }
+            ctx.moveTo(up[0].x, up[0].y); for(let p of up) ctx.lineTo(p.x,p.y); for(let p of low) ctx.lineTo(p.x,p.y);
+            ctx.closePath(); ctx.fillStyle='#e0735e'; ctx.fill(); ctx.globalAlpha=1;
+            // 节点
+            let nodePos=[0];
+            if(rightBoundary==='node') for(let m=1;m<=modeN;m++){ let xNode=m*lambda/2; if(xNode<=length+1e-6) nodePos.push(xNode); }
+            else for(let m=1;m<=modeN-1;m++){ let xNode=m*lambda/2; if(xNode<length-1e-6) nodePos.push(xNode); }
+            for(let xn of nodePos){
+                const xp=toX(xn), yp=toY(0);
+                ctx.beginPath(); ctx.arc(xp,yp,3.5,0,2*Math.PI); ctx.fillStyle='#1f6392'; ctx.fill();
+                ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(xp,yp,1.5,0,2*Math.PI); ctx.fill();
+            }
+            // 腹点
+            let antiPos=[];
+            if(rightBoundary==='node') for(let m=0;m<modeN;m++){ let xa=(2*m+1)*lambda/4; if(xa>=0 && xa<=length+1e-6) antiPos.push(xa); }
+            else for(let m=1;m<=modeN;m++){ let xa=(2*m-1)*lambda/4; if(xa>=0 && xa<=length+1e-6) antiPos.push(xa); }
+            for(let xa of antiPos){
+                const xp=toX(xa), amp=Math.sin(k*xa);
+                const yUp=toY(amp), yDown=toY(-amp);
+                ctx.fillStyle='#c2594a';
+                ctx.beginPath(); ctx.moveTo(xp, yUp-3); ctx.lineTo(xp+3.5, yUp); ctx.lineTo(xp, yUp+3); ctx.lineTo(xp-3.5, yUp); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(xp, yDown-3); ctx.lineTo(xp+3.5, yDown); ctx.lineTo(xp, yDown+3); ctx.lineTo(xp-3.5, yDown); ctx.fill();
+            }
+            // 端点标记
+            ctx.fillStyle='#2c4e6e'; ctx.beginPath(); ctx.arc(toX(0), toY(0), 4,0,2*Math.PI); ctx.fill(); ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(toX(0), toY(0),1.5,0,2*Math.PI); ctx.fill();
+            if(rightBoundary==='node'){
+                ctx.fillStyle='#2c4e6e'; ctx.beginPath(); ctx.arc(toX(length), toY(0),4,0,2*Math.PI); ctx.fill(); ctx.fillStyle='white'; ctx.beginPath(); ctx.arc(toX(length), toY(0),1.5,0,2*Math.PI); ctx.fill();
+                ctx.fillStyle='#2c5c7e'; ctx.font="7px sans-serif"; ctx.fillText("波节", toX(length)-12, toY(0)-4);
+            } else {
+                let yEnd=Math.sin(k*length); let xpEnd=toX(length);
+                let yUpEnd=toY(yEnd), yDownEnd=toY(-yEnd);
+                ctx.fillStyle='#c2594a'; ctx.beginPath(); ctx.moveTo(xpEnd, yUpEnd-2.5); ctx.lineTo(xpEnd+3, yUpEnd); ctx.lineTo(xpEnd, yUpEnd+2.5); ctx.lineTo(xpEnd-3, yUpEnd); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(xpEnd, yDownEnd-2.5); ctx.lineTo(xpEnd+3, yDownEnd); ctx.lineTo(xpEnd, yDownEnd+2.5); ctx.lineTo(xpEnd-3, yDownEnd); ctx.fill();
+                ctx.fillStyle='#2c5c7e'; ctx.fillText("自由端", toX(length)-22, toY(0)-8);
+            }
+            ctx.fillStyle='#5f7d9c'; ctx.font="7px monospace"; ctx.fillText("+1", marginLeft-14, toY(1)+2); ctx.fillText("-1", marginLeft-14, toY(-1)+2); ctx.fillText("0", marginLeft-12, toY(0)+3);
+            ctx.beginPath(); ctx.setLineDash([2,3]); ctx.strokeStyle="#cbdbe0";
+            ctx.moveTo(marginLeft-2, toY(1)); ctx.lineTo(marginLeft+drawWidth, toY(1)); ctx.stroke();
+            ctx.moveTo(marginLeft-2, toY(-1)); ctx.lineTo(marginLeft+drawWidth, toY(-1)); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.font="bold 8px 'Segoe UI'"; ctx.fillStyle='#1a5d7a'; ctx.fillText(`n=${modeN}  ${freq.toFixed(0)}Hz`, marginLeft+drawWidth-130, marginTop+10);
+        }
+        function bindEvents() {
+            lengthSlider.addEventListener('input', e=>setLength(parseFloat(e.target.value)));
+            window.addEventListener('resize',()=>drawWave());
+            playBtn.addEventListener('click',()=>{ initAudio(); if(isPlaying) stopSound(); playSound(); });
+            stopBtn.addEventListener('click',()=>stopSound());
+            nodeEndBtn.addEventListener('click',()=>setBoundary('node'));
+            antinodeEndBtn.addEventListener('click',()=>setBoundary('antinode'));
+            setGongBaseBtn.addEventListener('click',()=>setGongBase());
+            for(let btn of pentatonicBtns) btn.addEventListener('click',e=>setNoteLength(e.currentTarget.dataset.note));
+        }
+        function init(){
+            generateModeButtons();
+            bindEvents();
+            gongBaseLength=1.0; updateGongBaseDisplay();
+            setLength(1.0); setMode(1); setBoundary('node');
+            drawWave();
+        }
+        init();
+    })();
+</script>
+</body>
+</html>
