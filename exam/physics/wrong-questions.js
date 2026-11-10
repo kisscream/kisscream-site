@@ -1,3 +1,4 @@
+(() => {
 const page = location.pathname.split('/').pop();
 const key = 'physics-wrong:' + page;
 let marks;
@@ -13,7 +14,7 @@ status.className = 'notice';
 status.setAttribute('aria-live','polite');
 filter.after(status);
 const style = document.createElement('style');
-style.textContent = '.wrong-only article.question:not(.wrong-marked){display:none} .wrong-button{cursor:pointer;margin:8px 0}.wrong-button[aria-pressed=true],button[aria-pressed=true]{background:#fff1dd;color:#863f21}';
+style.textContent = '.wrong-only article.question:not(.wrong-marked){display:none}.wrong-button[aria-pressed=true],button[aria-pressed=true]{background:#fff1dd;color:#863f21}';
 document.head.append(style);
 function refresh() {
   const only = filter.getAttribute('aria-pressed') === 'true';
@@ -23,15 +24,12 @@ function refresh() {
     ? '当前筛选下没有错题。' : '';
 }
 for (const question of questions) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'wrong-button';
-  question.querySelector('h2').after(button);
+  const button = question.querySelector('.wrong-button');
   function update() {
     const marked = marks.has(question.id);
     question.classList.toggle('wrong-marked', marked);
     button.setAttribute('aria-pressed', marked);
-    button.textContent = marked ? '★ 已标记 · 取消错题' : '☆ 标记错题';
+    button.textContent = marked ? '★ 已标记 · 取消' : '☆ 标记此题';
   }
   button.onclick = () => {
     if (marks.has(question.id)) marks.delete(question.id);
@@ -51,3 +49,5 @@ document.addEventListener('input', refresh);
 document.addEventListener('change', refresh);
 document.querySelector('.jump')?.addEventListener('click', refresh);
 refresh();
+
+})();
