@@ -3,1077 +3,721 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>KissCream · 交互实验室</title>
-<meta name="description" content="KissCream — 手势识别交互、可视化交互、AIGC 短剧。纯网页实现，不装插件，打开就能用。">
-<meta property="og:title" content="KissCream · 交互实验室">
-<meta property="og:description" content="手势识别交互 · 可视化交互 · AIGC 短剧">
+<title>KissCream · 星系</title>
+<meta name="description" content="KissCream — 每个项目一颗星球。点开星球，看它是什么。纯网页实现，不装插件，打开就能用。">
+<meta name="theme-color" content="#05070d">
+<meta property="og:title" content="KissCream · 星系">
+<meta property="og:description" content="手势识别 · 可视化交互 · 3D 拆解 · AIGC 短剧">
 <meta property="og:image" content="assets/football.jpg">
 <meta property="og:type" content="website">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ff7a3a'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23101418' stroke-width='2.4'/%3E%3C/svg%3E">
 <style>
   :root{
-    --bg:#05080c; --panel:rgba(255,255,255,.035); --line:rgba(120,190,210,.16);
-    --fg:#e8f1f4; --dim:#93a8b4; --accent:#ff7a3a;
+    --bg:#05070d; --fg:#e9f2f6; --dim:#8fa4b2; --line:rgba(120,190,210,.14); --accent:#ff7a3a;
   }
   *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
+  html,body{margin:0;height:100%}
   body{
-    background:
-      radial-gradient(1200px 600px at 50% -10%, rgba(40,120,140,.16), transparent 60%),
-      radial-gradient(900px 500px at 85% 20%, rgba(255,122,58,.06), transparent 60%),
-      var(--bg);
-    color:var(--fg);
+    background:radial-gradient(1200px 760px at 50% 32%, #0a1522 0%, #05070d 60%, #02040a 100%);
+    color:var(--fg); overflow:hidden;
     font-family:"Microsoft YaHei","PingFang SC",-apple-system,"Segoe UI",sans-serif;
-    -webkit-font-smoothing:antialiased;
-    min-height:100vh;
+    -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
   }
   a{color:inherit;text-decoration:none}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  #space{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:0}
+  #vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(82% 74% at 50% 44%, transparent 44%, rgba(2,4,10,.60) 100%)}
 
   /* 顶栏 */
-  header{position:sticky;top:0;z-index:10;backdrop-filter:blur(14px);background:rgba(5,8,12,.72);border-bottom:1px solid rgba(120,190,210,.10)}
-  .nav{display:flex;align-items:center;justify-content:space-between;height:64px}
-  .brand{display:flex;align-items:center;gap:11px;font-size:18px;font-weight:700;letter-spacing:.4px}
-  .mark{width:26px;height:26px;border-radius:8px;background:var(--accent);position:relative}
-  .mark:after{content:"";position:absolute;inset:6px;border:2px solid #101418;border-radius:50%}
-  .nav nav{display:flex;gap:26px;font-size:13.5px;color:var(--dim)}
-  .nav nav a:hover{color:var(--fg)}
-
-  /* 粒子舞台 */
-  .stage{position:relative;height:calc(100svh - 64px);min-height:470px;overflow:hidden;background:var(--bg)}
-  #gl{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:pan-y}
-  .stage:after{content:"";position:absolute;inset:0;pointer-events:none;
-    background:
-      radial-gradient(120% 76% at 50% 44%, rgba(40,120,140,.15), transparent 62%),
-      linear-gradient(180deg, rgba(5,8,12,.62) 0%, rgba(5,8,12,0) 20%, rgba(5,8,12,0) 74%, #05080c 100%)}
-  .stage-eyebrow{position:absolute;left:0;right:0;top:max(6.5vh,48px);text-align:center;
-    font-size:10.5px;letter-spacing:3.4px;text-transform:uppercase;
-    color:rgba(140,175,190,.62);pointer-events:none}
-  .stage-title{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);margin:0;
-    text-align:center;font-size:clamp(40px,9.2vw,90px);line-height:1;letter-spacing:-1.2px;
-    font-weight:800;color:transparent;pointer-events:none;user-select:none}
-  .no-gl .stage-title{color:var(--fg)}
-  .no-gl #gl{display:none}
-  .stage-sub{position:absolute;left:0;right:0;bottom:15.5%;margin:0 auto;max-width:580px;padding:0 30px;
-    text-align:center;font-size:14px;line-height:1.9;color:var(--dim);pointer-events:none}
-  .stage-sub b{color:#e8f1f4;font-weight:600}
-  .scroll-cue{position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:12px;
-    letter-spacing:2.2px;color:rgba(192,216,229,.82);pointer-events:none}
-  .scroll-cue span{display:inline-block;animation:bob 2.2s ease-in-out infinite}
-  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
-
-    /* 模块区 */
-  .section-head{display:flex;align-items:baseline;justify-content:space-between;gap:14px;margin:58px 0 20px}
-  .section-head h2{font-size:15px;font-weight:600;letter-spacing:.5px;margin:0}
-  .section-head span{font-size:12px;color:rgba(140,175,190,.55)}
-  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
-  .card{
-    position:relative;display:flex;flex-direction:column;border-radius:18px;overflow:hidden;
-    border:1px solid var(--line);background:var(--panel);
-    transition:transform .28s cubic-bezier(.2,.7,.3,1),border-color .28s,box-shadow .28s;
-  }
-  .card:hover{transform:translateY(-4px);border-color:rgba(255,122,58,.45);box-shadow:0 20px 46px rgba(0,0,0,.48)}
-  .card.soon{cursor:default}
-  .card.soon:hover{transform:none;border-color:var(--line);box-shadow:none}
-  .cover{position:relative;aspect-ratio:16/10;overflow:hidden;background:#070b0f}
-  .cover img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s cubic-bezier(.2,.7,.3,1)}
-  .card:hover .cover img{transform:scale(1.035)}
-  .cover:after{content:"";position:absolute;inset:0;
-    background:linear-gradient(180deg,rgba(5,8,12,.18) 0%,rgba(5,8,12,0) 42%,rgba(5,8,12,.72) 100%)}
-  .cover-tint{position:absolute;inset:0;
-    background:radial-gradient(60% 62% at 50% 46%, rgba(255,122,58,.20), rgba(7,11,15,0) 74%),
-      radial-gradient(120% 120% at 50% 0%, rgba(120,190,210,.05), rgba(7,11,15,0) 70%),#070b0f}
-  .cover-tint.blue{background:radial-gradient(60% 62% at 50% 46%, rgba(64,150,190,.26), rgba(7,11,15,0) 74%),
-      radial-gradient(120% 120% at 50% 0%, rgba(120,190,210,.06), rgba(7,11,15,0) 70%),#070b0f}
-  .cico{position:absolute;left:50%;top:50%;width:40%;height:auto;transform:translate(-50%,-50%);
-    transition:transform .6s cubic-bezier(.2,.7,.3,1);z-index:1}
-  .card:hover .cico{transform:translate(-50%,-50%) scale(1.05)}
-  .tag{position:absolute;left:15px;top:15px;z-index:2;font-size:10.5px;letter-spacing:1.4px;
-    padding:5px 10px;border-radius:6px;background:rgba(255,122,58,.16);
-    border:1px solid rgba(255,122,58,.45);color:#ffb08a;backdrop-filter:blur(4px)}
-  .tag.mute{background:rgba(120,190,210,.10);border-color:rgba(120,190,210,.28);color:#9fbcc8}
-  .body{padding:19px 21px 22px;flex:1;display:flex;flex-direction:column}
-  .body h3{margin:0;font-size:19px;font-weight:600;letter-spacing:.2px}
-  .body p{margin:10px 0 0;font-size:12.8px;line-height:1.85;color:var(--dim)}
-  .meta{display:flex;gap:13px;margin-top:auto;padding-top:15px;font-size:11px;
-    color:rgba(140,168,182,.72);flex-wrap:wrap}
-  .meta i{font-style:normal;color:var(--accent);margin-right:5px;opacity:.85}
-  .go{position:absolute;right:19px;bottom:20px;font-size:12px;color:var(--accent);
-    opacity:0;transform:translateX(-6px);transition:.28s}
-  .card:hover .go{opacity:1;transform:none}
-  .card.soon .go{display:none}
-
-  /* 技术条 */
-  .tech-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:6px}
-  .tech{border:1px solid rgba(120,190,210,.13);border-radius:14px;padding:16px 17px 18px;
-    background:rgba(255,255,255,.025)}
-  .tech b{display:block;font-size:14.5px;font-weight:600;color:#eaf4f7;margin-bottom:7px}
-  .tech span{display:block;font-size:11.5px;line-height:1.8;color:var(--dim)}
-  .note{margin:26px 0 0;max-width:660px;font-size:13px;line-height:1.95;color:var(--dim)}
-
-  @media (max-width:960px){
-    .grid{grid-template-columns:1fr;gap:18px}
-    .tech-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  }
-  @media (max-width:640px){
-    .stage{height:calc(100svh - 56px);min-height:430px}
-    .stage-sub{bottom:17%;font-size:13px}
-    .nav nav{display:none}
-    .section-head{margin-top:44px}
-    .wrap{padding:0 20px}
-    .body{padding:17px 17px 19px}
-    .body h3{font-size:17.5px}
-    .meta{gap:10px}
-    .tech-grid{gap:10px}
-    .tech{padding:14px 14px 15px}
-    .tech b{font-size:13.5px}
-  }
-  @media (prefers-reduced-motion:reduce){
-    .scroll-cue span{animation:none}
-    .card,.cover img,.cico{transition:none}
-  }
-  footer{border-top:1px solid rgba(120,190,210,.10);padding:26px 0 40px;font-size:12px;color:rgba(140,168,182,.5);
-    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-
-  /* 下载 App 卡片 */
-  .appcard{display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap;
-    border:1px solid rgba(120,190,210,.16);border-radius:18px;padding:20px 24px;
-    background:linear-gradient(135deg,rgba(255,122,58,.10),rgba(255,255,255,.02))}
-  .appcard-l{display:flex;align-items:center;gap:15px}
-  .appcard img{width:52px;height:52px;border-radius:13px;box-shadow:0 6px 18px rgba(0,0,0,.45)}
-  .appcard h3{margin:0 0 4px;font-size:16px;color:#eef5f8}
-  .appcard p{margin:0;font-size:12.5px;color:var(--dim);line-height:1.7}
-  .btn-install{cursor:pointer;border:none;border-radius:10px;padding:12px 24px;font-size:14px;font-weight:600;
-    color:#fff;background:linear-gradient(135deg,#ff8a4c,#f0521a);font-family:inherit;
-    box-shadow:0 8px 22px rgba(240,82,26,.28);transition:.18s}
-  .btn-install:hover{transform:translateY(-1px);filter:brightness(1.06)}
-  .dlg{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
-    background:rgba(3,6,9,.74);backdrop-filter:blur(6px);padding:20px}
-  .dlg[hidden]{display:none}
-  .dlg-box{width:100%;max-width:430px;border-radius:18px;padding:24px;
-    background:#0b1116;border:1px solid rgba(120,190,210,.18);box-shadow:0 24px 60px rgba(0,0,0,.6)}
-  .dlg-box h3{margin:0 0 6px;font-size:17px;color:#eef5f8}
-  .dlg-box ol{margin:14px 0 0;padding-left:20px;font-size:13px;line-height:2;color:rgba(200,216,224,.86)}
-  .dlg-box li b{color:#ffb08a;font-weight:600}
-  .dlg-tip{margin-top:14px;font-size:12px;line-height:1.8;color:rgba(140,168,182,.7)}
-  .dlg-url{display:flex;gap:8px;margin-top:14px}
-  .dlg-url input{flex:1;min-width:0;background:rgba(255,255,255,.04);border:1px solid rgba(120,190,210,.2);
-    border-radius:9px;padding:10px 12px;color:#cfe0e8;font-size:12px;font-family:ui-monospace,Consolas,monospace}
-  .dlg-url button{cursor:pointer;border-radius:9px;padding:0 14px;font-size:12px;font-family:inherit;
-    background:rgba(255,255,255,.06);border:1px solid rgba(120,190,210,.22);color:#c6d8df}
-  .dlg-close{margin-top:16px;width:100%;cursor:pointer;border-radius:10px;padding:11px;font-size:13px;
-    font-family:inherit;background:rgba(255,255,255,.05);border:1px solid rgba(120,190,210,.2);color:#c6d8df}
-
-  @media (max-width:640px){
-    .stage{height:calc(100svh - 56px);min-height:430px}
-    .stage-sub{bottom:17%;font-size:13px}
-    .grid{grid-template-columns:1fr}
-    .nav nav{display:none}
-    .section-head{margin-top:44px}
-  }
-  @media (prefers-reduced-motion:reduce){
-    .scroll-cue span{animation:none}
-    .card,.cover img,.cico{transition:none}
-  }
+  #topbar{position:fixed;top:0;left:0;right:0;z-index:8;display:flex;align-items:center;
+    justify-content:space-between;gap:14px;padding:calc(16px + env(safe-area-inset-top)) 22px 14px;
+    pointer-events:none}
+  #topbar > *{pointer-events:auto}
+  .brand{display:flex;align-items:center;gap:11px;font-size:17px;font-weight:700;letter-spacing:.6px;
+    user-select:none;-webkit-user-select:none}
+  .mark{width:24px;height:24px;border-radius:8px;background:var(--accent);position:relative;
+    box-shadow:0 0 20px rgba(255,122,58,.45)}
+  .mark:after{content:"";position:absolute;inset:5px;border:2px solid #101418;border-radius:50%}
+  .bar-right{display:flex;align-items:center;gap:12px}
+  .tip{font-size:12.5px;color:var(--dim);letter-spacing:.3px}
+  .ghost{border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:12.5px;
+    color:var(--dim);background:rgba(255,255,255,.03);transition:.25s}
+  .ghost:hover{color:var(--fg);border-color:rgba(120,190,210,.34)}
 </style>
-<!-- PWA：可添加到主屏幕 / 离线可用 -->
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#05080c">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="KissCream">
 </head>
 <body>
+<canvas id="space" aria-hidden="true"></canvas>
+<div id="vignette"></div>
+<div id="stage"></div>
 
-<header>
-  <div class="wrap nav">
-    <a class="brand" href="index.html"><span class="mark"></span>KissCream</a>
-    <nav>
-      <a href="#works">模块</a>
-      <a href="#tech">怎么做的</a>
-      <a href="#getapp">装到桌面</a>
-    <a href="exam/">备考的KIssCream</a></nav>
+<header id="topbar">
+  <div class="brand" id="brand"><span class="mark"></span><span>KissCream</span></div>
+  <div class="bar-right">
+    <span class="tip" id="tip">点一颗星球，看它是什么</span>
+    <button class="ghost" id="installBtn" hidden>装到桌面</button>
   </div>
 </header>
 
-<main>
-  <section class="stage" id="top">
-    <canvas id="gl"></canvas>
-    <div class="stage-eyebrow">KissCream · Interactive Lab</div>
-    <h1 class="stage-title">KissCream</h1>
-    <p class="stage-sub">四个模块，一套手写渲染。<b>移动手指</b>把粒子推开，松开手它们会重新聚成字。</p>
-    <div class="scroll-cue">往下看 <span>↓</span></div>
-  </section>
+<aside id="panel" aria-label="项目介绍">
+  <div class="p-head"><span class="dot" id="pdot"></span><span id="pname">—</span></div>
+  <div id="feed"></div>
+  <div class="p-foot" id="pfoot"></div>
+</aside>
 
-    <section class="wrap" id="works">
-    <div class="section-head">
-      <h2>模块</h2>
-      <span>手写渲染 · 全部在浏览器里跑</span>
-    </div>
+<div id="toast"></div>
+<div id="foot">© 2026 KissCream · 手写渲染 · 无外部依赖</div>
 
-    <div class="grid">
-
-      <a class="card" href="mama.html">
-        <div class="cover">
-          <span class="tag">新</span>
-          <div class="cover-tint"></div>
-          <svg class="cico" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-            <rect x="52" y="46" width="16" height="34" rx="4" stroke="rgba(255,170,120,.75)"/>
-            <path d="M60 46V36" stroke="rgba(255,170,120,.45)" stroke-linecap="round"/>
-            <path d="M60 30c5 4 7 8 7 12a7 7 0 01-14 0c0-4 2-8 7-12z" stroke="rgba(255,205,140,.95)"/>
-            <path d="M32 80h56" stroke="rgba(255,170,120,.5)" stroke-linecap="round"/>
-            <path d="M38 80c0-4 4-7 9-7s9 3 9 7M64 80c0-4 4-7 9-7s9 3 9 7" stroke="rgba(255,150,190,.45)"/>
-            <g fill="rgba(255,225,180,.9)">
-              <circle cx="26" cy="40" r="1.8"/><circle cx="96" cy="34" r="1.5"/>
-              <circle cx="34" cy="26" r="1.2"/><circle cx="88" cy="58" r="1.4"/>
-              <circle cx="22" cy="62" r="1.2"/><circle cx="100" cy="72" r="1.3"/>
-            </g>
-          </svg>
-        </div>
-        <div class="body">
-          <h3>生日 · 星屑成诗</h3>
-          <p>给妈妈的生日页：粒子倒计时、粒子写字、蛋糕点亮，握拳切蛋糕，张开双手展开照片墙。对着摄像头比手势就能一路玩下去。</p>
-          <div class="meta"><span><i>◆</i>手势交互</span><span><i>◆</i>粒子动画</span><span><i>◆</i>8 张照片</span></div>
-        </div>
-        <span class="go">去看看 →</span>
-      </a>
-
-      <a class="card" href="gesture.html">
-        <div class="cover">
-          <span class="tag">已上线</span>
-          <img src="assets/gesture.jpg" alt="手势识别粒子星云">
-        </div>
-        <div class="body">
-          <h3>手势识别交互模型</h3>
-          <p>摄像头认手：握拳、张开切换形态；手往哪边靠，整团星云就被牵着偏移过去。识别全在本机跑，画面不离开这台设备。</p>
-          <div class="meta"><span><i>◆</i>7 万粒子</span><span><i>◆</i>端侧推理</span><span><i>◆</i>手部骨架回显</span></div>
-        </div>
-        <span class="go">进去玩 →</span>
-      </a>
-
-      <a class="card" href="diy.html">
-        <div class="cover">
-          <span class="tag">新</span>
-          <div class="cover-tint blue"></div>
-          <svg class="cico" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-            <path d="M44 78V54a4 4 0 018 0v16" stroke="rgba(120,190,210,.42)" stroke-linecap="round"/>
-            <path d="M52 70V44a4 4 0 018 0v24" stroke="rgba(120,190,210,.42)" stroke-linecap="round"/>
-            <path d="M60 68V48a4 4 0 018 0v20" stroke="rgba(120,190,210,.42)" stroke-linecap="round"/>
-            <path d="M68 70V54a4 4 0 018 0v24" stroke="rgba(120,190,210,.42)" stroke-linecap="round"/>
-            <path d="M36 62c-4-6-10-6-11-1 0 4 2 7 5 10 4 4 8 12 14 17 5 4 11 5 17 5 12 0 21-7 21-19V54"
-                  stroke="rgba(120,190,210,.30)" stroke-linecap="round"/>
-            <g fill="rgba(120,190,210,.55)">
-              <circle cx="44" cy="50" r="2.4"/><circle cx="52" cy="40" r="2.4"/>
-              <circle cx="60" cy="44" r="2.4"/><circle cx="68" cy="50" r="2.4"/>
-              <circle cx="47" cy="80" r="2.4"/>
-            </g>
-          </svg>
-        </div>
-        <div class="body">
-          <h3>手势工作台 · 自己做手势</h3>
-          <p>随手比一个手型给相机，它把这一刻的五指状态记成一枚「指纹」存在本机；以后在任何一页做出同一个手型，就直接播放你绑定的那段动画。</p>
-          <div class="meta"><span><i>◆</i>自定义手势</span><span><i>◆</i>只存本机</span><span><i>◆</i>六种动画</span></div>
-        </div>
-        <span class="go">去教我 →</span>
-      </a>
-
-      <a class="card" href="imitate.html">
-        <div class="cover">
-          <span class="tag">新</span>
-          <div class="cover-tint blue"></div>
-          <svg class="cico" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-            <path d="M46 76V56a3.6 3.6 0 017 0v14" stroke="rgba(120,190,210,.32)" stroke-linecap="round"/>
-            <path d="M53 70V46a3.6 3.6 0 017 0v22" stroke="rgba(120,190,210,.32)" stroke-linecap="round"/>
-            <path d="M60 68V44a3.6 3.6 0 017 0v22" stroke="rgba(120,190,210,.32)" stroke-linecap="round"/>
-            <path d="M67 70V50a3.6 3.6 0 017 0v20" stroke="rgba(120,190,210,.32)" stroke-linecap="round"/>
-            <path d="M38 64c-4-6-9-6-10-1 0 4 2 7 5 10 4 4 8 11 14 15 5 3 11 4 17 4 12 0 20-7 20-18V56"
-                  stroke="rgba(120,190,210,.24)" stroke-linecap="round"/>
-            <g fill="rgba(140,205,225,.62)">
-              <circle cx="49" cy="52" r="2"/><circle cx="56" cy="42" r="2"/>
-              <circle cx="63" cy="40" r="2"/><circle cx="70" cy="46" r="2"/>
-              <circle cx="41" cy="60" r="1.8"/><circle cx="56" cy="66" r="1.8"/>
-              <circle cx="63" cy="64" r="1.8"/><circle cx="49" cy="74" r="1.8"/>
-            </g>
-          </svg>
-        </div>
-        <div class="body">
-          <h3>手势模仿 · 粒子实验区</h3>
-          <p>把你的手势录给相机：分析完，粒子就照着你的手排成那个形状，录完当场实时播放。手势的名字也由粒子写在上面。</p>
-          <div class="meta"><span><i>◆</i>录什么像什么</span><span><i>◆</i>粒子文字</span><span><i>◆</i>存本机</span></div>
-        </div>
-        <span class="go">去录一个 →</span>
-      </a>
-
-      <a class="card" href="football.html">
-        <div class="cover">
-          <span class="tag">已上线</span>
-          <img src="assets/football.jpg" alt="足球结构解剖">
-        </div>
-        <div class="body">
-          <h3>足球 · 3D 结构解剖</h3>
-          <p>32 块皮面怎么拼成一个球？拆开看四层：外皮、内衬、缠纱中胎、气囊。拖拽旋转、滚轮缩放，点零件看名字。</p>
-          <div class="meta"><span><i>◆</i>可拆解</span><span><i>◆</i>4 层结构</span><span><i>◆</i>可交互</span></div>
-        </div>
-        <span class="go">进去看 →</span>
-      </a>
-
-      <a class="card" href="supra/">
-        <div class="cover">
-          <span class="tag">新</span>
-          <img src="assets/supra.jpg" alt="Supra A90 赛博风洞">
-        </div>
-        <div class="body">
-          <h3>Supra A90 · 赛博风洞</h3>
-          <p>真实的 2025 款 GR Supra A90 车模摆在一条赛博风洞里：拉出流线、看风速热力、开灯点火听 B58 的声浪，还能一键拆开看零件。</p>
-          <div class="meta"><span><i>◆</i>可拆解</span><span><i>◆</i>风洞流场</span><span><i>◆</i>车内视角</span></div>
-        </div>
-        <span class="go">进去看 →</span>
-      </a>
-
-      <a class="card" href="aigc.html">
-        <div class="cover">
-          <span class="tag mute">开发中</span>
-          <div class="cover-tint blue"></div>
-          <svg class="cico" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-            <rect x="17" y="30" width="86" height="60" rx="9" stroke="rgba(120,190,210,.45)"/>
-            <path d="M19 45h82" stroke="rgba(120,190,210,.16)"/>
-            <g fill="rgba(120,190,210,.34)">
-              <rect x="26" y="35" width="7" height="4" rx="2"/><rect x="41" y="35" width="7" height="4" rx="2"/>
-              <rect x="56" y="35" width="7" height="4" rx="2"/><rect x="71" y="35" width="7" height="4" rx="2"/>
-              <rect x="86" y="35" width="7" height="4" rx="2"/>
-            </g>
-            <path d="M50 55.5 L77 60 L50 64.5 Z" fill="rgba(255,122,58,.88)"/>
-            <rect x="27" y="73" width="66" height="3" rx="1.5" fill="rgba(120,190,210,.26)"/>
-            <rect x="27" y="80" width="40" height="3" rx="1.5" fill="rgba(120,190,210,.16)"/>
-          </svg>
-        </div>
-        <div class="body">
-          <h3>AIGC 短剧</h3>
-          <p>用 AI 生成的画面和声音，在网页里直接播完一整段短剧。片名、分镜、字幕全在浏览器里拼，不跳去别的平台。</p>
-          <div class="meta"><span><i>◆</i>生成视频</span><span><i>◆</i>网页播放</span><span><i>◆</i>规划中</span></div>
-        </div>
-        <span class="go">看看 →</span>
-      </a>
-
-      <a class="card" href="rover.html">
-        <div class="cover">
-          <span class="tag">新</span>
-          <div class="cover-tint"></div>
-          <svg class="cico" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-            <rect x="26" y="44" width="68" height="22" rx="5" stroke="rgba(255,150,90,.55)"/>
-            <path d="M38 44V34h44v10" stroke="rgba(255,150,90,.38)" stroke-linejoin="round"/>
-            <path d="M60 44V28" stroke="rgba(255,150,90,.7)" stroke-linecap="round"/>
-            <circle cx="60" cy="25" r="3.4" stroke="rgba(255,150,90,.9)"/>
-            <path d="M26 60l-8 14M94 60l8 14M44 66v10M76 66v10" stroke="rgba(255,150,90,.45)" stroke-linecap="round"/>
-            <g stroke="rgba(255,190,140,.8)">
-              <circle cx="18" cy="78" r="7"/><circle cx="44" cy="80" r="7"/>
-              <circle cx="60" cy="80" r="7"/><circle cx="76" cy="80" r="7"/>
-              <circle cx="102" cy="78" r="7"/>
-            </g>
-            <g fill="rgba(255,150,90,.28)">
-              <circle cx="18" cy="78" r="2.2"/><circle cx="44" cy="80" r="2.2"/>
-              <circle cx="60" cy="80" r="2.2"/><circle cx="76" cy="80" r="2.2"/>
-              <circle cx="102" cy="78" r="2.2"/>
-            </g>
-          </svg>
-        </div>
-        <div class="body">
-          <h3>火星车 · 3D 拆解</h3>
-          <p>六轮摇臂式（rocker-bogie）火星车，真机是 1:6.5 的 ESP32-S3 小车。网页里直接拖着转，按总成开合零件，拉爆炸视图看装配关系。</p>
-          <div class="meta"><span><i>◆</i>WebGL 实时</span><span><i>◆</i>爆炸视图</span><span><i>◆</i>手机可转</span></div>
-        </div>
-        <span class="go">去看看 →</span>
-      </a>
-
-      <div class="card soon">
-        <div class="cover">
-          <span class="tag mute">筹备中</span>
-          <div class="cover-tint"></div>
-          <svg class="cico" viewBox="0 0 160 120" fill="none" aria-hidden="true">
-            <rect x="16" y="46" width="34" height="28" rx="6" stroke="rgba(255,122,58,.52)"/>
-            <rect x="63" y="42" width="34" height="28" rx="6" stroke="rgba(255,122,58,.68)"/>
-            <rect x="110" y="38" width="34" height="28" rx="6" stroke="rgba(255,122,58,.84)"/>
-            <path d="M50 60h13M97 60h13" stroke="rgba(255,122,58,.28)" stroke-dasharray="3 4" stroke-width="1.2"/>
-            <circle cx="33" cy="60" r="2.6" fill="rgba(255,122,58,.7)"/>
-            <circle cx="127" cy="54" r="2.6" fill="rgba(255,122,58,.88)"/>
-          </svg>
-        </div>
-        <div class="body">
-          <h3>AK47 · 3D 拆解</h3>
-          <p>同一套引擎的枪械拆解练习：零件逐个分离、编号、再归位。本地工程已经能跑，搬上网站还在排期。</p>
-          <div class="meta"><span><i>◆</i>3D 部件</span><span><i>◆</i>拆解动画</span><span><i>◆</i>筹备中</span></div>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <section class="wrap" id="tech" style="padding-bottom:64px">
-    <div class="section-head"><h2>怎么做的</h2><span>没有框架 · 没有外部依赖</span></div>
-    <div class="tech-grid">
-      <div class="tech"><b>纯网页</b><span>三个场景都是单个 HTML 文件，不装插件、不连第三方库，点开就能用。</span></div>
-      <div class="tech"><b>自写 WebGL2</b><span>首页那团粒子是手写的着色器，十万个点在显卡里同时运动，CPU 每帧只改几个参数。</span></div>
-      <div class="tech"><b>端侧识别</b><span>手部识别的 wasm 和模型都托管在本站，摄像头画面不上传，断网也能识别。</span></div>
-      <div class="tech"><b>可装到桌面</b><span>PWA：加到主屏幕后全屏打开，没有地址栏，第一次打开过就能离线看。</span></div>
-    </div>
-    <p class="note">
-      这里记录的是我目前在做的四个模块：手势识别交互、可视化交互、AIGC 短剧，以及还没搬上来的 3D 拆解。
-      每个模块都尽量做成「打开就能玩」的单页，不下载、不注册。
-    </p>
-  </section>
-<section class="wrap" id="exam"><div class="section-head"><h2>备考的KIssCream</h2><span>学习与备考</span></div><a class="card" href="exam/"><div class="body"><h3>进入备考空间 ↗</h3><p>大物复习 · 概率论复习</p><p>笔记、题目解析、知识图谱与互动演示，从这里开始。</p></div></a></section></main>
-
-<section id="getapp" class="wrap" style="padding:0 0 58px">
-  <div class="appcard">
-    <div class="appcard-l">
-      <img src="icons/icon-192.png" alt="KissCream">
-      <div>
-        <h3>把 KissCream 装到桌面</h3>
-        <p>全屏打开、没有地址栏，第一次打开后断网也能看。</p>
-      </div>
-    </div>
-    <button id="installBtn" class="btn-install">下载 App</button>
+<noscript>
+  <div style="position:fixed;inset:0;z-index:50;background:#05070d;padding:28px;overflow:auto">
+    <h1>KissCream</h1>
+    <ul>
+      <li><a href="gesture.html">手势识别 · 粒子星云</a></li>
+      <li><a href="diy.html">手势工作台</a></li>
+      <li><a href="imitate.html">手势模仿 · 粒子实验区</a></li>
+      <li><a href="football.html">足球 · 3D 结构解剖</a></li>
+      <li><a href="supra/">Supra A90 · 赛博风洞</a></li>
+      <li><a href="rover.html">火星车 · 3D 拆解</a></li>
+      <li><a href="aigc.html">AIGC 短剧</a></li>
+    </ul>
   </div>
-</section>
-<footer class="wrap">
-  <span>© 2026 KissCream</span>
-  <span>Built by hand · 无外部依赖</span>
-</footer>
-
-<div id="dlg" class="dlg" hidden>
-  <div class="dlg-box">
-    <h3>把 KissCream 装到桌面</h3>
-    <div style="font-size:12.5px;color:var(--dim);line-height:1.8">它是网页应用，不用去应用商店，几十秒就好。</div>
-    <div id="iosSteps">
-      <ol>
-        <li>点浏览器底部中间的 <b>分享</b> 按钮</li>
-        <li>在弹出的菜单里往下滑，找到 <b>添加到主屏幕</b></li>
-        <li>右上角点 <b>添加</b>，桌面上就多一个橙色图标</li>
-      </ol>
-    </div>
-    <div id="andSteps">
-      <ol>
-        <li>点浏览器右上角的 <b>⋮</b> 菜单</li>
-        <li>选 <b>安装应用</b> 或 <b>添加到主屏幕</b></li>
-        <li>确认后桌面上就多一个橙色图标</li>
-      </ol>
-    </div>
-    <div class="dlg-tip">在微信里打不开这个菜单，请先点右上角「…」→ 在浏览器中打开。</div>
-    <div class="dlg-url">
-      <input id="dlgUrl" readonly value="https://kisscream.github.io/kisscream-site/">
-      <button id="copyUrl">复制</button>
-    </div>
-    <button class="dlg-close" id="dlgClose">知道了</button>
-  </div>
-</div>
-
-<script>
-(function(){
-  var card=document.getElementById('getapp'), btn=document.getElementById('installBtn');
-  var dlg=document.getElementById('dlg'), deferred=null;
-  window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); deferred=e; });
-  window.addEventListener('appinstalled', function(){ if(card) card.style.display='none'; });
-  if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
-    if (card) card.style.display='none';
+</noscript><style>
+  /* 行星 */
+  #stage{position:fixed;inset:0;z-index:3;pointer-events:none}
+  .p{position:absolute;left:0;top:0;width:0;height:0;pointer-events:auto;cursor:pointer;
+     outline:none;-webkit-user-select:none;user-select:none;will-change:transform,opacity}
+  .p-holder{position:absolute;left:0;top:0}
+  .p-halo{position:absolute;left:50%;top:50%;border-radius:50%;transform:translate(-50%,-50%);
+     pointer-events:none;opacity:.50;
+     background:radial-gradient(circle, var(--glow) 0%, rgba(0,0,0,0) 68%)}
+  .p-orb{position:absolute;inset:0;border-radius:50%;
+     background:radial-gradient(circle at 33% 27%, rgba(255,255,255,.95) 0%, var(--c1) 26%, var(--c2) 66%, #04060b 100%);
+     box-shadow:0 0 22px var(--glow), 0 0 64px var(--glow2),
+       inset -12px -16px 30px rgba(0,0,0,.66), inset 9px 9px 24px rgba(255,255,255,.16)}
+  .p-orb:after{content:"";position:absolute;inset:0;border-radius:50%;opacity:.24;
+     background:repeating-linear-gradient(76deg, rgba(255,255,255,.22) 0 2px, rgba(255,255,255,0) 2px 10px);
+     -webkit-mask-image:radial-gradient(circle at 38% 36%, #000 30%, transparent 76%);
+     mask-image:radial-gradient(circle at 38% 36%, #000 30%, transparent 76%)}
+  .p-ring{position:absolute;left:50%;top:50%;border-radius:50%;pointer-events:none;
+     border:1.5px solid var(--ring);box-shadow:0 0 14px var(--glow2);
+     transform:translate(-50%,-50%) rotate(-19deg) scaleY(.30)}
+  .p-label{position:absolute;left:0;top:0;white-space:nowrap;font-size:12.5px;letter-spacing:.6px;
+     color:rgba(233,242,246,.80);text-shadow:0 1px 10px #000;pointer-events:none}
+  .p:hover .p-label{color:#fff}
+  .p.hot .p-orb{box-shadow:0 0 30px var(--glow),0 0 90px var(--glow2),
+      inset -12px -16px 30px rgba(0,0,0,.62),inset 9px 9px 26px rgba(255,255,255,.22)}
+  .p-badge{position:absolute;left:0;top:0;white-space:nowrap;font-size:10.5px;letter-spacing:.4px;
+     color:rgba(143,164,178,.92);border:1px solid var(--line);border-radius:999px;padding:1px 7px;
+     background:rgba(6,10,16,.55);pointer-events:none}
+</style><style>
+  /* 右侧聊天面板 */
+  #panel{position:fixed;right:0;top:0;bottom:0;width:404px;max-width:90vw;z-index:9;
+    display:flex;flex-direction:column;gap:12px;
+    padding:calc(74px + env(safe-area-inset-top)) 22px calc(20px + env(safe-area-inset-bottom));
+    background:linear-gradient(180deg, rgba(10,16,22,.88), rgba(5,9,14,.95));
+    border-left:1px solid var(--line);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    box-shadow:-30px 0 90px rgba(0,0,0,.55);
+    transform:translateX(103%);transition:transform .55s cubic-bezier(.22,.61,.36,1)}
+  body.sel #panel{transform:none}
+  .p-head{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--dim);
+    letter-spacing:.4px;padding-bottom:10px;border-bottom:1px solid rgba(120,190,210,.10)}
+  .p-head .dot{width:9px;height:9px;border-radius:50%;background:#8fe;box-shadow:0 0 12px currentColor;flex:none}
+  #feed{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:2px 2px 6px}
+  #feed::-webkit-scrollbar{width:5px}
+  #feed::-webkit-scrollbar-thumb{background:rgba(120,190,210,.22);border-radius:3px}
+  .msg{padding:11px 14px;border-radius:14px;font-size:13.5px;line-height:1.75;
+    background:rgba(255,255,255,.045);border:1px solid rgba(120,190,210,.11);
+    opacity:0;transform:translateY(9px);transition:opacity .38s ease,transform .38s ease}
+  .msg.in{opacity:1;transform:none}
+  .msg b{color:#fff;font-weight:600}
+  .msg.tags{display:flex;flex-wrap:wrap;gap:7px;background:none;border:0;padding:0}
+  .tag{font-size:11.5px;color:var(--dim);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+  .typing{display:flex;gap:5px;align-items:center;padding:13px 15px;width:52px}
+  .typing i{width:6px;height:6px;border-radius:50%;background:var(--dim);animation:tdot 1.15s infinite}
+  .typing i:nth-child(2){animation-delay:.15s}
+  .typing i:nth-child(3){animation-delay:.3s}
+  @keyframes tdot{0%,60%,100%{opacity:.22;transform:translateY(0)}32%{opacity:1;transform:translateY(-3px)}}
+  .p-foot{display:flex;gap:10px;align-items:stretch;padding-top:6px;opacity:0;transition:opacity .4s}
+  .p-foot.in{opacity:1}
+  .go-btn{flex:1;display:flex;align-items:center;justify-content:center;border-radius:12px;
+    padding:13px 18px;font-size:14px;font-weight:600;color:#14181c;
+    background:linear-gradient(180deg,#ff9152,#e8561c);box-shadow:0 10px 28px rgba(255,122,58,.26)}
+  .go-btn:hover{filter:brightness(1.07)}
+  .soon-btn{flex:1;display:flex;align-items:center;justify-content:center;border-radius:12px;
+    padding:13px 18px;font-size:13.5px;color:var(--dim);border:1px dashed rgba(120,190,210,.26)}
+  .x-btn{width:46px;border-radius:12px;border:1px solid var(--line);color:var(--dim);font-size:15px}
+  .x-btn:hover{color:#fff;border-color:rgba(120,190,210,.36)}
+  #toast{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom));z-index:20;
+    transform:translate(-50%,14px);opacity:0;pointer-events:none;transition:.34s;
+    font-size:12.5px;color:#fff;background:rgba(12,20,28,.92);border:1px solid var(--line);
+    border-radius:999px;padding:9px 16px}
+  #toast.on{opacity:1;transform:translate(-50%,0)}
+  #foot{position:fixed;left:22px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:6;
+    font-size:11.5px;color:rgba(143,164,178,.68);letter-spacing:.4px;pointer-events:none}
+  @media (max-width:820px){
+    #topbar{padding:calc(13px + env(safe-area-inset-top)) 16px 10px}
+    .tip{display:none}
+    #panel{left:0;right:0;top:auto;bottom:0;width:auto;max-width:none;height:60vh;
+      border-left:0;border-top:1px solid var(--line);border-radius:22px 22px 0 0;
+      padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+      transform:translateY(105%);box-shadow:0 -24px 70px rgba(0,0,0,.6)}
+    body.sel #panel{transform:none}
+    .p-label{font-size:11.5px}
+    #foot{display:none}
+    #toast{bottom:calc(18px + env(safe-area-inset-bottom))}
   }
-  var ios=/iPhone|iPad|iPod/i.test(navigator.userAgent);
-  var s1=document.getElementById('iosSteps'), s2=document.getElementById('andSteps');
-  if(ios){ s1.style.display='block'; s2.style.display='none'; } else { s1.style.display='none'; s2.style.display='block'; }
-  if(btn) btn.addEventListener('click', function(){
-    if(deferred){ deferred.prompt(); deferred.userChoice.then(function(){ deferred=null; }); return; }
-    dlg.hidden=false;
-  });
-  var close=document.getElementById('dlgClose');
-  if(close) close.addEventListener('click', function(){ dlg.hidden=true; });
-  if(dlg) dlg.addEventListener('click', function(e){ if(e.target===dlg) dlg.hidden=true; });
-  var cp=document.getElementById('copyUrl');
-  if(cp) cp.addEventListener('click', function(){
-    var i=document.getElementById('dlgUrl'); i.select(); i.setSelectionRange(0,999);
-    try{ document.execCommand('copy'); cp.textContent='已复制'; setTimeout(function(){ cp.textContent='复制'; },1600); }catch(e){}
-  });
-})();
-</script>
-
-<script>
+</style><script>
+(function(){
 'use strict';
-/* ---------------------------------------------------------------
-   首屏粒子标题（纯 WebGL2，零依赖）
-   - 全部运动在顶点着色器里；CPU 每帧只更新几个 uniform
-   - 指针 / 手指 = 力场源（推开 + 涡流），最多 5 个
-   - 之后接手势识别时，只把「指尖坐标」写进同一个 fingers 数组即可
-   --------------------------------------------------------------- */
-(function(){
-  var canvas = document.getElementById('gl');
-  var gl = canvas.getContext('webgl2', {
-    alpha:false, antialias:false, depth:false, stencil:false,
-    powerPreference:'high-performance'
-  });
-  if (!gl) { document.documentElement.classList.add('no-gl'); return; }
 
-  var P = { size:2.6, stagger:0.62, force:1.85, radius:0.44, swirl:0.80, morph:6.0, bright:1.00 };
+/* ========== 一、数据：一个项目一颗星球 ========== */
+var DATA = [
+  { id:'gesture', name:'手势识别 · 粒子星云', href:'gesture.html', badge:'已上线', k:1.02,
+    c1:'#63efdc', c2:'#0c6b74', ring:'rgba(120,240,230,.50)',
+    msgs:['这是「手势识别交互模型」。',
+          '摄像头认手：<b>握拳</b>、<b>张开</b>切换形态；手往哪边靠，整团星云就被牵着偏移过去。识别全在本机跑，画面不离开这台设备。'],
+    tags:['7 万粒子','端侧推理','手部骨架回显'], cta:'进去玩' },
 
-  var MIN_SIDE = Math.min(window.innerWidth, window.innerHeight);
-  var qs = new URLSearchParams(location.search);
-  var COUNT = Math.max(3000, parseInt(qs.get('count')||'0',10) || (MIN_SIDE < 820 ? 30000 : 100000));
+  { id:'diy', name:'手势工作台', href:'diy.html', badge:'新', k:0.94,
+    c1:'#7ee0f2', c2:'#125c74', ring:'rgba(126,224,242,.44)',
+    msgs:['这是「手势工作台」。',
+          '随手比一个手型给相机，它把这一刻的五指状态记成一枚<b>指纹</b>存在本机；以后在任何一页做出同一个手型，就直接播放你绑定的那段动画。'],
+    tags:['自定义手势','只存本机','六种动画'], cta:'去教我' },
 
-  var VS = [
-'#version 300 es',
-'precision highp float;',
-'in vec3 aStart;','in vec3 aTarget;','in vec3 aRand;',
-'uniform float uTime;','uniform float uProgress;','uniform float uStagger;',
-'uniform vec2 uWorld;','uniform vec2 uTilt;','uniform float uAspect;',
-'uniform vec3 uFingers[5];','uniform float uPower[5];',
-'uniform float uRadius;','uniform float uForce;','uniform float uSwirl;',
-'uniform float uSize;','uniform float uDpr;',
-'out vec3 vColor;','out float vAlpha;',
-'void main(){',
-'  float s = aRand.x;',
-'  float off = s * uStagger;',
-'  float dur = max(1.0 - off, 0.05);',
-'  float t = clamp((uProgress - off) / dur, 0.0, 1.0);',
-'  t = t * t * (3.0 - 2.0 * t);',
-'  vec3 tgt = vec3(aTarget.xy * uWorld, aTarget.z);',
-'  vec3 pos = mix(aStart, tgt, t);',
-'  float ph = aRand.z * 6.2831853;',
-'  pos += vec3(sin(uTime*0.62+ph), cos(uTime*0.81+ph*1.7), sin(uTime*0.47+ph*2.3)) * 0.009;',
-'  float force = 0.0;',
-'  for (int i = 0; i < 5; i++) {',
-'    float pw = uPower[i];',
-'    if (pw <= 0.001) continue;',
-'    vec2 d = pos.xy - uFingers[i].xy;',
-'    float dist = length(d) + 1e-4;',
-'    float w = pow(1.0 - clamp(dist / uRadius, 0.0, 1.0), 2.0) * pw;',
-'    vec2 dir = d / dist;',
-'    pos.xy += (dir * uForce + vec2(-dir.y, dir.x) * uSwirl) * w * uRadius;',
-'    force += w;',
-'  }',
-'  pos.z += force * 0.055;',
-'  float cy = cos(uTilt.x), sy = sin(uTilt.x);',
-'  vec3 p = vec3(pos.x*cy + pos.z*sy, pos.y, -pos.x*sy + pos.z*cy);',
-'  float cx = cos(uTilt.y), sx = sin(uTilt.y);',
-'  p = vec3(p.x, p.y*cx - p.z*sx, p.y*sx + p.z*cx);',
-'  float d = 1.0 / (1.0 + p.z * 0.45);',
-'  gl_Position = vec4(p.xy * vec2(1.0 / uAspect, 1.0) * d, 0.0, 1.0);',
-'  gl_PointSize = clamp(uSize * aRand.y * d * uDpr, 1.0, 42.0);',
-'  // 星河配色：位置 + 时间共同决定色相，整团颜色永远在缓慢流动',
-'  float hh = fract(uTime * 0.17 + pos.x * 0.24 - pos.y * 0.20 + aRand.z * 0.46 + length(aStart.xy) * 0.18);',
-'  float xp = hh * 4.0;',
-'  int gi = int(floor(xp));',
-'  float gf = fract(xp);',
-'  gf = gf * gf * (3.0 - 2.0 * gf);',
-'  vec3 g0 = vec3(0.18,0.07,0.46);',   // 深紫蓝（星云暗部）',
-'  vec3 g1 = vec3(0.55,0.17,0.90);',   // 紫',
-'  vec3 g2 = vec3(1.00,0.32,0.66);',   // 品红（星云亮部）',
-'  vec3 g3 = vec3(0.30,0.80,1.00);',   // 青蓝（电离气体）',
-'  vec3 g4 = vec3(1.00,0.93,0.84);',   // 恒星暖白',
-'  vec3 col;',
-'  if (gi <= 0) col = mix(g0, g1, gf);',
-'  else if (gi == 1) col = mix(g1, g2, gf);',
-'  else if (gi == 2) col = mix(g2, g3, gf);',
-'  else col = mix(g3, g4, gf);',
-'  col *= 1.45;',
-'  col = mix(col, vec3(1.00,0.96,0.92), 0.07);',
-'  col += vec3(1.00,0.42,0.80) * min(force, 1.6) * 0.55;',
-'  vColor = col;',
-'  float edgeFade = 0.34 + 0.66 * smoothstep(1.15, 0.15, length(aStart));',
-'  vAlpha = mix(0.030, 0.075, t) * edgeFade + force * 0.055;',
-'  vAlpha = min(vAlpha, 0.5);',
-'}'
-  ].join('\n');
+  { id:'imitate', name:'手势模仿 · 粒子实验区', href:'imitate.html', badge:'新', k:0.98,
+    c1:'#8fb0ff', c2:'#253a8c', ring:'rgba(150,175,255,.44)',
+    msgs:['这是「手势模仿」。',
+          '把你的手势录给相机：分析完，粒子就照着你的手排成那个形状，录完当场实时播放；手势的名字也由粒子写在上面。'],
+    tags:['录什么像什么','粒子文字','存本机'], cta:'去录一个' },
 
-  var FS = [
-'#version 300 es',
-'precision mediump float;',
-'in vec3 vColor;','in float vAlpha;',
-'uniform float uBright;',
-'out vec4 fragColor;',
-'void main(){',
-'  vec2 uv = gl_PointCoord * 2.0 - 1.0;',
-'  float d2 = dot(uv, uv);',
-'  if (d2 > 1.0) discard;',
-'  float glow = pow(1.0 - d2, 2.2);',
-'  float core = smoothstep(1.0, 0.30, d2);',
-'  float a = (glow * 0.72 + core * 0.52) * vAlpha * uBright;',
-'  fragColor = vec4(vColor * a, a);',
-'}'
-  ].join('\n');
+  { id:'football', name:'足球 · 3D 结构解剖', href:'football.html', badge:'已上线', k:1.06,
+    c1:'#ffc078', c2:'#9c4f16', ring:'rgba(255,190,120,.44)',
+    msgs:['这是「足球 · 3D 结构解剖」。',
+          '32 块皮面怎么拼成一个球？拆开看四层：外皮、内衬、缠纱中胎、气囊。拖拽旋转、滚轮缩放，点零件看名字。'],
+    tags:['可拆解','4 层结构','可交互'], cta:'进去看' },
 
-  function compile(type, src){
-    var s = gl.createShader(type);
-    gl.shaderSource(s, src); gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('shader: ' + gl.getShaderInfoLog(s));
-    return s;
+  { id:'supra', name:'Supra A90 · 赛博风洞', href:'supra/', badge:'新', k:1.10,
+    c1:'#ff8a76', c2:'#8c2a22', ring:'rgba(255,140,120,.44)',
+    msgs:['这是「Supra A90 · 赛博风洞」。',
+          '真实的 2025 款 GR Supra A90 车模摆在一条赛博风洞里：拉出流线、看风速热力、开灯点火听 B58 的声浪，还能一键拆开看零件。'],
+    tags:['可拆解','风洞流场','车内视角'], cta:'进去看' },
+
+  { id:'rover', name:'火星车 · 3D 拆解', href:'rover.html', badge:'新', k:1.04,
+    c1:'#ffe0a0', c2:'#8a5a1c', ring:'rgba(255,220,150,.44)',
+    msgs:['这是「火星车 · 3D 拆解」。',
+          '六轮摇臂式（rocker-bogie）火星车，真机是 1:6.5 的 ESP32-S3 小车。网页里直接拖着转，按总成开合零件，拉爆炸视图看装配关系。'],
+    tags:['WebGL 实时','爆炸视图','手机可转'], cta:'去看看' },
+
+  { id:'aigc', name:'AIGC 短剧', href:'aigc.html', badge:'开发中', k:0.90,
+    c1:'#c9a4ff', c2:'#432885', ring:'rgba(200,165,255,.40)',
+    msgs:['这是「AIGC 短剧」，还在做。',
+          '用 AI 生成的画面和声音，在网页里直接播完一整段短剧：片名、分镜、字幕全在浏览器里拼，不跳去别的平台。'],
+    tags:['生成视频','网页播放','规划中'], cta:'看看' },
+
+  { id:'ak47', name:'AK47 · 3D 拆解', href:'', badge:'筹备中', k:0.88,
+    c1:'#d5dde2', c2:'#404d57', ring:'rgba(213,221,226,.34)',
+    msgs:['这是「AK47 · 3D 拆解」，还没搬上网站。',
+          '同一套拆解引擎的枪械练习：零件逐个分离、编号、再归位。本地工程已经能跑，排期还没到。'],
+    tags:['3D 部件','拆解动画','筹备中'], cta:'' }
+];
+
+/* 私人星球：妈妈生日页。默认不出现在星空里 */
+var PRIVATE = {
+  id:'mama', name:'生日 · 星屑成诗', href:'mama.html', badge:'私人', k:1.0, mine:true,
+  c1:'#ffb0d0', c2:'#8c2e57', ring:'rgba(255,170,205,.50)',
+  msgs:['这颗是你的私人星球：妈妈的生日页。',
+        '粒子倒计时 → 粒子写字 → 蛋糕点亮 → 握拳切蛋糕 → 张开双手展开照片墙。对着摄像头比手势就能一路玩下去。'],
+  tags:['手势交互','粒子动画','8 张照片'], cta:'进去看'
+};
+
+/* ========== 二、宇宙：粒子星空 ========== */
+var cv = document.getElementById('space');
+var ctx = cv.getContext('2d');
+var W=0, H=0, DPR=1, MOBILE=false;
+var stars=[], dusts=[], nebs=[], nebImg=[];
+var t=0, last=0, mx=0, my=0, tmx=0, tmy=0;
+var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function sprite(r,g,b){
+  var c=document.createElement('canvas'); c.width=c.height=256;
+  var g2=c.getContext('2d');
+  var gr=g2.createRadialGradient(128,128,0,128,128,128);
+  gr.addColorStop(0,'rgba('+r+','+g+','+b+',.55)');
+  gr.addColorStop(.36,'rgba('+r+','+g+','+b+',.18)');
+  gr.addColorStop(1,'rgba('+r+','+g+','+b+',0)');
+  g2.fillStyle=gr; g2.fillRect(0,0,256,256);
+  return c;
+}
+
+function buildStars(){
+  var n=Math.round(Math.min(calm?420:900, Math.max(230,(W*H)/6200)));
+  stars=[];
+  for(var i=0;i<n;i++){
+    var d=Math.random();
+    stars.push({ x:Math.random()*W, y:Math.random()*H,
+      r:0.45+d*1.7, a:0.16+0.52*d, d:0.25+d*0.95,
+      tw:0.5+Math.random()*1.9, ph:Math.random()*6.283,
+      vx:-(1.2+d*5.5)*(calm?0.3:1),
+      col:(Math.random()<0.84?'196,220,255':'255,214,168') });
   }
-  var prog = gl.createProgram();
-  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
-  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(prog));
-  gl.useProgram(prog);
+}
 
-  var U = {};
-  ['uTime','uProgress','uStagger','uWorld','uTilt','uFingers','uPower',
-   'uAspect','uRadius','uForce','uSwirl','uSize','uDpr','uBright'].forEach(function(n){
-    U[n] = gl.getUniformLocation(prog, n);
+function buildDust(){
+  var n=Math.round(Math.min(140, Math.max(38,(W*H)/27000)));
+  dusts=[];
+  for(var i=0;i<n;i++){
+    dusts.push({ x:Math.random()*W, y:Math.random()*H, sz:7+Math.random()*22,
+      a:0.05+Math.random()*0.12, d:0.3+Math.random()*0.8,
+      vx:-(0.8+Math.random()*2.2), vy:-(0.3+Math.random()*1.1) });
+  }
+}
+
+function buildNeb(){
+  nebImg=[ sprite(58,116,255), sprite(120,86,255), sprite(255,120,70), sprite(56,214,200) ];
+  nebs=[];
+  var conf=[[0,.18,1.15,1],[0.78,.12,0.95,2],[0.12,.82,0.85,3],[0.86,.78,0.75,0],[0.5,.52,0.7,1]];
+  for(var i=0;i<conf.length;i++){
+    var c=conf[i];
+    nebs.push({ x:c[0], y:c[1], size:c[2]*Math.max(W,H), img:nebImg[c[3]],
+      a:MOBILE?0.16:0.20, d:0.2+i*0.16,
+      vx:(i%2?1:-1)*(0.004+Math.random()*0.004), vy:(Math.random()<0.5?1:-1)*(0.003+Math.random()*0.003) });
+  }
+}
+
+var comet=null, cometNext=3.5;
+function spawnComet(){
+  var fromLeft=Math.random()<0.6;
+  comet={ x: fromLeft? -40 : W+40, y: Math.random()*H*0.55,
+    vx:(fromLeft?1:-1)*(320+Math.random()*220), vy:(90+Math.random()*120),
+    life:1.5 };
+}
+
+function drawUniverse(dt){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.clearRect(0,0,W,H);
+  ctx.globalCompositeOperation='lighter';
+
+  /* 星云 */
+  for(var i=0;i<nebs.length;i++){
+    var n=nebs[i];
+    n.x+=n.vx*dt; n.y+=n.vy*dt;
+    if(n.x>1.3) n.x=-0.3; if(n.x<-0.3) n.x=1.3;
+    if(n.y>1.3) n.y=-0.3; if(n.y<-0.3) n.y=1.3;
+    var nx=n.x*W - n.size*0.5 + mx*22*n.d;
+    var ny=n.y*H - n.size*0.5 + my*18*n.d;
+    ctx.globalAlpha=n.a;
+    ctx.drawImage(n.img,nx,ny,n.size,n.size);
+  }
+  ctx.globalAlpha=1;
+
+  /* 尘埃 */
+  for(i=0;i<dusts.length;i++){
+    var u=dusts[i];
+    u.x+=u.vx*dt; u.y+=u.vy*dt;
+    if(u.x<-30) u.x=W+30;
+    if(u.y<-30) u.y=H+30;
+    var ux=u.x+mx*16*u.d, uy=u.y+my*13*u.d;
+    if(ux<-30) ux=W+30;
+    ctx.globalAlpha=u.a;
+    ctx.drawImage(nebImg[(i%4)], ux-u.sz*0.5, uy-u.sz*0.5, u.sz, u.sz);
+  }
+  ctx.globalAlpha=1;
+
+  /* 星点 */
+  for(i=0;i<stars.length;i++){
+    var s=stars[i];
+    s.x+=s.vx*dt;
+    if(s.x<-6) { s.x=W+6; s.y=Math.random()*H; }
+    var al=s.a*(0.52+0.48*Math.sin(t*s.tw+s.ph));
+    if(al<=0.03) continue;
+    var sx=s.x+mx*11*s.d+Math.sin(t*0.14+s.ph)*1.1;
+    var sy=s.y+my*9*s.d;
+    ctx.fillStyle='rgba('+s.col+','+al.toFixed(3)+')';
+    ctx.beginPath();
+    ctx.arc(sx,sy,s.r,0,6.2832); ctx.fill();
+  }
+
+  /* 流星 */
+  cometNext-=dt;
+  if(!comet && cometNext<=0){ spawnComet(); cometNext=5+Math.random()*7; }
+  if(comet){
+    comet.x+=comet.vx*dt; comet.y+=comet.vy*dt; comet.life-=dt;
+    var tailX=comet.x-comet.vx*0.09, tailY=comet.y-comet.vy*0.09;
+    var grd=ctx.createLinearGradient(comet.x,comet.y,tailX,tailY);
+    grd.addColorStop(0,'rgba(230,244,255,.95)');
+    grd.addColorStop(1,'rgba(160,200,255,0)');
+    ctx.strokeStyle=grd; ctx.lineWidth=1.7; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(comet.x,comet.y); ctx.lineTo(tailX,tailY); ctx.stroke();
+    ctx.fillStyle='rgba(240,250,255,.95)';
+    ctx.beginPath(); ctx.arc(comet.x,comet.y,1.7,0,6.2832); ctx.fill();
+    if(comet.life<=0 || comet.x<-120 || comet.x>W+120 || comet.y>H+120) comet=null;
+  }
+  ctx.globalCompositeOperation='source-over';
+}
+/* ========== 三、星球：建出来、绕起来、点开 ========== */
+var stage   = document.getElementById('stage');
+var feedEl  = document.getElementById('feed');
+var pnameEl = document.getElementById('pname');
+var pdotEl  = document.getElementById('pdot');
+var pfootEl = document.getElementById('pfoot');
+var tipEl   = document.getElementById('tip');
+
+var PL = [], sel = null, chatSeq = 0;
+
+function hexA(hex, a){
+  var h = hex.replace('#','');
+  if(h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  return 'rgba('+parseInt(h.substr(0,2),16)+','+parseInt(h.substr(2,2),16)+','+parseInt(h.substr(4,2),16)+','+a+')';
+}
+
+function addPlanet(d){
+  var i = PL.length;
+  var el = document.createElement('div');
+  el.className = 'p';
+  el.tabIndex = 0;
+  el.setAttribute('role','button');
+  el.setAttribute('aria-label', d.name);
+  el.style.setProperty('--c1', d.c1);
+  el.style.setProperty('--c2', d.c2);
+  el.style.setProperty('--ring', d.ring);
+  el.style.setProperty('--glow', hexA(d.c1, 0.34));
+  el.style.setProperty('--glow2', hexA(d.c1, 0.15));
+
+  var D = (MOBILE? 46 : 62) * d.k;
+  var ho = document.createElement('div');
+  ho.className = 'p-holder';
+  ho.style.width = ho.style.height = D.toFixed(1)+'px';
+  ho.style.left = (-D/2).toFixed(1)+'px';
+  ho.style.top  = (-D/2).toFixed(1)+'px';
+
+  var halo = document.createElement('div'); halo.className='p-halo';
+  var HS = D*2.5; halo.style.width = halo.style.height = HS.toFixed(1)+'px';
+  var orb = document.createElement('div'); orb.className='p-orb';
+  var rng = document.createElement('div'); rng.className='p-ring';
+  var RS = D*1.62; rng.style.width = rng.style.height = RS.toFixed(1)+'px';
+  ho.appendChild(halo); ho.appendChild(orb); ho.appendChild(rng);
+
+  var lb = document.createElement('div'); lb.className='p-label';
+  lb.textContent = MOBILE? d.name.split(' \u00b7 ')[0] : d.name;
+  lb.style.left = '0';
+  lb.style.top = (D*0.60).toFixed(1)+'px';
+  lb.style.transform = 'translateX(-50%)';
+  lb.style.textAlign = 'center';
+  lb.style.whiteSpace = 'normal';
+  lb.style.width='max-content'; lb.style.maxWidth=(MOBILE? 128 : 186)+'px';
+  lb.style.lineHeight = '1.35';
+  var bd = document.createElement('div'); bd.className='p-badge';
+  bd.textContent = d.badge;
+  bd.style.left = '0';
+  bd.style.top = (D*0.60 + 22).toFixed(1)+'px';
+  bd.style.transform='translateX(-50%)'; bd.style.whiteSpace='nowrap'; bd.style.width='max-content';
+  if(MOBILE) bd.style.display = 'none';
+el.appendChild(ho); el.appendChild(lb); el.appendChild(bd);
+  stage.appendChild(el);
+
+  var g = { d:d, el:el, ho:ho, lb:lb, bd:bd, D:D, idx:i,
+    a: (i * 6.2832 / (DATA.length + 1)) + 0.35, spd: (0.020 + (i%3)*0.011) * (i%2? 1 : -1),
+    ph: Math.random()*6.283, x:W*0.5, y:H*0.5, k:1, al:0 };
+  g.x = W*0.5 + Math.cos(g.a)*130;
+  g.y = H*0.5 + Math.sin(g.a)*95;
+
+  el.addEventListener('click', function(e){ e.stopPropagation(); select(g); });
+  el.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); select(g); }
   });
-  var A = {
-    aStart:  gl.getAttribLocation(prog, 'aStart'),
-    aTarget: gl.getAttribLocation(prog, 'aTarget'),
-    aRand:   gl.getAttribLocation(prog, 'aRand')
+  el.addEventListener('pointerenter', function(){ el.classList.add('hot'); });
+  el.addEventListener('pointerleave', function(){ el.classList.remove('hot'); });
+
+  PL.push(g);
+  return g;
+}
+
+/* 每帧算位置：没选中绕中心慢慢转，选中后被拉到左边放大 */
+function layout(dt){
+  var cx = W*0.5, cy = H*0.5;
+  var spanX = Math.max(110, W*0.5 - 52);
+  var spanY = Math.max(100, H*0.5 - 52);
+  var RATP = [0.58, 0.88, 0.66, 0.96, 0.74, 0.46, 0.82, 0.62, 0.52];
+  var i, g, d, tx, ty, tk, ta;
+  var TX = [], TY = [];
+
+  for(i=0;i<PL.length;i++){
+    g = PL[i]; d = g.d;
+    if(sel === g){
+      var freeW = MOBILE? W : Math.max(300, W - 404);
+      TX[i] = MOBILE? W*0.5 : freeW*0.5;
+      TY[i] = MOBILE? H*0.19 : H*0.50;
+    } else {
+      var rr = RATP[g.idx % RATP.length] * (1 + 0.035*Math.sin(t*0.29 + g.ph));
+      var aa = g.a + t*0.026;
+      TX[i] = cx + Math.cos(aa)*spanX*rr + Math.sin(t*0.5+g.ph)*5;
+      TY[i] = cy + Math.sin(aa)*spanY*rr*(MOBILE?0.96:0.82) + Math.cos(t*0.42+g.ph)*6;
+    }
+  }
+
+  for(i=0;i<PL.length;i++){
+    if(PL[i] === sel) continue;
+    for(var j=i+1;j<PL.length;j++){
+      if(PL[j] === sel) continue;
+      var dx = TX[j]-TX[i], dy = TY[j]-TY[i];
+      var dist = Math.sqrt(dx*dx+dy*dy) || 1;
+      var need = (PL[i].D + PL[j].D)*0.62 + 34;
+      if(dist < need){
+        var push = (need-dist)*0.5;
+        var ux = dx/dist, uy = dy/dist;
+        TX[i] -= ux*push; TY[i] -= uy*push;
+        TX[j] += ux*push; TY[j] += uy*push;
+      }
+    }
+  }
+
+  for(i=0;i<PL.length;i++){
+    g = PL[i];
+    if(sel === g){ tk = MOBILE? 1.5 : 2.05; ta = 1; }
+    else { tk = 1; ta = sel? (MOBILE? 0 : 0.13) : 1; }
+    var e = 1 - Math.exp(-dt*(sel===g? 6.5 : 3.2));
+    g.x += (TX[i]-g.x)*e;
+    g.y += (TY[i]-g.y)*e;
+    g.k += (tk-g.k)*e;
+    g.al += (ta-g.al)*e;
+    if(g.al < 0.02){ g.el.style.display = 'none'; continue; }
+    g.el.style.display = '';
+    g.el.style.transform = 'translate3d('+g.x.toFixed(1)+'px,'+g.y.toFixed(1)+'px,0)';
+    g.el.style.opacity = g.al.toFixed(3);
+    g.ho.style.transform = 'scale('+g.k.toFixed(3)+')';
+    g.el.style.pointerEvents = (sel && sel !== g)? 'none' : 'auto';
+    g.lb.style.opacity = (sel===g)? 0 : Math.min(1, g.al*1.35).toFixed(2);
+    g.bd.style.opacity = (sel===g)? 0 : Math.min(1, g.al*1.15).toFixed(2);
+  }
+}
+
+/* ========== 四、右侧聊天面板 ========== */
+function scrollFeed(){ feedEl.scrollTop = feedEl.scrollHeight; }
+
+function pushMsg(html, cls, seq, cb){
+  if(seq !== chatSeq) return;
+  var m = document.createElement('div');
+  m.className = 'msg' + (cls? ' '+cls : '');
+  m.innerHTML = html;
+  feedEl.appendChild(m);
+  void m.offsetWidth;
+  m.classList.add('in');
+  scrollFeed();
+  if(cb) cb();
+}
+
+function renderChat(g){
+  var d = g.d;
+  chatSeq++;
+  var seq = chatSeq;
+  feedEl.innerHTML = '';
+  pnameEl.textContent = d.name;
+  pdotEl.style.background = d.c1;
+  pdotEl.style.color = d.c1;
+  pfootEl.className = 'p-foot';
+  pfootEl.innerHTML = '';
+
+  var i = 0;
+  function step(){
+    if(seq !== chatSeq) return;
+    if(i >= d.msgs.length){ finish(); return; }
+    var ty = document.createElement('div');
+    ty.className = 'msg typing';
+    ty.innerHTML = '<i></i><i></i><i></i>';
+    feedEl.appendChild(ty);
+    scrollFeed();
+    setTimeout(function(){
+      if(seq !== chatSeq) return;
+      if(ty.parentNode) ty.parentNode.removeChild(ty);
+      pushMsg(d.msgs[i], '', seq);
+      i++;
+      setTimeout(step, 180);
+    }, 430 + Math.random()*230);
+  }
+
+  function finish(){
+    if(seq !== chatSeq) return;
+    var tg = document.createElement('div');
+    tg.className = 'msg tags';
+    for(var j=0;j<d.tags.length;j++){
+      var s = document.createElement('span');
+      s.className = 'tag'; s.textContent = d.tags[j];
+      tg.appendChild(s);
+    }
+    feedEl.appendChild(tg);
+    void tg.offsetWidth; tg.classList.add('in');
+
+    pfootEl.innerHTML = '';
+    if(d.href){
+      var a = document.createElement('a');
+      a.className = 'go-btn'; a.href = d.href;
+      a.textContent = d.cta || '进去看';
+      pfootEl.appendChild(a);
+    } else {
+      var sp = document.createElement('span');
+      sp.className = 'soon-btn'; sp.textContent = '还在筹备，先看看别的';
+      pfootEl.appendChild(sp);
+    }
+    var x = document.createElement('button');
+    x.className = 'x-btn'; x.type='button';
+    x.setAttribute('aria-label','收起');
+    x.textContent = '\u00d7';
+    x.addEventListener('click', function(ev){ ev.stopPropagation(); clearSel(); });
+    pfootEl.appendChild(x);
+    pfootEl.classList.add('in');
+    scrollFeed();
+  }
+
+  step();
+}
+
+function select(g){
+  if(sel === g) return;
+  sel = g;
+  document.body.classList.add('sel');
+  if(tipEl) tipEl.textContent = '点空白处收起';
+  renderChat(g);
+}
+
+function clearSel(){
+  if(!sel) return;
+  sel = null;
+  chatSeq++;
+  document.body.classList.remove('sel');
+  if(tipEl) tipEl.textContent = '点一颗星球，看它是什么';
+}
+/* ========== 五、私人星球：只有你能唤出来 ========== */
+var mineG = null, toastTm = 0;
+var toastEl = document.getElementById('toast');
+
+function toast(msg){
+  if(!toastEl) return;
+  toastEl.textContent = msg;
+  toastEl.classList.add('on');
+  clearTimeout(toastTm);
+  toastTm = setTimeout(function(){ toastEl.classList.remove('on'); }, 2400);
+}
+
+function renderMine(openIt){
+  if(mineG) return;
+  mineG = addPlanet(PRIVATE);
+  try{ localStorage.setItem('kc_mine','1'); }catch(e){}
+  if(openIt){
+    toast('这颗星球只有你能看见');
+    setTimeout(function(){ if(mineG) select(mineG); }, 720);
+  }
+}
+
+/* 1) 键盘连打 mama  2) 长按左上角 Logo 900ms  3) ?mine=1 或 #mine */
+var keys = '';
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape'){ clearSel(); return; }
+  if(!e.key || e.key.length !== 1) return;
+  keys = (keys + e.key.toLowerCase()).slice(-12);
+  if(keys.indexOf('mama') >= 0){ keys = ''; renderMine(true); }
+});
+
+var brandEl = document.getElementById('brand'), holdTm = 0;
+if(brandEl){
+  var holdStart = function(){
+    holdTm = setTimeout(function(){ renderMine(true); }, 900);
   };
+  var holdEnd = function(){ clearTimeout(holdTm); };
+  brandEl.addEventListener('pointerdown', holdStart);
+  brandEl.addEventListener('pointerup', holdEnd);
+  brandEl.addEventListener('pointercancel', holdEnd);
+  brandEl.addEventListener('pointerleave', holdEnd);
+  brandEl.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+}
 
-  var TEX = null, linesKey = '';
-  function desiredLines(){ return W < 620 ? ['Kiss', 'Cream'] : ['KissCream']; }
+/* 解锁判定放在初始化之后（见文件末尾），那时 W/H 才量得准 */
 
-  function sampleText(lines){
-    var FONT = 200, LH = Math.round(FONT * 1.06);
-    var FAMILY = '"Segoe UI","Microsoft YaHei",system-ui,sans-serif';
-    var c = document.createElement('canvas');
-    var ctx = c.getContext('2d', { willReadFrequently:true });
-    ctx.font = '800 ' + FONT + 'px ' + FAMILY;
-    var maxW = 0;
-    for (var li = 0; li < lines.length; li++) maxW = Math.max(maxW, ctx.measureText(lines[li]).width);
-    var w = Math.ceil(maxW) + 60;
-    var h = LH * lines.length + 40;
-    c.width = w; c.height = h;
-    ctx = c.getContext('2d', { willReadFrequently:true });
-    ctx.font = '800 ' + FONT + 'px ' + FAMILY;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
-    var y0 = h / 2 - (lines.length - 1) * LH / 2;
-    for (var k = 0; k < lines.length; k++) ctx.fillText(lines[k], w / 2, y0 + k * LH);
-    var px = ctx.getImageData(0, 0, w, h).data;
-    var xs = [], ys = [], as = [];
-    for (var y = 0; y < h; y++) {
-      for (var x = 0; x < w; x++) {
-        var a = px[(y * w + x) * 4 + 3];
-        if (a > 22) { xs.push(x); ys.push(y); as.push(a / 255); }
-      }
+/* ========== 六、装到桌面 + 尺寸 + 主循环 ========== */
+var installBtn = document.getElementById('installBtn');
+var deferredInstall = null;
+
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  deferredInstall = e;
+  if(installBtn) installBtn.hidden = false;
+});
+
+if(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches && installBtn){
+  installBtn.hidden = true;
+}
+
+if(installBtn){
+  installBtn.addEventListener('click', function(){
+    if(deferredInstall){
+      deferredInstall.prompt();
+      deferredInstall = null;
+      installBtn.hidden = true;
+    } else {
+      toast('浏览器菜单里选「添加到主屏幕」');
     }
-    return { xs:xs, ys:ys, as:as, w:w, h:h, count:xs.length };
-  }
-
-  /* 竖屏窄屏自动折成两行，字形能大一倍多；窗口尺寸变了就重新采样重建 */
-  function ensureTex(){
-    var L = desiredLines(), key = L.join('|');
-    if (TEX && key === linesKey) return false;
-    var t = sampleText(L);
-    if (!t || !t.count) { document.documentElement.classList.add('no-gl'); return false; }
-    TEX = t; linesKey = key;
-    return true;
-  }
-
-  var bufStart, bufTarget, bufRand, vao;
-  function buildParticles(){
-    var n = COUNT;
-    var start = new Float32Array(n * 3);
-    var target = new Float32Array(n * 3);
-    var rand = new Float32Array(n * 3);
-    var xs = TEX.xs, ys = TEX.ys, as = TEX.as, tw = TEX.w, th = TEX.h, m = TEX.count;
-    for (var i = 0; i < n; i++) {
-      var u = Math.random() * 2 - 1;
-      var th2 = Math.random() * Math.PI * 2;
-      var rr = Math.pow(Math.random(), 0.42) * 0.95;
-      var sq = Math.sqrt(1 - u * u);
-      start[i*3]   = rr * sq * Math.cos(th2);
-      start[i*3+1] = rr * sq * Math.sin(th2) * 0.92;
-      start[i*3+2] = rr * u * 0.78;
-
-      var k = (Math.random() * m) | 0;
-      var ax = xs[k], ay = ys[k], aa = as[k];
-      var jit = (1.55 - aa) * 1.5;
-      target[i*3]   = ((ax + (Math.random()-0.5)*jit) / tw - 0.5);
-      target[i*3+1] = -((ay + (Math.random()-0.5)*jit) / th - 0.5);
-      target[i*3+2] = (Math.random() - 0.5) * 0.10;
-
-      rand[i*3]   = Math.random();
-      rand[i*3+1] = 0.55 + Math.random() * 0.9;
-      rand[i*3+2] = Math.random();
-    }
-    if (!vao) {
-      bufStart = gl.createBuffer(); bufTarget = gl.createBuffer(); bufRand = gl.createBuffer();
-      vao = gl.createVertexArray();
-    }
-    gl.bindVertexArray(vao);
-    function put(buf, attr, arr){
-      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-      gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(attr);
-      gl.vertexAttribPointer(attr, 3, gl.FLOAT, false, 0, 0);
-    }
-    put(bufStart, A.aStart, start);
-    put(bufTarget, A.aTarget, target);
-    put(bufRand, A.aRand, rand);
-    gl.bindVertexArray(null);
-  }
-
-  gl.enable(gl.BLEND);
-  gl.blendFunc(gl.ONE, gl.ONE);
-  gl.disable(gl.DEPTH_TEST);
-
-  var DPR = Math.min(window.devicePixelRatio || 1, 2);
-  var W = 1, H = 1, aspect = 1, worldW = 1, worldH = 0.25, brightMul = 1.0;
-  function resize(){
-    W = canvas.clientWidth || 1;
-    H = canvas.clientHeight || 1;
-    var w = Math.round(W * DPR), h = Math.round(H * DPR);
-    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-    gl.viewport(0, 0, w, h);
-    aspect = W / H;
-    var texChanged = ensureTex();
-    if (!TEX) return;
-    if (texChanged) buildParticles();
-    var fill = W < 620 ? 0.88 : 0.82;
-    worldW = Math.min(fill * 2 * aspect, 3.2);
-    worldH = worldW * (TEX.h / TEX.w);
-    brightMul = (W < 620) ? 2.0 : 1.0;   // 竖屏两行时字面积翻倍，亮度补回来
-  }
-  resize();
-  window.addEventListener('resize', resize);
-  window.addEventListener('orientationchange', function(){ setTimeout(resize, 140); });
-
-  var fingers = new Map();
-  var ptr = { x:0, y:0, tx:0, ty:0 };
-  var pressed = false, autoDrive = true;
-  function toWorld(cx, cy){ return { x:(cx / W * 2 - 1) * aspect, y:-(cy / H * 2 - 1) }; }
-
-  /* ============ 星座星象图：按住哪里，哪里浮现一张星图 ============ */
-  var CONST = (function(){
-    var MAXP = 5, MAXS = 12, MAXL = 78;
-    var pats = [
-      { s:[[-0.86,0.12,1.3,1],[-0.55,0.30,2.0,1.3],[-0.22,0.16,1.0,0.9],[0.12,0.34,2.2,1.4],[0.46,0.14,1.2,1.0],[0.74,0.38,1.5,1.1],[0.92,-0.04,2.4,1.5],[0.30,-0.32,1.0,0.8],[0.62,-0.54,1.6,1.1]],
-        e:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[4,7],[7,8],[3,7]] },
-      { s:[[-0.62,0.72,2.2,1.4],[-0.30,0.34,1.1,1.0],[-0.02,0.06,2.4,1.5],[0.28,-0.24,1.2,1.0],[0.58,-0.62,2.0,1.3],[-0.78,-0.22,1.5,1.1],[0.72,0.30,1.6,1.1],[-0.52,0.08,1.9,1.2],[0.42,0.16,1.9,1.2]],
-        e:[[0,1],[1,2],[2,3],[3,4],[7,1],[1,8],[8,3]] },
-      { s:[[-0.70,-0.46,1.4,1.0],[-0.34,-0.10,2.2,1.4],[0.02,0.20,1.2,1.0],[0.38,0.02,2.5,1.5],[0.76,-0.30,1.5,1.1],[-0.10,-0.64,1.8,1.2],[0.46,-0.66,1.9,1.2],[0.06,0.68,1.1,1.0]],
-        e:[[0,1],[1,2],[2,3],[3,4],[1,5],[5,6],[6,3],[2,7]] },
-      { s:[[-0.80,0.06,2.0,1.3],[-0.42,0.44,1.1,1.0],[-0.06,0.78,2.3,1.4],[0.34,0.42,1.2,1.0],[0.74,0.10,2.1,1.3],[0.30,-0.38,1.5,1.1],[-0.16,-0.72,1.9,1.2],[-0.56,-0.44,1.4,1.0],[0.04,0.04,1.0,0.8]],
-        e:[[0,1],[1,2],[2,3],[3,4],[0,8],[8,4],[8,6],[5,6],[7,0]] },
-      { s:[[-0.74,-0.38,1.3,1.0],[-0.38,0.26,2.0,1.3],[0.00,-0.08,1.1,1.0],[0.40,0.32,2.2,1.4],[0.80,-0.28,1.4,1.1],[0.16,0.74,1.6,1.1],[-0.20,-0.74,1.7,1.1]],
-        e:[[0,1],[1,2],[2,3],[3,4],[3,5],[0,6],[6,2]] },
-      { s:[[-0.66,0.56,2.4,1.5],[-0.30,0.06,1.1,1.0],[0.06,-0.30,2.0,1.3],[0.40,0.10,1.2,1.0],[0.78,0.52,2.4,1.5],[0.22,-0.76,1.4,1.0],[-0.52,-0.58,1.5,1.1]],
-        e:[[0,1],[1,2],[2,3],[3,4],[2,5],[2,6]] }
-    ];
-
-    var SV = [
-'#version 300 es',
-'precision highp float;',
-'in vec2 aPos;','in vec3 aCol;','in float aSize;','in float aA;',
-'uniform float uAspect;','uniform float uDpr;',
-'out vec3 vC;','out float vA;',
-'void main(){',
-'  gl_Position = vec4(aPos.x / uAspect, aPos.y, 0.0, 1.0);',
-'  gl_PointSize = clamp(aSize * uDpr, 1.5, 190.0);',
-'  vC = aCol; vA = aA;',
-'}'
-    ].join('\n');
-    var SF = [
-'#version 300 es',
-'precision mediump float;',
-'in vec3 vC;','in float vA;',
-'out vec4 fragColor;',
-'void main(){',
-'  vec2 uv = gl_PointCoord * 2.0 - 1.0;',
-'  float d2 = dot(uv, uv);',
-'  if (d2 > 1.0) discard;',
-'  float halo = pow(max(0.0, 1.0 - d2), 2.4);',
-'  float core = smoothstep(0.40, 0.0, d2);',
-'  float ax = smoothstep(0.88, 0.0, abs(uv.x)) * smoothstep(0.13, 0.0, abs(uv.y));',
-'  float ay = smoothstep(0.88, 0.0, abs(uv.y)) * smoothstep(0.13, 0.0, abs(uv.x));',
-'  float a = (halo * 0.60 + core * 0.95 + (ax + ay) * 0.34) * vA;',
-'  fragColor = vec4(vC * a, a);',
-'}'
-    ].join('\n');
-    var LV = [
-'#version 300 es',
-'precision highp float;',
-'in vec2 aPos;','in vec3 aCol;','in float aA;',
-'uniform float uAspect;',
-'out vec3 vC;','out float vA;',
-'void main(){',
-'  gl_Position = vec4(aPos.x / uAspect, aPos.y, 0.0, 1.0);',
-'  vC = aCol; vA = aA;',
-'}'
-    ].join('\n');
-    var LF = [
-'#version 300 es',
-'precision mediump float;',
-'in vec3 vC;','in float vA;',
-'out vec4 fragColor;',
-'void main(){ fragColor = vec4(vC * vA, vA); }'
-    ].join('\n');
-
-    function mk(vsSrc, fsSrc, attrs){
-      var p = gl.createProgram();
-      gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSrc));
-      gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSrc));
-      gl.linkProgram(p);
-      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('const link: ' + gl.getProgramInfoLog(p));
-      var o = { p: p, a: {}, u: {} };
-      for (var i = 0; i < attrs.length; i++) o.a[attrs[i]] = gl.getAttribLocation(p, attrs[i]);
-      o.u.uAspect = gl.getUniformLocation(p, 'uAspect');
-      o.u.uDpr = gl.getUniformLocation(p, 'uDpr');
-      return o;
-    }
-    var PS = mk(SV, SF, ['aPos','aCol','aSize','aA']);
-    var PL = mk(LV, LF, ['aPos','aCol','aA']);
-
-    var strideS = 7, strideL = 6;
-    var arrS = new Float32Array(MAXP * MAXS * strideS);
-    var arrL = new Float32Array(MAXP * MAXL * 2 * strideL);
-    var vaoS = gl.createVertexArray();
-    var vaoL = gl.createVertexArray();
-    var bufS = gl.createBuffer();
-    var bufL = gl.createBuffer();
-    (function setup(){
-      gl.bindVertexArray(vaoS);
-      gl.bindBuffer(gl.ARRAY_BUFFER, bufS);
-      gl.bufferData(gl.ARRAY_BUFFER, arrS.byteLength, gl.DYNAMIC_DRAW);
-      var fs = strideS * 4;
-      gl.enableVertexAttribArray(PS.a.aPos);  gl.vertexAttribPointer(PS.a.aPos,  2, gl.FLOAT, false, fs, 0);
-      gl.enableVertexAttribArray(PS.a.aCol);  gl.vertexAttribPointer(PS.a.aCol,  3, gl.FLOAT, false, fs, 8);
-      gl.enableVertexAttribArray(PS.a.aSize); gl.vertexAttribPointer(PS.a.aSize, 1, gl.FLOAT, false, fs, 20);
-      gl.enableVertexAttribArray(PS.a.aA);    gl.vertexAttribPointer(PS.a.aA,    1, gl.FLOAT, false, fs, 24);
-      gl.bindVertexArray(vaoL);
-      gl.bindBuffer(gl.ARRAY_BUFFER, bufL);
-      gl.bufferData(gl.ARRAY_BUFFER, arrL.byteLength, gl.DYNAMIC_DRAW);
-      var fl = strideL * 4;
-      gl.enableVertexAttribArray(PL.a.aPos); gl.vertexAttribPointer(PL.a.aPos, 2, gl.FLOAT, false, fl, 0);
-      gl.enableVertexAttribArray(PL.a.aCol); gl.vertexAttribPointer(PL.a.aCol, 3, gl.FLOAT, false, fl, 8);
-      gl.enableVertexAttribArray(PL.a.aA);   gl.vertexAttribPointer(PL.a.aA,   1, gl.FLOAT, false, fl, 20);
-      gl.bindVertexArray(null);
-    })();
-
-    var live = [], patIdx = 0;
-
-    function down(id, x, y, base){
-      for (var i = 0; i < live.length; i++) if (live[i].id === id) live.splice(i, 1);
-      if (live.length >= MAXP) live.shift();
-      live.push({ id:id, x:x, y:y, s:base*0.55, base:base, tgt:base, held:0, down:true,
-                  rot:Math.random()*6.283, pat:(patIdx++) % pats.length, seed:Math.random()*100 });
-    }
-    function move(id, x, y){
-      for (var i = 0; i < live.length; i++) if (live[i].id === id) { live[i].x = x; live[i].y = y; }
-    }
-    function up(id){
-      for (var i = 0; i < live.length; i++) if (live[i].id === id) { live[i].down = false; live[i].tgt = 0; }
-    }
-
-    function draw(t, dt){
-      for (var i = live.length - 1; i >= 0; i--) {
-        var o = live[i];
-        o.rot += dt * 0.05;
-        if (o.down) { o.held += dt; o.tgt = Math.min(1, o.base + o.held * 0.20); }
-        o.s += (o.tgt - o.s) * (1 - Math.exp(-dt * (o.down ? 5.0 : 2.4)));
-        if (!o.down && o.s <= 0.003) live.splice(i, 1);
-      }
-      if (!live.length) return;
-
-      var nS = 0, nL = 0, H2 = H * 0.5;
-      function pushS(x, y, r, g, b, size, a){
-        var o = nS * strideS;
-        arrS[o] = x; arrS[o+1] = y;
-        arrS[o+2] = r; arrS[o+3] = g; arrS[o+4] = b;
-        arrS[o+5] = size; arrS[o+6] = a;
-        nS++;
-      }
-      function pushL(x, y, r, g, b, a){
-        var o = nL * strideL;
-        arrL[o] = x; arrL[o+1] = y;
-        arrL[o+2] = r; arrL[o+3] = g; arrL[o+4] = b; arrL[o+5] = a;
-        nL++;
-      }
-
-      for (var q = 0; q < live.length; q++) {
-        var o = live[q], s = o.s;
-        if (s <= 0.003) continue;
-        var R = (0.20 + 0.34 * s) , Rpx = R * H2;
-        var pa = pats[o.pat];
-        var ca = Math.cos(o.rot), sa = Math.sin(o.rot);
-        var xs = [], ys = [];
-        for (var j = 0; j < pa.s.length; j++) {
-          var st = pa.s[j];
-          xs.push(o.x + (st[0] * ca - st[1] * sa) * R);
-          ys.push(o.y + (st[0] * sa + st[1] * ca) * R);
-        }
-        /* 先铺一层薄雾，让星图有「景观」的体积感 */
-        pushS(o.x, o.y, 0.34, 0.22, 0.62, Rpx * 2.35, s * 0.060);
-        /* 连线 */
-        for (var l = 0; l < pa.e.length && nL + 2 <= arrL.length / strideL; l++) {
-          var A2 = pa.e[l][0], B2 = pa.e[l][1];
-          var la = s * 0.44 * (0.75 + 0.25 * Math.sin(t * 1.6 + l * 1.1 + o.seed));
-          pushL(xs[A2], ys[A2], 0.60, 0.83, 1.00, la);
-          pushL(xs[B2], ys[B2], 0.60, 0.83, 1.00, la);
-        }
-        /* 外圈：极淡的一道环，星图的味道 */
-        for (var rg = 0; rg < 48 && nL + 2 <= arrL.length / strideL; rg++) {
-          var ra1 = o.rot + rg * (6.2832 / 48), ra2 = o.rot + (rg + 1) * (6.2832 / 48);
-          var rr = R * 1.04;
-          pushL(o.x + Math.cos(ra1) * rr, o.y + Math.sin(ra1) * rr * 0.96, 0.42, 0.62, 0.95, s * 0.055);
-          pushL(o.x + Math.cos(ra2) * rr, o.y + Math.sin(ra2) * rr * 0.96, 0.42, 0.62, 0.95, s * 0.055);
-        }
-        /* 星点 */
-        for (var k = 0; k < pa.s.length && nS + 1 <= arrS.length / strideS; k++) {
-          var s3 = pa.s[k];
-          var tw = 0.70 + 0.30 * Math.sin(t * 2.3 + k * 1.9 + o.seed * 3.1);
-          var a = s * 1.05 * s3[3] * tw;
-          var warm = Math.min(1, (s3[2] - 1.0) * 0.55);
-          pushS(xs[k], ys[k],
-                0.72 + 0.26 * warm, 0.86 + 0.09 * warm, 1.00 - 0.10 * warm,
-                (3.0 + s3[2] * 4.6) * (0.60 + 0.40 * s), a);
-        }
-      }
-      if (!nS && !nL) return;
-
-      gl.useProgram(PL.p);
-      gl.bindVertexArray(vaoL);
-      gl.bindBuffer(gl.ARRAY_BUFFER, bufL);
-      gl.bufferData(gl.ARRAY_BUFFER, arrL.subarray(0, nL * strideL), gl.DYNAMIC_DRAW);
-      gl.uniform1f(PL.u.uAspect, aspect);
-      gl.drawArrays(gl.LINES, 0, nL);
-
-      gl.useProgram(PS.p);
-      gl.bindVertexArray(vaoS);
-      gl.bindBuffer(gl.ARRAY_BUFFER, bufS);
-      gl.bufferData(gl.ARRAY_BUFFER, arrS.subarray(0, nS * strideS), gl.DYNAMIC_DRAW);
-      gl.uniform1f(PS.u.uAspect, aspect);
-      gl.uniform1f(PS.u.uDpr, DPR);
-      gl.drawArrays(gl.POINTS, 0, nS);
-      gl.bindVertexArray(null);
-    }
-
-    return { down:down, move:move, up:up, draw:draw };
-  })();
-
-  /* 按压面积：手机用接触面积（width/height），鼠标用按住时长补足 */
-  function pressArea(e){
-    var side = Math.max(e.width || 0, e.height || 0);
-    if (side > 1) return Math.max(0.34, Math.min(1, side / 40));
-    var pr = (e.pointerType === 'mouse') ? 0.5 : (e.pressure > 0 ? e.pressure : 0.5);
-    return 0.42 + pr * 0.46;
-  }
-  function ensureFinger(id, e){
-    var p = toWorld(e.clientX, e.clientY);
-    var f = fingers.get(id);
-    if (!f) { f = { x:p.x, y:p.y, power:0 }; fingers.set(id, f); }
-    f.x = p.x; f.y = p.y;
-    return f;
-  }
-  canvas.addEventListener('pointerdown', function(e){
-    if (canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch(_){} }
-    var f = ensureFinger(e.pointerId, e);
-    f.power = 1; pressed = true; autoDrive = false;
-    CONST.down(e.pointerId, f.x, f.y, pressArea(e));
   });
-  canvas.addEventListener('pointermove', function(e){
-    var f = ensureFinger(e.pointerId, e);
-    if (e.pointerType === 'mouse') { f.power = pressed ? 1 : Math.min(1, f.power + 0.35); }
-    else if (pressed || f.power > 0) { f.power = 1; }
-    if (e.pointerType === 'mouse') { ptr.tx = f.x; ptr.ty = f.y; }
-    CONST.move(e.pointerId, f.x, f.y);
-  });
-  function release(e){
-    var f = fingers.get(e.pointerId);
-    if (f) f.power = 0;
-    pressed = false;
-    if (e.pointerType !== 'mouse') {
-      fingers.forEach(function(v){ if (v.power > 0) pressed = true; });
-    }
-    CONST.up(e.pointerId);
-  }
-  canvas.addEventListener('pointerup', release);
-  canvas.addEventListener('pointercancel', release);
-  canvas.addEventListener('pointerleave', function(e){
-    var f = fingers.get(e.pointerId);
-    if (f && e.pointerType === 'mouse') f.power = 0;
-    CONST.up(e.pointerId);
-  });
-  var running = true;
-  if (window.IntersectionObserver) {
-    new IntersectionObserver(function(es){
-      running = es[0].isIntersecting;
-    }, { threshold: 0 }).observe(canvas);
-  }
+}
 
-  var T0 = performance.now();
-  var prog01 = 0, progTarget = 0, last = T0;
-  var fpsAcc = 0, fpsN = 0, slowFrames = 0, degraded = false;
-  var fingerPos = new Float32Array(15);
-  var fingerPower = new Float32Array(5);
-  function smooth(a, b, x){ var t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  MOBILE = window.innerWidth < 820;
+  W = cv.clientWidth || window.innerWidth;
+  H = cv.clientHeight || window.innerHeight;
+  cv.width = Math.round(W*DPR);
+  cv.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  buildStars();
+  buildDust();
+  buildNeb();
+}
 
-  function frame(now){
-    requestAnimationFrame(frame);
-    var dt = Math.min(0.05, (now - last) / 1000); last = now;
-    if (!running) return;
-    var t = (now - T0) / 1000;
+var rt = 0;
+window.addEventListener('resize', function(){
+  clearTimeout(rt);
+  rt = setTimeout(resize, 180);
+});
 
-    if (autoDrive) progTarget = smooth(1.30, 3.10, t);
-    else progTarget = pressed ? 0.10 : 1.0;
-    prog01 += (progTarget - prog01) * (1 - Math.exp(-dt * P.morph));
+window.addEventListener('pointermove', function(e){
+  tmx = (e.clientX/Math.max(1,W) - 0.5) * 2;
+  tmy = (e.clientY/Math.max(1,H) - 0.5) * 2;
+}, {passive:true});
 
-    ptr.x += (ptr.tx - ptr.x) * (1 - Math.exp(-dt * 12));
-    ptr.y += (ptr.ty - ptr.y) * (1 - Math.exp(-dt * 12));
+document.addEventListener('click', function(e){
+  var tg = e.target;
+  if(tg && tg.closest && (tg.closest('.p') || tg.closest('#panel'))) return;
+  clearSel();
+});
 
-    fingerPower.fill(0);
-    var slot = 0;
-    fingers.forEach(function(f){
-      if (slot >= 5) return;
-      if (f.power <= 0.002) return;
-      fingerPos[slot*3] = f.x; fingerPos[slot*3+1] = f.y; fingerPos[slot*3+2] = 0;
-      fingerPower[slot] = f.power;
-      slot++;
-    });
-    fingers.forEach(function(f){ if (f.power > 0) f.power = Math.max(0, f.power - dt * 6); });
-
-    var idleX = Math.sin(t * 0.33) * 0.06, idleY = Math.cos(t * 0.27) * 0.04;
-    var tiltX = ptr.x * 0.16 + idleX;
-    var tiltY = -ptr.y * 0.12 + idleY;
-
-    gl.clearColor(0.0196, 0.0314, 0.047, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.useProgram(prog);
-    gl.bindVertexArray(vao);
-    gl.uniform1f(U.uTime, t);
-    gl.uniform1f(U.uProgress, prog01);
-    gl.uniform1f(U.uStagger, P.stagger);
-    gl.uniform2f(U.uWorld, worldW, worldH || worldW * 0.25);
-    gl.uniform1f(U.uAspect, aspect);
-    gl.uniform2f(U.uTilt, tiltX, tiltY);
-    gl.uniform3fv(U.uFingers, fingerPos);
-    gl.uniform1fv(U.uPower, fingerPower);
-    gl.uniform1f(U.uRadius, P.radius);
-    gl.uniform1f(U.uForce, P.force);
-    gl.uniform1f(U.uSwirl, P.swirl);
-    gl.uniform1f(U.uSize, P.size);
-    gl.uniform1f(U.uDpr, DPR);
-    gl.uniform1f(U.uBright, P.bright * brightMul * (COUNT >= 90000 ? 1.75 : 1.0));
-    gl.drawArrays(gl.POINTS, 0, COUNT);
-    gl.bindVertexArray(null);
-    CONST.draw(t, dt);
-
-    fpsAcc += dt; fpsN++;
-    if (dt > 0.026) slowFrames++;
-    if (fpsAcc > 0.5) {
-      var fps = Math.round(fpsN / fpsAcc);
-      if (!degraded && fps < 38 && slowFrames / fpsN > 0.6 && COUNT > 12000) {
-        degraded = true;
-        COUNT = Math.max(8000, Math.round(COUNT / 2));
-        buildParticles();
-      }
-      fpsAcc = 0; fpsN = 0; slowFrames = 0;
-    }
-  }
+function frame(ts){
+  if(!last) last = ts;
+  var dt = Math.min(0.05, (ts - last)/1000);
+  last = ts;
+  t += dt;
+  var k = Math.min(1, dt*2.8);
+  mx += (tmx - mx)*k;
+  my += (tmy - my)*k;
+  drawUniverse(calm? dt*0.35 : dt);
+  layout(dt);
   requestAnimationFrame(frame);
-})();
-</script>
+}
 
-<script>
-  if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    addEventListener('load', function(){
-      navigator.serviceWorker.register('./sw.js').catch(function(){});
-    });
-  }
+resize();
+for(var n=0; n<DATA.length; n++) addPlanet(DATA[n]);
+requestAnimationFrame(frame);
+
+/* 初始化完成后再亮出私人星球 */
+try{
+  if(localStorage.getItem('kc_mine') === '1') renderMine(false);
+}catch(e){}
+
+if(/[?&]mine=1/.test(location.search) || location.hash === '#mine') renderMine(true);
+
+if('serviceWorker' in navigator && location.protocol === 'https:'){
+  navigator.serviceWorker.register('./sw.js').catch(function(){});
+}
+})();
 </script>
 </body>
 </html>
