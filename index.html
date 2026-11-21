@@ -47,8 +47,63 @@
     color:var(--dim);background:rgba(255,255,255,.03);transition:.25s}
   .ghost:hover{color:var(--fg);border-color:rgba(120,190,210,.34)}
 </style>
+<style>
+  /* ===== 首屏粒子标题 -> 宇宙区的衔接 ===== */
+  html,body{height:auto;scroll-behavior:smooth}
+  body{overflow-x:hidden;overflow-y:auto}
+  .stage{height:100svh;min-height:520px}
+  .stage .scroll-cue{pointer-events:auto;cursor:pointer}
+  .bar-right{transition:opacity .45s}
+  body:not(.uni) .bar-right{opacity:0;pointer-events:none}
+  #uni{position:relative;height:100svh;min-height:520px;overflow:hidden}
+  #space{position:absolute;inset:0;width:100%;height:100%}
+  #vignette{position:absolute;inset:0}
+  #stage{position:absolute;inset:0;z-index:2}
+  /* 星球表面：纹理 + 球体光照 + 边缘光 */
+  .p-orb{overflow:hidden;background:#05070d}
+  .p-map{position:absolute;top:-6%;left:0;width:200%;height:112%;background-size:50% 100%;
+    background-repeat:repeat-x;animation:pmap 60s linear infinite;will-change:transform}
+  @keyframes pmap{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+  .p-light{position:absolute;inset:0;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle at 31% 25%, rgba(255,255,255,.40), rgba(255,255,255,.05) 32%, rgba(255,255,255,0) 54%),
+      radial-gradient(circle at 79% 84%, rgba(0,0,0,.70), rgba(0,0,0,0) 60%);
+    box-shadow:inset -10px -13px 30px rgba(0,0,0,.70), inset 2px 3px 14px rgba(255,255,255,.09)}
+  .p-rim{position:absolute;inset:0;border-radius:50%;pointer-events:none;mix-blend-mode:screen;
+    background:radial-gradient(circle at 50% 50%, rgba(0,0,0,0) 58%, rgba(180,225,255,.10) 80%, rgba(255,255,255,.24) 100%)}
+
+  /* 粒子舞台 */
+  .stage{position:relative;height:calc(100svh - 64px);min-height:470px;overflow:hidden;background:var(--bg)}
+  #gl{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:pan-y}
+  .stage:after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:
+      radial-gradient(120% 76% at 50% 44%, rgba(40,120,140,.15), transparent 62%),
+      linear-gradient(180deg, rgba(5,8,12,.62) 0%, rgba(5,8,12,0) 20%, rgba(5,8,12,0) 74%, #05080c 100%)}
+  .stage-eyebrow{position:absolute;left:0;right:0;top:max(6.5vh,48px);text-align:center;
+    font-size:10.5px;letter-spacing:3.4px;text-transform:uppercase;
+    color:rgba(140,175,190,.62);pointer-events:none}
+  .stage-title{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);margin:0;
+    text-align:center;font-size:clamp(40px,9.2vw,90px);line-height:1;letter-spacing:-1.2px;
+    font-weight:800;color:transparent;pointer-events:none;user-select:none}
+  .no-gl .stage-title{color:var(--fg)}
+  .no-gl #gl{display:none}
+  .stage-sub{position:absolute;left:0;right:0;bottom:15.5%;margin:0 auto;max-width:580px;padding:0 30px;
+    text-align:center;font-size:14px;line-height:1.9;color:var(--dim);pointer-events:none}
+  .stage-sub b{color:#e8f1f4;font-weight:600}
+  .scroll-cue{position:absolute;left:0;right:0;bottom:18px;text-align:center;font-size:12px;
+    letter-spacing:2.2px;color:rgba(192,216,229,.82);pointer-events:none}
+  .scroll-cue span{display:inline-block;animation:bob 2.2s ease-in-out infinite}
+</style>
 </head>
 <body>
+  <section class="stage" id="top">
+    <canvas id="gl"></canvas>
+    <div class="stage-eyebrow">KissCream · Interactive Lab</div>
+    <h1 class="stage-title">KissCream</h1>
+    <p class="stage-sub">四个模块，一套手写渲染。<b>移动手指</b>把粒子推开，松开手它们会重新聚成字。</p>
+    <div class="scroll-cue">往下看 <span>↓</span></div>
+  </section>
+
+<div id="uni">
 <canvas id="space" aria-hidden="true"></canvas>
 <div id="vignette"></div>
 <div id="stage"></div>
@@ -69,6 +124,581 @@
 
 <div id="toast"></div>
 <div id="foot">© 2026 KissCream · 手写渲染 · 无外部依赖</div>
+</div>
+<script>
+'use strict';
+/* ---------------------------------------------------------------
+   首屏粒子标题（纯 WebGL2，零依赖）
+   - 全部运动在顶点着色器里；CPU 每帧只更新几个 uniform
+   - 指针 / 手指 = 力场源（推开 + 涡流），最多 5 个
+   - 之后接手势识别时，只把「指尖坐标」写进同一个 fingers 数组即可
+   --------------------------------------------------------------- */
+(function(){
+  var canvas = document.getElementById('gl');
+  var gl = canvas.getContext('webgl2', {
+    alpha:false, antialias:false, depth:false, stencil:false,
+    powerPreference:'high-performance'
+  });
+  if (!gl) { document.documentElement.classList.add('no-gl'); return; }
+
+  var P = { size:2.6, stagger:0.62, force:1.85, radius:0.44, swirl:0.80, morph:6.0, bright:1.00 };
+
+  var MIN_SIDE = Math.min(window.innerWidth, window.innerHeight);
+  var qs = new URLSearchParams(location.search);
+  var COUNT = Math.max(3000, parseInt(qs.get('count')||'0',10) || (MIN_SIDE < 820 ? 30000 : 100000));
+
+  var VS = [
+'#version 300 es',
+'precision highp float;',
+'in vec3 aStart;','in vec3 aTarget;','in vec3 aRand;',
+'uniform float uTime;','uniform float uProgress;','uniform float uStagger;',
+'uniform vec2 uWorld;','uniform vec2 uTilt;','uniform float uAspect;',
+'uniform vec3 uFingers[5];','uniform float uPower[5];',
+'uniform float uRadius;','uniform float uForce;','uniform float uSwirl;',
+'uniform float uSize;','uniform float uDpr;',
+'out vec3 vColor;','out float vAlpha;',
+'void main(){',
+'  float s = aRand.x;',
+'  float off = s * uStagger;',
+'  float dur = max(1.0 - off, 0.05);',
+'  float t = clamp((uProgress - off) / dur, 0.0, 1.0);',
+'  t = t * t * (3.0 - 2.0 * t);',
+'  vec3 tgt = vec3(aTarget.xy * uWorld, aTarget.z);',
+'  vec3 pos = mix(aStart, tgt, t);',
+'  float ph = aRand.z * 6.2831853;',
+'  pos += vec3(sin(uTime*0.62+ph), cos(uTime*0.81+ph*1.7), sin(uTime*0.47+ph*2.3)) * 0.009;',
+'  float force = 0.0;',
+'  for (int i = 0; i < 5; i++) {',
+'    float pw = uPower[i];',
+'    if (pw <= 0.001) continue;',
+'    vec2 d = pos.xy - uFingers[i].xy;',
+'    float dist = length(d) + 1e-4;',
+'    float w = pow(1.0 - clamp(dist / uRadius, 0.0, 1.0), 2.0) * pw;',
+'    vec2 dir = d / dist;',
+'    pos.xy += (dir * uForce + vec2(-dir.y, dir.x) * uSwirl) * w * uRadius;',
+'    force += w;',
+'  }',
+'  pos.z += force * 0.055;',
+'  float cy = cos(uTilt.x), sy = sin(uTilt.x);',
+'  vec3 p = vec3(pos.x*cy + pos.z*sy, pos.y, -pos.x*sy + pos.z*cy);',
+'  float cx = cos(uTilt.y), sx = sin(uTilt.y);',
+'  p = vec3(p.x, p.y*cx - p.z*sx, p.y*sx + p.z*cx);',
+'  float d = 1.0 / (1.0 + p.z * 0.45);',
+'  gl_Position = vec4(p.xy * vec2(1.0 / uAspect, 1.0) * d, 0.0, 1.0);',
+'  gl_PointSize = clamp(uSize * aRand.y * d * uDpr, 1.0, 42.0);',
+'  // 星河配色：位置 + 时间共同决定色相，整团颜色永远在缓慢流动',
+'  float hh = fract(uTime * 0.17 + pos.x * 0.24 - pos.y * 0.20 + aRand.z * 0.46 + length(aStart.xy) * 0.18);',
+'  float xp = hh * 4.0;',
+'  int gi = int(floor(xp));',
+'  float gf = fract(xp);',
+'  gf = gf * gf * (3.0 - 2.0 * gf);',
+'  vec3 g0 = vec3(0.18,0.07,0.46);',   // 深紫蓝（星云暗部）',
+'  vec3 g1 = vec3(0.55,0.17,0.90);',   // 紫',
+'  vec3 g2 = vec3(1.00,0.32,0.66);',   // 品红（星云亮部）',
+'  vec3 g3 = vec3(0.30,0.80,1.00);',   // 青蓝（电离气体）',
+'  vec3 g4 = vec3(1.00,0.93,0.84);',   // 恒星暖白',
+'  vec3 col;',
+'  if (gi <= 0) col = mix(g0, g1, gf);',
+'  else if (gi == 1) col = mix(g1, g2, gf);',
+'  else if (gi == 2) col = mix(g2, g3, gf);',
+'  else col = mix(g3, g4, gf);',
+'  col *= 1.45;',
+'  col = mix(col, vec3(1.00,0.96,0.92), 0.07);',
+'  col += vec3(1.00,0.42,0.80) * min(force, 1.6) * 0.55;',
+'  vColor = col;',
+'  float edgeFade = 0.34 + 0.66 * smoothstep(1.15, 0.15, length(aStart));',
+'  vAlpha = mix(0.030, 0.075, t) * edgeFade + force * 0.055;',
+'  vAlpha = min(vAlpha, 0.5);',
+'}'
+  ].join('\n');
+
+  var FS = [
+'#version 300 es',
+'precision mediump float;',
+'in vec3 vColor;','in float vAlpha;',
+'uniform float uBright;',
+'out vec4 fragColor;',
+'void main(){',
+'  vec2 uv = gl_PointCoord * 2.0 - 1.0;',
+'  float d2 = dot(uv, uv);',
+'  if (d2 > 1.0) discard;',
+'  float glow = pow(1.0 - d2, 2.2);',
+'  float core = smoothstep(1.0, 0.30, d2);',
+'  float a = (glow * 0.72 + core * 0.52) * vAlpha * uBright;',
+'  fragColor = vec4(vColor * a, a);',
+'}'
+  ].join('\n');
+
+  function compile(type, src){
+    var s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('shader: ' + gl.getShaderInfoLog(s));
+    return s;
+  }
+  var prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, VS));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, FS));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error('link: ' + gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+
+  var U = {};
+  ['uTime','uProgress','uStagger','uWorld','uTilt','uFingers','uPower',
+   'uAspect','uRadius','uForce','uSwirl','uSize','uDpr','uBright'].forEach(function(n){
+    U[n] = gl.getUniformLocation(prog, n);
+  });
+  var A = {
+    aStart:  gl.getAttribLocation(prog, 'aStart'),
+    aTarget: gl.getAttribLocation(prog, 'aTarget'),
+    aRand:   gl.getAttribLocation(prog, 'aRand')
+  };
+
+  var TEX = null, linesKey = '';
+  function desiredLines(){ return W < 620 ? ['Kiss', 'Cream'] : ['KissCream']; }
+
+  function sampleText(lines){
+    var FONT = 200, LH = Math.round(FONT * 1.06);
+    var FAMILY = '"Segoe UI","Microsoft YaHei",system-ui,sans-serif';
+    var c = document.createElement('canvas');
+    var ctx = c.getContext('2d', { willReadFrequently:true });
+    ctx.font = '800 ' + FONT + 'px ' + FAMILY;
+    var maxW = 0;
+    for (var li = 0; li < lines.length; li++) maxW = Math.max(maxW, ctx.measureText(lines[li]).width);
+    var w = Math.ceil(maxW) + 60;
+    var h = LH * lines.length + 40;
+    c.width = w; c.height = h;
+    ctx = c.getContext('2d', { willReadFrequently:true });
+    ctx.font = '800 ' + FONT + 'px ' + FAMILY;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+    var y0 = h / 2 - (lines.length - 1) * LH / 2;
+    for (var k = 0; k < lines.length; k++) ctx.fillText(lines[k], w / 2, y0 + k * LH);
+    var px = ctx.getImageData(0, 0, w, h).data;
+    var xs = [], ys = [], as = [];
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        var a = px[(y * w + x) * 4 + 3];
+        if (a > 22) { xs.push(x); ys.push(y); as.push(a / 255); }
+      }
+    }
+    return { xs:xs, ys:ys, as:as, w:w, h:h, count:xs.length };
+  }
+
+  /* 竖屏窄屏自动折成两行，字形能大一倍多；窗口尺寸变了就重新采样重建 */
+  function ensureTex(){
+    var L = desiredLines(), key = L.join('|');
+    if (TEX && key === linesKey) return false;
+    var t = sampleText(L);
+    if (!t || !t.count) { document.documentElement.classList.add('no-gl'); return false; }
+    TEX = t; linesKey = key;
+    return true;
+  }
+
+  var bufStart, bufTarget, bufRand, vao;
+  function buildParticles(){
+    var n = COUNT;
+    var start = new Float32Array(n * 3);
+    var target = new Float32Array(n * 3);
+    var rand = new Float32Array(n * 3);
+    var xs = TEX.xs, ys = TEX.ys, as = TEX.as, tw = TEX.w, th = TEX.h, m = TEX.count;
+    for (var i = 0; i < n; i++) {
+      var u = Math.random() * 2 - 1;
+      var th2 = Math.random() * Math.PI * 2;
+      var rr = Math.pow(Math.random(), 0.42) * 0.95;
+      var sq = Math.sqrt(1 - u * u);
+      start[i*3]   = rr * sq * Math.cos(th2);
+      start[i*3+1] = rr * sq * Math.sin(th2) * 0.92;
+      start[i*3+2] = rr * u * 0.78;
+
+      var k = (Math.random() * m) | 0;
+      var ax = xs[k], ay = ys[k], aa = as[k];
+      var jit = (1.55 - aa) * 1.5;
+      target[i*3]   = ((ax + (Math.random()-0.5)*jit) / tw - 0.5);
+      target[i*3+1] = -((ay + (Math.random()-0.5)*jit) / th - 0.5);
+      target[i*3+2] = (Math.random() - 0.5) * 0.10;
+
+      rand[i*3]   = Math.random();
+      rand[i*3+1] = 0.55 + Math.random() * 0.9;
+      rand[i*3+2] = Math.random();
+    }
+    if (!vao) {
+      bufStart = gl.createBuffer(); bufTarget = gl.createBuffer(); bufRand = gl.createBuffer();
+      vao = gl.createVertexArray();
+    }
+    gl.bindVertexArray(vao);
+    function put(buf, attr, arr){
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, arr, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(attr);
+      gl.vertexAttribPointer(attr, 3, gl.FLOAT, false, 0, 0);
+    }
+    put(bufStart, A.aStart, start);
+    put(bufTarget, A.aTarget, target);
+    put(bufRand, A.aRand, rand);
+    gl.bindVertexArray(null);
+  }
+
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE);
+  gl.disable(gl.DEPTH_TEST);
+
+  var DPR = Math.min(window.devicePixelRatio || 1, 2);
+  var W = 1, H = 1, aspect = 1, worldW = 1, worldH = 0.25, brightMul = 1.0;
+  function resize(){
+    W = canvas.clientWidth || 1;
+    H = canvas.clientHeight || 1;
+    var w = Math.round(W * DPR), h = Math.round(H * DPR);
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    gl.viewport(0, 0, w, h);
+    aspect = W / H;
+    var texChanged = ensureTex();
+    if (!TEX) return;
+    if (texChanged) buildParticles();
+    var fill = W < 620 ? 0.88 : 0.82;
+    worldW = Math.min(fill * 2 * aspect, 3.2);
+    worldH = worldW * (TEX.h / TEX.w);
+    brightMul = (W < 620) ? 2.0 : 1.0;   // 竖屏两行时字面积翻倍，亮度补回来
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', function(){ setTimeout(resize, 140); });
+
+  var fingers = new Map();
+  var ptr = { x:0, y:0, tx:0, ty:0 };
+  var pressed = false, autoDrive = true;
+  function toWorld(cx, cy){ return { x:(cx / W * 2 - 1) * aspect, y:-(cy / H * 2 - 1) }; }
+
+  /* ============ 星座星象图：按住哪里，哪里浮现一张星图 ============ */
+  var CONST = (function(){
+    var MAXP = 5, MAXS = 12, MAXL = 78;
+    var pats = [
+      { s:[[-0.86,0.12,1.3,1],[-0.55,0.30,2.0,1.3],[-0.22,0.16,1.0,0.9],[0.12,0.34,2.2,1.4],[0.46,0.14,1.2,1.0],[0.74,0.38,1.5,1.1],[0.92,-0.04,2.4,1.5],[0.30,-0.32,1.0,0.8],[0.62,-0.54,1.6,1.1]],
+        e:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[4,7],[7,8],[3,7]] },
+      { s:[[-0.62,0.72,2.2,1.4],[-0.30,0.34,1.1,1.0],[-0.02,0.06,2.4,1.5],[0.28,-0.24,1.2,1.0],[0.58,-0.62,2.0,1.3],[-0.78,-0.22,1.5,1.1],[0.72,0.30,1.6,1.1],[-0.52,0.08,1.9,1.2],[0.42,0.16,1.9,1.2]],
+        e:[[0,1],[1,2],[2,3],[3,4],[7,1],[1,8],[8,3]] },
+      { s:[[-0.70,-0.46,1.4,1.0],[-0.34,-0.10,2.2,1.4],[0.02,0.20,1.2,1.0],[0.38,0.02,2.5,1.5],[0.76,-0.30,1.5,1.1],[-0.10,-0.64,1.8,1.2],[0.46,-0.66,1.9,1.2],[0.06,0.68,1.1,1.0]],
+        e:[[0,1],[1,2],[2,3],[3,4],[1,5],[5,6],[6,3],[2,7]] },
+      { s:[[-0.80,0.06,2.0,1.3],[-0.42,0.44,1.1,1.0],[-0.06,0.78,2.3,1.4],[0.34,0.42,1.2,1.0],[0.74,0.10,2.1,1.3],[0.30,-0.38,1.5,1.1],[-0.16,-0.72,1.9,1.2],[-0.56,-0.44,1.4,1.0],[0.04,0.04,1.0,0.8]],
+        e:[[0,1],[1,2],[2,3],[3,4],[0,8],[8,4],[8,6],[5,6],[7,0]] },
+      { s:[[-0.74,-0.38,1.3,1.0],[-0.38,0.26,2.0,1.3],[0.00,-0.08,1.1,1.0],[0.40,0.32,2.2,1.4],[0.80,-0.28,1.4,1.1],[0.16,0.74,1.6,1.1],[-0.20,-0.74,1.7,1.1]],
+        e:[[0,1],[1,2],[2,3],[3,4],[3,5],[0,6],[6,2]] },
+      { s:[[-0.66,0.56,2.4,1.5],[-0.30,0.06,1.1,1.0],[0.06,-0.30,2.0,1.3],[0.40,0.10,1.2,1.0],[0.78,0.52,2.4,1.5],[0.22,-0.76,1.4,1.0],[-0.52,-0.58,1.5,1.1]],
+        e:[[0,1],[1,2],[2,3],[3,4],[2,5],[2,6]] }
+    ];
+
+    var SV = [
+'#version 300 es',
+'precision highp float;',
+'in vec2 aPos;','in vec3 aCol;','in float aSize;','in float aA;',
+'uniform float uAspect;','uniform float uDpr;',
+'out vec3 vC;','out float vA;',
+'void main(){',
+'  gl_Position = vec4(aPos.x / uAspect, aPos.y, 0.0, 1.0);',
+'  gl_PointSize = clamp(aSize * uDpr, 1.5, 190.0);',
+'  vC = aCol; vA = aA;',
+'}'
+    ].join('\n');
+    var SF = [
+'#version 300 es',
+'precision mediump float;',
+'in vec3 vC;','in float vA;',
+'out vec4 fragColor;',
+'void main(){',
+'  vec2 uv = gl_PointCoord * 2.0 - 1.0;',
+'  float d2 = dot(uv, uv);',
+'  if (d2 > 1.0) discard;',
+'  float halo = pow(max(0.0, 1.0 - d2), 2.4);',
+'  float core = smoothstep(0.40, 0.0, d2);',
+'  float ax = smoothstep(0.88, 0.0, abs(uv.x)) * smoothstep(0.13, 0.0, abs(uv.y));',
+'  float ay = smoothstep(0.88, 0.0, abs(uv.y)) * smoothstep(0.13, 0.0, abs(uv.x));',
+'  float a = (halo * 0.60 + core * 0.95 + (ax + ay) * 0.34) * vA;',
+'  fragColor = vec4(vC * a, a);',
+'}'
+    ].join('\n');
+    var LV = [
+'#version 300 es',
+'precision highp float;',
+'in vec2 aPos;','in vec3 aCol;','in float aA;',
+'uniform float uAspect;',
+'out vec3 vC;','out float vA;',
+'void main(){',
+'  gl_Position = vec4(aPos.x / uAspect, aPos.y, 0.0, 1.0);',
+'  vC = aCol; vA = aA;',
+'}'
+    ].join('\n');
+    var LF = [
+'#version 300 es',
+'precision mediump float;',
+'in vec3 vC;','in float vA;',
+'out vec4 fragColor;',
+'void main(){ fragColor = vec4(vC * vA, vA); }'
+    ].join('\n');
+
+    function mk(vsSrc, fsSrc, attrs){
+      var p = gl.createProgram();
+      gl.attachShader(p, compile(gl.VERTEX_SHADER, vsSrc));
+      gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fsSrc));
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('const link: ' + gl.getProgramInfoLog(p));
+      var o = { p: p, a: {}, u: {} };
+      for (var i = 0; i < attrs.length; i++) o.a[attrs[i]] = gl.getAttribLocation(p, attrs[i]);
+      o.u.uAspect = gl.getUniformLocation(p, 'uAspect');
+      o.u.uDpr = gl.getUniformLocation(p, 'uDpr');
+      return o;
+    }
+    var PS = mk(SV, SF, ['aPos','aCol','aSize','aA']);
+    var PL = mk(LV, LF, ['aPos','aCol','aA']);
+
+    var strideS = 7, strideL = 6;
+    var arrS = new Float32Array(MAXP * MAXS * strideS);
+    var arrL = new Float32Array(MAXP * MAXL * 2 * strideL);
+    var vaoS = gl.createVertexArray();
+    var vaoL = gl.createVertexArray();
+    var bufS = gl.createBuffer();
+    var bufL = gl.createBuffer();
+    (function setup(){
+      gl.bindVertexArray(vaoS);
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufS);
+      gl.bufferData(gl.ARRAY_BUFFER, arrS.byteLength, gl.DYNAMIC_DRAW);
+      var fs = strideS * 4;
+      gl.enableVertexAttribArray(PS.a.aPos);  gl.vertexAttribPointer(PS.a.aPos,  2, gl.FLOAT, false, fs, 0);
+      gl.enableVertexAttribArray(PS.a.aCol);  gl.vertexAttribPointer(PS.a.aCol,  3, gl.FLOAT, false, fs, 8);
+      gl.enableVertexAttribArray(PS.a.aSize); gl.vertexAttribPointer(PS.a.aSize, 1, gl.FLOAT, false, fs, 20);
+      gl.enableVertexAttribArray(PS.a.aA);    gl.vertexAttribPointer(PS.a.aA,    1, gl.FLOAT, false, fs, 24);
+      gl.bindVertexArray(vaoL);
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufL);
+      gl.bufferData(gl.ARRAY_BUFFER, arrL.byteLength, gl.DYNAMIC_DRAW);
+      var fl = strideL * 4;
+      gl.enableVertexAttribArray(PL.a.aPos); gl.vertexAttribPointer(PL.a.aPos, 2, gl.FLOAT, false, fl, 0);
+      gl.enableVertexAttribArray(PL.a.aCol); gl.vertexAttribPointer(PL.a.aCol, 3, gl.FLOAT, false, fl, 8);
+      gl.enableVertexAttribArray(PL.a.aA);   gl.vertexAttribPointer(PL.a.aA,   1, gl.FLOAT, false, fl, 20);
+      gl.bindVertexArray(null);
+    })();
+
+    var live = [], patIdx = 0;
+
+    function down(id, x, y, base){
+      for (var i = 0; i < live.length; i++) if (live[i].id === id) live.splice(i, 1);
+      if (live.length >= MAXP) live.shift();
+      live.push({ id:id, x:x, y:y, s:base*0.55, base:base, tgt:base, held:0, down:true,
+                  rot:Math.random()*6.283, pat:(patIdx++) % pats.length, seed:Math.random()*100 });
+    }
+    function move(id, x, y){
+      for (var i = 0; i < live.length; i++) if (live[i].id === id) { live[i].x = x; live[i].y = y; }
+    }
+    function up(id){
+      for (var i = 0; i < live.length; i++) if (live[i].id === id) { live[i].down = false; live[i].tgt = 0; }
+    }
+
+    function draw(t, dt){
+      for (var i = live.length - 1; i >= 0; i--) {
+        var o = live[i];
+        o.rot += dt * 0.05;
+        if (o.down) { o.held += dt; o.tgt = Math.min(1, o.base + o.held * 0.20); }
+        o.s += (o.tgt - o.s) * (1 - Math.exp(-dt * (o.down ? 5.0 : 2.4)));
+        if (!o.down && o.s <= 0.003) live.splice(i, 1);
+      }
+      if (!live.length) return;
+
+      var nS = 0, nL = 0, H2 = H * 0.5;
+      function pushS(x, y, r, g, b, size, a){
+        var o = nS * strideS;
+        arrS[o] = x; arrS[o+1] = y;
+        arrS[o+2] = r; arrS[o+3] = g; arrS[o+4] = b;
+        arrS[o+5] = size; arrS[o+6] = a;
+        nS++;
+      }
+      function pushL(x, y, r, g, b, a){
+        var o = nL * strideL;
+        arrL[o] = x; arrL[o+1] = y;
+        arrL[o+2] = r; arrL[o+3] = g; arrL[o+4] = b; arrL[o+5] = a;
+        nL++;
+      }
+
+      for (var q = 0; q < live.length; q++) {
+        var o = live[q], s = o.s;
+        if (s <= 0.003) continue;
+        var R = (0.20 + 0.34 * s) , Rpx = R * H2;
+        var pa = pats[o.pat];
+        var ca = Math.cos(o.rot), sa = Math.sin(o.rot);
+        var xs = [], ys = [];
+        for (var j = 0; j < pa.s.length; j++) {
+          var st = pa.s[j];
+          xs.push(o.x + (st[0] * ca - st[1] * sa) * R);
+          ys.push(o.y + (st[0] * sa + st[1] * ca) * R);
+        }
+        /* 先铺一层薄雾，让星图有「景观」的体积感 */
+        pushS(o.x, o.y, 0.34, 0.22, 0.62, Rpx * 2.35, s * 0.060);
+        /* 连线 */
+        for (var l = 0; l < pa.e.length && nL + 2 <= arrL.length / strideL; l++) {
+          var A2 = pa.e[l][0], B2 = pa.e[l][1];
+          var la = s * 0.44 * (0.75 + 0.25 * Math.sin(t * 1.6 + l * 1.1 + o.seed));
+          pushL(xs[A2], ys[A2], 0.60, 0.83, 1.00, la);
+          pushL(xs[B2], ys[B2], 0.60, 0.83, 1.00, la);
+        }
+        /* 外圈：极淡的一道环，星图的味道 */
+        for (var rg = 0; rg < 48 && nL + 2 <= arrL.length / strideL; rg++) {
+          var ra1 = o.rot + rg * (6.2832 / 48), ra2 = o.rot + (rg + 1) * (6.2832 / 48);
+          var rr = R * 1.04;
+          pushL(o.x + Math.cos(ra1) * rr, o.y + Math.sin(ra1) * rr * 0.96, 0.42, 0.62, 0.95, s * 0.055);
+          pushL(o.x + Math.cos(ra2) * rr, o.y + Math.sin(ra2) * rr * 0.96, 0.42, 0.62, 0.95, s * 0.055);
+        }
+        /* 星点 */
+        for (var k = 0; k < pa.s.length && nS + 1 <= arrS.length / strideS; k++) {
+          var s3 = pa.s[k];
+          var tw = 0.70 + 0.30 * Math.sin(t * 2.3 + k * 1.9 + o.seed * 3.1);
+          var a = s * 1.05 * s3[3] * tw;
+          var warm = Math.min(1, (s3[2] - 1.0) * 0.55);
+          pushS(xs[k], ys[k],
+                0.72 + 0.26 * warm, 0.86 + 0.09 * warm, 1.00 - 0.10 * warm,
+                (3.0 + s3[2] * 4.6) * (0.60 + 0.40 * s), a);
+        }
+      }
+      if (!nS && !nL) return;
+
+      gl.useProgram(PL.p);
+      gl.bindVertexArray(vaoL);
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufL);
+      gl.bufferData(gl.ARRAY_BUFFER, arrL.subarray(0, nL * strideL), gl.DYNAMIC_DRAW);
+      gl.uniform1f(PL.u.uAspect, aspect);
+      gl.drawArrays(gl.LINES, 0, nL);
+
+      gl.useProgram(PS.p);
+      gl.bindVertexArray(vaoS);
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufS);
+      gl.bufferData(gl.ARRAY_BUFFER, arrS.subarray(0, nS * strideS), gl.DYNAMIC_DRAW);
+      gl.uniform1f(PS.u.uAspect, aspect);
+      gl.uniform1f(PS.u.uDpr, DPR);
+      gl.drawArrays(gl.POINTS, 0, nS);
+      gl.bindVertexArray(null);
+    }
+
+    return { down:down, move:move, up:up, draw:draw };
+  })();
+
+  /* 按压面积：手机用接触面积（width/height），鼠标用按住时长补足 */
+  function pressArea(e){
+    var side = Math.max(e.width || 0, e.height || 0);
+    if (side > 1) return Math.max(0.34, Math.min(1, side / 40));
+    var pr = (e.pointerType === 'mouse') ? 0.5 : (e.pressure > 0 ? e.pressure : 0.5);
+    return 0.42 + pr * 0.46;
+  }
+  function ensureFinger(id, e){
+    var p = toWorld(e.clientX, e.clientY);
+    var f = fingers.get(id);
+    if (!f) { f = { x:p.x, y:p.y, power:0 }; fingers.set(id, f); }
+    f.x = p.x; f.y = p.y;
+    return f;
+  }
+  canvas.addEventListener('pointerdown', function(e){
+    if (canvas.setPointerCapture) { try { canvas.setPointerCapture(e.pointerId); } catch(_){} }
+    var f = ensureFinger(e.pointerId, e);
+    f.power = 1; pressed = true; autoDrive = false;
+    CONST.down(e.pointerId, f.x, f.y, pressArea(e));
+  });
+  canvas.addEventListener('pointermove', function(e){
+    var f = ensureFinger(e.pointerId, e);
+    if (e.pointerType === 'mouse') { f.power = pressed ? 1 : Math.min(1, f.power + 0.35); }
+    else if (pressed || f.power > 0) { f.power = 1; }
+    if (e.pointerType === 'mouse') { ptr.tx = f.x; ptr.ty = f.y; }
+    CONST.move(e.pointerId, f.x, f.y);
+  });
+  function release(e){
+    var f = fingers.get(e.pointerId);
+    if (f) f.power = 0;
+    pressed = false;
+    if (e.pointerType !== 'mouse') {
+      fingers.forEach(function(v){ if (v.power > 0) pressed = true; });
+    }
+    CONST.up(e.pointerId);
+  }
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+  canvas.addEventListener('pointerleave', function(e){
+    var f = fingers.get(e.pointerId);
+    if (f && e.pointerType === 'mouse') f.power = 0;
+    CONST.up(e.pointerId);
+  });
+  var running = true;
+  if (window.IntersectionObserver) {
+    new IntersectionObserver(function(es){
+      running = es[0].isIntersecting;
+    }, { threshold: 0 }).observe(canvas);
+  }
+
+  var T0 = performance.now();
+  var prog01 = 0, progTarget = 0, last = T0;
+  var fpsAcc = 0, fpsN = 0, slowFrames = 0, degraded = false;
+  var fingerPos = new Float32Array(15);
+  var fingerPower = new Float32Array(5);
+  function smooth(a, b, x){ var t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+
+  function frame(now){
+    requestAnimationFrame(frame);
+    var dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (!running) return;
+    var t = (now - T0) / 1000;
+
+    if (autoDrive) progTarget = smooth(1.30, 3.10, t);
+    else progTarget = pressed ? 0.10 : 1.0;
+    prog01 += (progTarget - prog01) * (1 - Math.exp(-dt * P.morph));
+
+    ptr.x += (ptr.tx - ptr.x) * (1 - Math.exp(-dt * 12));
+    ptr.y += (ptr.ty - ptr.y) * (1 - Math.exp(-dt * 12));
+
+    fingerPower.fill(0);
+    var slot = 0;
+    fingers.forEach(function(f){
+      if (slot >= 5) return;
+      if (f.power <= 0.002) return;
+      fingerPos[slot*3] = f.x; fingerPos[slot*3+1] = f.y; fingerPos[slot*3+2] = 0;
+      fingerPower[slot] = f.power;
+      slot++;
+    });
+    fingers.forEach(function(f){ if (f.power > 0) f.power = Math.max(0, f.power - dt * 6); });
+
+    var idleX = Math.sin(t * 0.33) * 0.06, idleY = Math.cos(t * 0.27) * 0.04;
+    var tiltX = ptr.x * 0.16 + idleX;
+    var tiltY = -ptr.y * 0.12 + idleY;
+
+    gl.clearColor(0.0196, 0.0314, 0.047, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.useProgram(prog);
+    gl.bindVertexArray(vao);
+    gl.uniform1f(U.uTime, t);
+    gl.uniform1f(U.uProgress, prog01);
+    gl.uniform1f(U.uStagger, P.stagger);
+    gl.uniform2f(U.uWorld, worldW, worldH || worldW * 0.25);
+    gl.uniform1f(U.uAspect, aspect);
+    gl.uniform2f(U.uTilt, tiltX, tiltY);
+    gl.uniform3fv(U.uFingers, fingerPos);
+    gl.uniform1fv(U.uPower, fingerPower);
+    gl.uniform1f(U.uRadius, P.radius);
+    gl.uniform1f(U.uForce, P.force);
+    gl.uniform1f(U.uSwirl, P.swirl);
+    gl.uniform1f(U.uSize, P.size);
+    gl.uniform1f(U.uDpr, DPR);
+    gl.uniform1f(U.uBright, P.bright * brightMul * (COUNT >= 90000 ? 1.75 : 1.0));
+    gl.drawArrays(gl.POINTS, 0, COUNT);
+    gl.bindVertexArray(null);
+    CONST.draw(t, dt);
+
+    fpsAcc += dt; fpsN++;
+    if (dt > 0.026) slowFrames++;
+    if (fpsAcc > 0.5) {
+      var fps = Math.round(fpsN / fpsAcc);
+      if (!degraded && fps < 38 && slowFrames / fpsN > 0.6 && COUNT > 12000) {
+        degraded = true;
+        COUNT = Math.max(8000, Math.round(COUNT / 2));
+        buildParticles();
+      }
+      fpsAcc = 0; fpsN = 0; slowFrames = 0;
+    }
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+
+
 
 <noscript>
   <div style="position:fixed;inset:0;z-index:50;background:#05070d;padding:28px;overflow:auto">
@@ -85,7 +715,7 @@
   </div>
 </noscript><style>
   /* 行星 */
-  #stage{position:fixed;inset:0;z-index:3;pointer-events:none}
+  #uni #stage{position:absolute;inset:0;z-index:3;pointer-events:none}
   .p{position:absolute;left:0;top:0;width:0;height:0;pointer-events:auto;cursor:pointer;
      outline:none;-webkit-user-select:none;user-select:none;will-change:transform,opacity}
   .p-holder{position:absolute;left:0;top:0}
@@ -295,6 +925,7 @@ function spawnComet(){
 }
 
 function drawUniverse(dt){
+      if(!UNI_ON) return;
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.clearRect(0,0,W,H);
   ctx.globalCompositeOperation='lighter';
@@ -372,7 +1003,85 @@ function hexA(hex, a){
   return 'rgba('+parseInt(h.substr(0,2),16)+','+parseInt(h.substr(2,2),16)+','+parseInt(h.substr(4,2),16)+','+a+')';
 }
 
-function addPlanet(d){
+  /* ---------- 星球外观：程序化纹理 + 球体光照 ---------- */
+  var UNI_ON = true;
+  (function(){
+    var u = document.getElementById('uni');
+    if(!u || !window.IntersectionObserver) return;
+    new IntersectionObserver(function(en){
+      var on = en[0].isIntersecting;
+      UNI_ON = on;
+      document.body.classList.toggle('uni', on);
+    }, {threshold:0,rootMargin:'-50% 0px -50% 0px'}).observe(u);
+    var cue = document.querySelector('.stage .scroll-cue');
+    if(cue) cue.addEventListener('click', function(){ u.scrollIntoView({behavior:'smooth'}); });
+  })();
+
+  function hexRGB(h){
+    h = String(h).replace('#','');
+    if(h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+    return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)];
+  }
+
+  function planetTex(d, seed){
+    var W = 512, H = 256;
+    var cnv = document.createElement('canvas'); cnv.width = W; cnv.height = H;
+    var g2 = cnv.getContext('2d');
+    var A = hexRGB(d.c1), B = hexRGB(d.c2);
+    var gas = (d.id === 'aigc' || d.id === 'football' || d.id === 'mama');
+    var bands = gas ? 9 : 5;
+    var img = g2.createImageData(W, H), px = img.data;
+    for(var y=0;y<H;y++){
+      var lat = y / H;
+      var pole = Math.pow(Math.abs(lat-0.5)*2, 3);
+      for(var x=0;x<W;x++){
+        var uu = x / W * 6.2832;
+        var band = Math.sin(lat*Math.PI*bands + Math.sin(lat*11.0 + seed)*0.9 + Math.sin(uu*3)*0.16);
+        var turb = Math.sin(uu*5 + seed*2.1) * Math.cos(lat*13.0 + seed*1.7);
+        var v = 0.5 + 0.5*band*(gas?0.85:0.45) + 0.16*turb;
+        v = v < 0 ? 0 : (v > 1 ? 1 : v);
+        var k = gas ? v : Math.pow(v, 1.25);
+        var i4 = (y*W+x)*4;
+        var gr = Math.sin(x*12.9898 + y*78.233 + seed*37.719) * 43758.5453;
+        gr = Math.abs(gr - Math.floor(gr)) * (gas?4:9);
+        px[i4]   = Math.min(255, B[0]+(A[0]-B[0])*k + gr);
+        px[i4+1] = Math.min(255, B[1]+(A[1]-B[1])*k + gr);
+        px[i4+2] = Math.min(255, B[2]+(A[2]-B[2])*k + gr);
+        px[i4+3] = 255 - Math.round(pole*46);
+      }
+    }
+    g2.putImageData(img, 0, 0);
+    if(!gas){
+      for(var i=0;i<46;i++){
+        var cx = (i*97 + seed*53) % W;
+        var cy = H*(0.14 + (((i*37 + seed*11) % 100)/100)*0.72);
+        var r = 4 + ((i*13 + seed*7) % 18);
+        var grd = g2.createRadialGradient(cx, cy, 0, cx, cy, r);
+        grd.addColorStop(0, 'rgba(0,0,0,.26)');
+        grd.addColorStop(0.7, 'rgba(255,255,255,.10)');
+        grd.addColorStop(1, 'rgba(0,0,0,0)');
+        g2.fillStyle = grd;
+        g2.beginPath(); g2.arc(cx, cy, r, 0, 6.2832); g2.fill();
+        if(cx < r){ g2.beginPath(); g2.arc(cx+W, cy, r, 0, 6.2832); g2.fill(); }
+        if(cx > W-r){ g2.beginPath(); g2.arc(cx-W, cy, r, 0, 6.2832); g2.fill(); }
+      }
+    }
+    return cnv.toDataURL('image/png');
+  }
+
+  function paintOrb(g){
+    var orb = g.el.querySelector('.p-orb');
+    if(!orb) return;
+    var map = document.createElement('i'); map.className = 'p-map';
+    map.style.backgroundImage = 'url(' + planetTex(g.d, g.idx + 1) + ')';
+    map.style.animationDuration = (46 + (g.idx % 4) * 13) + 's';
+    map.style.animationDirection = (g.idx % 2) ? 'reverse' : 'normal';
+    var li = document.createElement('i'); li.className = 'p-light';
+    var ri = document.createElement('i'); ri.className = 'p-rim';
+    orb.appendChild(map); orb.appendChild(li); orb.appendChild(ri);
+  }
+
+  function addPlanet(d){
   var i = PL.length;
   var el = document.createElement('div');
   el.className = 'p';
@@ -431,6 +1140,7 @@ el.appendChild(ho); el.appendChild(lb); el.appendChild(bd);
   el.addEventListener('pointerleave', function(){ el.classList.remove('hot'); });
 
   PL.push(g);
+  paintOrb(g);
   return g;
 }
 
