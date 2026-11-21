@@ -196,6 +196,20 @@
 .p-art .p-orb{ position:absolute; inset:0; border-radius:50%; overflow:hidden; }
   @media (max-width:820px){ .p-art{ width:144px; height:144px; margin:10px auto 0; } }
 </style>
+
+<style>
+/* 照片行星：贴真实星球照片，轻微横移模拟自转 */
+.p-orb.photo{ background-size:118% 118%; background-position:44% 50%; background-repeat:no-repeat;
+  background-color:#04060b; animation:pphoto 52s ease-in-out infinite alternate; }
+  @keyframes pphoto{ from{ background-position:44% 50%; } to{ background-position:56% 50%; } }
+.p-art .p-orb.photo{ background-size:118% 118%; animation-duration:64s; }
+</style>
+
+<style>
+/* 照片行星提亮；手机上介绍卡里的徽章省略（星球本身已可见） */
+.p-orb.photo{ filter:brightness(1.08) saturate(1.05); }
+@media (max-width:820px){ .p-art{ display:none; } }
+</style>
 </head>
 <body>
   <section class="stage" id="top">
@@ -908,13 +922,13 @@
 /* ========== 一、数据：一个项目一颗星球 ========== */
 var DATA = [
   { id:'gesture', name:'手势识别 · 粒子星云', href:'gesture.html', badge:'已上线', k:1.02,
-    c1:'#63efdc', c2:'#0c6b74', ring:'rgba(120,240,230,.50)',
+    c1:'#63efdc', c2:'#0c6b74', ring:'rgba(120,240,230,.50)', img:'photos/planets/earth.jpg',
     msgs:['这是「手势识别交互模型」。',
           '摄像头认手：<b>握拳</b>、<b>张开</b>切换形态；手往哪边靠，整团星云就被牵着偏移过去。识别全在本机跑，画面不离开这台设备。'],
     tags:['7 万粒子','端侧推理','手部骨架回显'], cta:'进去玩' },
 
   { id:'diy', name:'手势工作台', href:'diy.html', badge:'新', k:0.94,
-    c1:'#7ee0f2', c2:'#125c74', ring:'rgba(126,224,242,.44)',
+    c1:'#7ee0f2', c2:'#125c74', ring:'rgba(126,224,242,.44)', img:'photos/planets/mercury.jpg',
     msgs:['这是「手势工作台」。',
           '随手比一个手型给相机，它把这一刻的五指状态记成一枚<b>指纹</b>存在本机；以后在任何一页做出同一个手型，就直接播放你绑定的那段动画。'],
     tags:['自定义手势','只存本机','六种动画'], cta:'去教我' },
@@ -926,19 +940,19 @@ var DATA = [
     tags:['录什么像什么','粒子文字','存本机'], cta:'去录一个' },
 
   { id:'football', name:'足球 · 3D 结构解剖', href:'football.html', badge:'已上线', k:1.06,
-    c1:'#ffc078', c2:'#9c4f16', ring:'rgba(255,190,120,.44)',
+    c1:'#ffc078', c2:'#9c4f16', ring:'rgba(255,190,120,.44)', img:'photos/planets/venus.jpg',
     msgs:['这是「足球 · 3D 结构解剖」。',
           '32 块皮面怎么拼成一个球？拆开看四层：外皮、内衬、缠纱中胎、气囊。拖拽旋转、滚轮缩放，点零件看名字。'],
     tags:['可拆解','4 层结构','可交互'], cta:'进去看' },
 
   { id:'supra', name:'Supra A90 · 赛博风洞', href:'supra/', badge:'新', k:1.10,
-    c1:'#ff8a76', c2:'#8c2a22', ring:'rgba(255,140,120,.44)',
+    c1:'#ff8a76', c2:'#8c2a22', ring:'rgba(255,140,120,.44)', img:'photos/planets/saturn.jpg',
     msgs:['这是「Supra A90 · 赛博风洞」。',
           '真实的 2025 款 GR Supra A90 车模摆在一条赛博风洞里：拉出流线、看风速热力、开灯点火听 B58 的声浪，还能一键拆开看零件。'],
     tags:['可拆解','风洞流场','车内视角'], cta:'进去看' },
 
   { id:'rover', name:'火星车 · 3D 拆解', href:'rover.html', badge:'新', k:1.04,
-    c1:'#ffe0a0', c2:'#8a5a1c', ring:'rgba(255,220,150,.44)',
+    c1:'#ffe0a0', c2:'#8a5a1c', ring:'rgba(255,220,150,.44)', img:'photos/planets/mars.jpg',
     msgs:['这是「火星车 · 3D 拆解」。',
           '六轮摇臂式（rocker-bogie）火星车，真机是 1:6.5 的 ESP32-S3 小车。网页里直接拖着转，按总成开合零件，拉爆炸视图看装配关系。'],
     tags:['WebGL 实时','爆炸视图','手机可转'], cta:'去看看' },
@@ -1170,13 +1184,21 @@ function hexA(hex, a){
   function paintOrb(g){
     var orb = g.el.querySelector('.p-orb');
     if(!orb) return;
-    var map = document.createElement('i'); map.className = 'p-map';
-    map.style.backgroundImage = 'url(' + planetTex(g.d, g.idx + 1) + ')';
-    map.style.animationDuration = (46 + (g.idx % 4) * 13) + 's';
-    map.style.animationDirection = (g.idx % 2) ? 'reverse' : 'normal';
     var li = document.createElement('i'); li.className = 'p-light';
     var ri = document.createElement('i'); ri.className = 'p-rim';
-    orb.appendChild(map); orb.appendChild(li); orb.appendChild(ri);
+    if(g.d.img){
+      orb.classList.add('photo');
+      orb.style.backgroundImage = 'url(' + g.d.img + ')';
+      li.style.opacity = '0.30';
+      ri.style.opacity = '0.45';
+    } else {
+      var map = document.createElement('i'); map.className = 'p-map';
+      map.style.backgroundImage = 'url(' + planetTex(g.d, g.idx + 1) + ')';
+      map.style.animationDuration = (46 + (g.idx % 4) * 13) + 's';
+      map.style.animationDirection = (g.idx % 2) ? 'reverse' : 'normal';
+      orb.appendChild(map);
+    }
+    orb.appendChild(li); orb.appendChild(ri);
   }
 
   function addPlanet(d){
@@ -1204,7 +1226,8 @@ function hexA(hex, a){
   var orb = document.createElement('div'); orb.className='p-orb';
   var rng = document.createElement('div'); rng.className='p-ring';
   var RS = D*1.62; rng.style.width = rng.style.height = RS.toFixed(1)+'px';
-  ho.appendChild(halo); ho.appendChild(orb); ho.appendChild(rng);
+  ho.appendChild(halo); ho.appendChild(orb);
+  if(!d.img || d.id === 'supra') ho.appendChild(rng);
 
   var lb = document.createElement('div'); lb.className='p-label';
   lb.textContent = MOBILE? d.name.split(' \u00b7 ')[0] : d.name;
@@ -1359,12 +1382,20 @@ function renderChat(g){
     var art = document.createElement('div');
     art.className = 'p-art';
     var aorb = document.createElement('div'); aorb.className = 'p-orb';
-    var amap = document.createElement('div'); amap.className = 'p-map';
-    amap.style.backgroundImage = 'url(' + planetTex(d, g.idx + 1) + ')';
-    amap.style.animationDuration = (54 + (g.idx % 4) * 12) + 's';
     var alit = document.createElement('div'); alit.className = 'p-light';
     var arim = document.createElement('div'); arim.className = 'p-rim';
-    aorb.appendChild(amap); aorb.appendChild(alit); aorb.appendChild(arim);
+    if(d.img){
+      aorb.classList.add('photo');
+      aorb.style.backgroundImage = 'url(' + d.img + ')';
+      alit.style.opacity = '0.30';
+      arim.style.opacity = '0.45';
+    } else {
+      var amap = document.createElement('div'); amap.className = 'p-map';
+      amap.style.backgroundImage = 'url(' + planetTex(d, g.idx + 1) + ')';
+      amap.style.animationDuration = (54 + (g.idx % 4) * 12) + 's';
+      aorb.appendChild(amap);
+    }
+    aorb.appendChild(alit); aorb.appendChild(arim);
     art.appendChild(aorb);
     feedEl.appendChild(art);
     void art.offsetWidth; art.classList.add('in');
