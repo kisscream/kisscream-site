@@ -261,3 +261,46 @@ chapterSelect.addEventListener('change', () => {
     render();
 });
 render();
+
+function initEyeCare() {
+    const storageKey = 'kisscream.c-language.eye-care.v1';
+    const enabled = document.querySelector('#eye-care-enabled');
+    const strength = document.querySelector('#eye-care-strength');
+    const value = document.querySelector('#eye-care-value');
+    const root = document.documentElement;
+
+    try {
+        const saved = JSON.parse(localStorage.getItem(storageKey));
+        enabled.checked = saved?.enabled === true;
+        if (Number.isFinite(saved?.strength)) strength.value = saved.strength;
+    } catch {
+        // The page controls still work if browser storage is unavailable.
+    }
+
+    function apply() {
+        const level = strength.valueAsNumber;
+        root.toggleAttribute('data-eye-care', enabled.checked);
+        root.style.setProperty('--eye-level', level + '%');
+        root.style.setProperty('--eye-image-brightness', (1 - level * 0.0012).toFixed(3));
+        strength.disabled = !enabled.checked;
+        value.value = level + '%';
+    }
+
+    function update() {
+        apply();
+        try {
+            localStorage.setItem(storageKey, JSON.stringify({
+                enabled: enabled.checked,
+                strength: strength.valueAsNumber
+            }));
+        } catch {
+            // Keep the current appearance even when it cannot be saved.
+        }
+    }
+
+    enabled.addEventListener('change', update);
+    strength.addEventListener('input', update);
+    apply();
+}
+
+initEyeCare();
