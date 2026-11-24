@@ -7,6 +7,11 @@ const wrong = document.querySelector('#wrong');
 const chapterSelect = document.querySelector('#chapter-select');
 const count = document.querySelector('#count');
 const feedback = document.querySelector('#feedback');
+const teachingQuestions = [...window.handQuestions, ...window.previousQuestions];
+const supplementalNotes = [...window.handNotes, ...window.previousNotes];
+const chapters = new Map([...new Set(window.chapterQuestions.map(q => q.chapter))]
+    .map(title => [Number(title.match(/\d+/)[0]), title]));
+const attempts = new Map();
 const key = 'kisscream.c-language.mistakes.v1';
 let marked = new Set();
 try { marked = new Set(JSON.parse(localStorage.getItem(key) || '[]')); }
@@ -24,8 +29,10 @@ function currentTab() {
 }
 function questionList(tab) {
     if (tab === 'program') return window.programQuestions;
-    if (tab === 'chapters') return window.chapterQuestions.filter(q => q.chapter === chapterSelect.value);
-    return [...window.handQuestions, ...window.previousQuestions];
+    const number = Number(chapterSelect.value);
+    const chapterQuestions = window.chapterQuestions.filter(q => q.chapter === chapters.get(number));
+    if (tab === 'chapters') return chapterQuestions;
+    return [...teachingQuestions.filter(q => q.chapterNumber === number), ...chapterQuestions];
 }
 function updateCount(tab) {
     count.textContent = '(' + questionList(tab).filter(q => marked.has(q.id)).length + ')';
@@ -35,7 +42,64 @@ function updateMark(button, id) {
     button.setAttribute('aria-pressed', String(active));
     button.textContent = active ? '已标错题' : '标记错题';
 }
-function addQuestion(q, tab) {
+function addChoiceForm(card, q) {
+    const correct = q.title.endsWith('单选题') ? q.answer.match(/^([A-D])(?:$|[ （])/)?.[1]
+        : q.answer.match(/^选\s*([A-D])/)?.[1];
+    if (!correct) return;
+
+    const form = el('form', null, 'choice-form');
+    const field = el('fieldset');
+    field.append(el('legend', '选择一个选项'));
+    const options = el('div', null, 'choice-options');
+    const state = attempts.get(q.id) || { selected: '', verified: false };
+    attempts.set(q.id, state);
+    const status = el('p', null, 'choice-result');
+    status.setAttribute('role', 'status');
+
+    function updateResult() {
+        status.textContent = '';
+        status.removeAttribute('data-result');
+        if (!state.verified) return;
+        const right = state.selected === correct;
+        status.dataset.result = right ? 'correct' : 'incorrect';
+        const reference = q.reference ? '参照答案' : '正确答案';
+        status.textContent = right ? (q.reference ? '与参照答案一致。' : '答对了。')
+            : '答错了。' + reference + '为 ' + correct + '。';
+    }
+
+    for (const letter of ['A', 'B', 'C', 'D']) {
+        const label = el('label', null, 'choice-option');
+        const input = el('input');
+        input.type = 'radio';
+        input.name = 'choice';
+        input.value = letter;
+        input.checked = state.selected === letter;
+        input.addEventListener('change', () => {
+            state.selected = letter;
+            state.verified = false;
+            updateResult();
+        });
+        label.append(input, el('span', letter));
+        options.append(label);
+    }
+    const submit = el('button', '验证');
+    submit.type = 'submit';
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        if (!state.selected) {
+            status.textContent = '请先选择一个选项。';
+            options.querySelector('input').focus();
+            return;
+        }
+        state.verified = true;
+        updateResult();
+    });
+    updateResult();
+    field.append(options);
+    form.append(field, submit, status);
+    card.append(form);
+}
+function addQuestion(q, tab, parent) {
     const card = el('article');
     card.append(el('small', q.source));
     const head = el('div', null, 'qhead');
@@ -65,6 +129,7 @@ function addQuestion(q, tab) {
         link.append(img);
         card.append(link);
     }
+    addChoiceForm(card, q);
     const solution = el('details', null, 'solution');
     solution.append(el('summary', '查看答案与解析'));
     const answerHead = el('div', null, 'answer-head');
@@ -83,34 +148,82 @@ function addQuestion(q, tab) {
         solution.append(link);
     }
     card.append(solution);
-    content.append(card);
+    parent.append(card);
 }
 function matches(record, term) {
-    return [record.chapter, record.title, record.source, record.text, record.prompt, record.searchText, record.explanation]
+    return [record.chapter, record.title, record.source, record.text, record.code, record.output,
+        record.steps?.join(' '), record.tip, record.prompt, record.searchText, record.explanation]
         .filter(Boolean).join(' ').toLowerCase().includes(term);
 }
-function addNotes(term) {
-    const chapters = new Map();
-    for (const note of [...window.courseNotes, ...window.handNotes, ...window.previousNotes]) {
-        if (!matches(note, term)) continue;
-        if (!chapters.has(note.chapter)) chapters.set(note.chapter, []);
-        chapters.get(note.chapter).push(note);
+function addNote(note, parent) {
+    const section = el('section', null, 'note');
+    section.append(el('small', note.source), el('h3', note.title));
+    for (const line of note.text.split('\n')) {
+        section.append(el('p', line, line.startsWith('老师强调') ? 'prose emphasis' : 'prose'));
     }
-    if (chapters.size) content.append(el('h2', '复习笔记'));
-    for (const [chapter, notes] of chapters) {
-        const fold = el('details', null, 'chapter');
-        fold.open = Boolean(term);
-        fold.append(el('summary', chapter + ' · ' + notes.length + ' 个知识点'));
-        for (const note of notes) {
-            const section = el('section', null, 'note');
-            section.append(el('small', note.source), el('h3', note.title));
-            for (const line of note.text.split('\n')) {
-                section.append(el('p', line, line.startsWith('老师强调') ? 'prose emphasis' : 'prose'));
-            }
-            fold.append(section);
+    if (note.code) section.append(el('pre', note.code));
+    if (note.steps?.length) {
+        const list = el('ol', null, 'trace');
+        note.steps.forEach(step => list.append(el('li', step)));
+        section.append(el('h4', '一步一步看'), list);
+    }
+    if (note.output) section.append(el('h4', '运行结果'), el('pre', note.output, 'note-output'));
+    if (note.tip) section.append(el('p', note.tip, 'prose emphasis'));
+    parent.append(section);
+}
+function addNotes(number, term, items) {
+    const chapter = chapters.get(number);
+    const notes = window.courseNotes.filter(note => note.chapterNumber === number && matches(note, term));
+    const supplements = supplementalNotes.filter(note => note.chapterNumber === number && matches(note, term));
+    if (!notes.length && !supplements.length && !items.length) return;
+
+    const heading = el('div', null, 'chapter-heading');
+    heading.append(el('h2', chapter));
+    if (items.length && (notes.length || supplements.length)) {
+        const jump = el('button', '跳到本章原题');
+        jump.addEventListener('click', () => {
+            const target = document.querySelector('#chapter-questions');
+            target.focus({ preventScroll: true });
+            target.scrollIntoView();
+        });
+        heading.append(jump);
+    }
+    content.append(heading);
+    if (notes.length || supplements.length) {
+        const lesson = el('div', null, 'lesson');
+        notes.forEach(note => addNote(note, lesson));
+        if (supplements.length) {
+            const fold = el('details', null, 'chapter');
+            fold.open = Boolean(term);
+            fold.append(el('summary', '手写笔记与课堂重点'));
+            supplements.forEach(note => addNote(note, fold));
+            lesson.append(fold);
         }
-        content.append(fold);
+        content.append(lesson);
     }
+    if (items.length) addQuestionSection('本章原题', items, 'notes');
+}
+function addQuestionSection(title, items, tab) {
+    const section = el('section', null, 'question-section');
+    const heading = el('h2', title + ' · ' + items.length + ' 题');
+    heading.id = 'chapter-questions';
+    heading.tabIndex = -1;
+    section.append(heading);
+    if (tab === 'notes') {
+        const classroom = items.filter(q => q.chapterNumber);
+        const exercises = items.filter(q => !q.chapterNumber);
+        if (classroom.length) {
+            section.append(el('h3', '课堂与手写原题'));
+            classroom.forEach(q => addQuestion(q, tab, section));
+        }
+        if (exercises.length) {
+            section.append(el('h3', '章节练习原题'));
+            exercises.forEach(q => addQuestion(q, tab, section));
+        }
+    } else {
+        items.forEach(q => addQuestion(q, tab, section));
+    }
+    content.append(section);
 }
 function render() {
     const tab = currentTab();
@@ -119,15 +232,18 @@ function render() {
         if (button.dataset.tab === tab) button.setAttribute('aria-current', 'page');
         else button.removeAttribute('aria-current');
     });
-    chapterSelect.hidden = tab !== 'chapters';
+    chapterSelect.hidden = tab === 'program';
+    search.placeholder = tab === 'notes' ? '搜索本章笔记、例子或原题' : '搜索题目或知识点';
     const term = search.value.trim().toLowerCase();
-    if (tab === 'notes' && !wrong.checked) addNotes(term);
+    const number = Number(chapterSelect.value);
     const items = questionList(tab).filter(q => (!wrong.checked || marked.has(q.id)) && matches(q, term));
-    if (items.length) {
-        content.append(el('h2', (tab === 'program' ? '编程复习题' : tab === 'chapters' ? chapterSelect.value : '原题') + ' · ' + items.length + ' 题'));
-        items.forEach(q => addQuestion(q, tab));
-    } else if (!content.childElementCount) {
-        content.append(el('p', wrong.checked && !term ? '本栏还没有标记的错题。' : '没有匹配的内容。'));
+    if (tab === 'notes' && !wrong.checked) addNotes(number, term, items);
+    else if (items.length) {
+        const title = tab === 'program' ? '编程复习题' : chapters.get(number);
+        addQuestionSection(title, items, tab);
+    }
+    if (!content.childElementCount) {
+        content.append(el('p', wrong.checked && !term ? '这里还没有标记的错题。' : '没有匹配的内容。'));
     }
     updateCount(tab);
 }
@@ -135,10 +251,13 @@ tabButtons.forEach(button => button.addEventListener('click', () => { location.h
 window.addEventListener('hashchange', () => { search.value = ''; wrong.checked = false; render(); });
 search.addEventListener('input', render);
 wrong.addEventListener('change', render);
-for (const chapter of new Set(window.chapterQuestions.map(q => q.chapter))) {
-    const option = el('option', chapter);
-    option.value = chapter;
+for (const [number, title] of chapters) {
+    const option = el('option', title);
+    option.value = number;
     chapterSelect.append(option);
 }
-chapterSelect.addEventListener('change', render);
+chapterSelect.addEventListener('change', () => {
+    search.value = '';
+    render();
+});
 render();
