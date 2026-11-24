@@ -1452,9 +1452,10 @@ function toast(msg){
 }
 
 function renderMine(openIt){
-  if(mineG) return;
-  mineG = addPlanet(PRIVATE);
-  try{ localStorage.setItem('kc_mine','1'); }catch(e){}
+  if(!mineG){
+    mineG = addPlanet(PRIVATE);
+    try{ localStorage.setItem('kc_mine','1'); }catch(e){}
+  }
   if(openIt){
     toast('这颗星球只有你能看见');
     setTimeout(function(){ if(mineG) select(mineG); }, 720);
