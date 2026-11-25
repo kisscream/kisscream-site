@@ -8,6 +8,8 @@ const chapterSelect = document.querySelector('#chapter-select');
 const count = document.querySelector('#count');
 const feedback = document.querySelector('#feedback');
 const teachingQuestions = [...window.handQuestions, ...window.previousQuestions];
+const inputPractice = window.inputPractice;
+let inputPracticeOpen = false;
 const supplementalNotes = [...window.handNotes, ...window.previousNotes];
 const chapters = new Map([...new Set(window.chapterQuestions.map(q => q.chapter))]
     .map(title => [Number(title.match(/\d+/)[0]), title]));
@@ -32,7 +34,8 @@ function questionList(tab) {
     const number = Number(chapterSelect.value);
     const chapterQuestions = window.chapterQuestions.filter(q => q.chapter === chapters.get(number));
     if (tab === 'chapters') return chapterQuestions;
-    return [...teachingQuestions.filter(q => q.chapterNumber === number), ...chapterQuestions];
+    const practice = number === inputPractice.chapterNumber ? inputPractice.questions : [];
+    return [...practice, ...teachingQuestions.filter(q => q.chapterNumber === number), ...chapterQuestions];
 }
 function updateCount(tab) {
     count.textContent = '(' + questionList(tab).filter(q => marked.has(q.id)).length + ')';
@@ -117,6 +120,7 @@ function addQuestion(q, tab, parent) {
     head.append(el('h3', q.title), mark);
     card.append(head);
     if (q.prompt) card.append(el('p', q.prompt, 'prose'));
+    if (q.code) card.append(el('pre', q.code));
     for (const original of [q.image, ...(q.images || [])].filter(Boolean)) {
         const link = el('a');
         link.href = original;
@@ -173,13 +177,15 @@ function addNote(note, parent) {
 }
 function addNotes(number, term, items) {
     const chapter = chapters.get(number);
-    const notes = window.courseNotes.filter(note => note.chapterNumber === number && matches(note, term));
-    const supplements = supplementalNotes.filter(note => note.chapterNumber === number && matches(note, term));
+    const notes = wrong.checked ? [] : window.courseNotes.filter(note => note.chapterNumber === number && matches(note, term));
+    const supplements = wrong.checked ? [] : supplementalNotes.filter(note => note.chapterNumber === number && matches(note, term));
+    const practice = items.filter(q => inputPractice.questions.includes(q));
+    const originals = items.filter(q => !inputPractice.questions.includes(q));
     if (!notes.length && !supplements.length && !items.length) return;
 
     const heading = el('div', null, 'chapter-heading');
     heading.append(el('h2', chapter));
-    if (items.length && (notes.length || supplements.length)) {
+    if (originals.length && (notes.length || supplements.length)) {
         const jump = el('button', '跳到本章原题');
         jump.addEventListener('click', () => {
             const target = document.querySelector('#chapter-questions');
@@ -201,7 +207,25 @@ function addNotes(number, term, items) {
         }
         content.append(lesson);
     }
-    if (items.length) addQuestionSection('本章原题', items, 'notes');
+    if (practice.length) addInputPractice(practice, term);
+    if (originals.length) addQuestionSection('本章原题', originals, 'notes');
+}
+function addInputPractice(items, term) {
+    const topic = el('details', null, 'chapter practice-topic');
+    topic.open = inputPracticeOpen || Boolean(term) || wrong.checked;
+    topic.addEventListener('toggle', () => {
+        if (topic.isConnected && !search.value.trim() && !wrong.checked) {
+            inputPracticeOpen = topic.open;
+        }
+    });
+    topic.append(el('summary', inputPractice.title + ' · ' + items.length + ' 题'));
+    const exercises = el('div', null, 'practice-content');
+    const rules = el('ul');
+    inputPractice.rules.forEach(rule => rules.append(el('li', rule)));
+    exercises.append(el('h3', '读入和输出规则'), rules);
+    items.forEach(q => addQuestion(q, 'notes', exercises));
+    topic.append(exercises);
+    content.append(topic);
 }
 function addQuestionSection(title, items, tab) {
     const section = el('section', null, 'question-section');
@@ -237,7 +261,7 @@ function render() {
     const term = search.value.trim().toLowerCase();
     const number = Number(chapterSelect.value);
     const items = questionList(tab).filter(q => (!wrong.checked || marked.has(q.id)) && matches(q, term));
-    if (tab === 'notes' && !wrong.checked) addNotes(number, term, items);
+    if (tab === 'notes') addNotes(number, term, items);
     else if (items.length) {
         const title = tab === 'program' ? '编程复习题' : chapters.get(number);
         addQuestionSection(title, items, tab);

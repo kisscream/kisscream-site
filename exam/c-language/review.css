@@ -48,3 +48,9 @@
 @media(max-width:400px){
   .eye-care-controls{position:static;width:min(220px,100%);box-shadow:none}
 }
+
+.practice-topic{margin-top:18px}
+.practice-topic>summary{color:var(--blue)}
+.practice-content{padding:0 clamp(12px,3vw,20px) 12px}
+.practice-content>ul{margin:6px 0 16px;padding-inline-start:1.5em}
+.practice-content>ul li+li{margin-top:5px}
