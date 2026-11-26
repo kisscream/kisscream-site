@@ -8,8 +8,9 @@ const chapterSelect = document.querySelector('#chapter-select');
 const count = document.querySelector('#count');
 const feedback = document.querySelector('#feedback');
 const teachingQuestions = [...window.handQuestions, ...window.previousQuestions];
-const inputPractice = window.inputPractice;
-let inputPracticeOpen = false;
+const practiceTopics = new Map([window.inputPractice, window.flowPractice]
+    .map(topic => [topic.chapterNumber, topic]));
+const practiceOpen = new Map();
 const supplementalNotes = [...window.handNotes, ...window.previousNotes];
 const chapters = new Map([...new Set(window.chapterQuestions.map(q => q.chapter))]
     .map(title => [Number(title.match(/\d+/)[0]), title]));
@@ -34,7 +35,7 @@ function questionList(tab) {
     const number = Number(chapterSelect.value);
     const chapterQuestions = window.chapterQuestions.filter(q => q.chapter === chapters.get(number));
     if (tab === 'chapters') return chapterQuestions;
-    const practice = number === inputPractice.chapterNumber ? inputPractice.questions : [];
+    const practice = practiceTopics.get(number)?.questions ?? [];
     return [...practice, ...teachingQuestions.filter(q => q.chapterNumber === number), ...chapterQuestions];
 }
 function updateCount(tab) {
@@ -179,8 +180,9 @@ function addNotes(number, term, items) {
     const chapter = chapters.get(number);
     const notes = wrong.checked ? [] : window.courseNotes.filter(note => note.chapterNumber === number && matches(note, term));
     const supplements = wrong.checked ? [] : supplementalNotes.filter(note => note.chapterNumber === number && matches(note, term));
-    const practice = items.filter(q => inputPractice.questions.includes(q));
-    const originals = items.filter(q => !inputPractice.questions.includes(q));
+    const topic = practiceTopics.get(number);
+    const practice = items.filter(q => topic?.questions.includes(q));
+    const originals = items.filter(q => !topic?.questions.includes(q));
     if (!notes.length && !supplements.length && !items.length) return;
 
     const heading = el('div', null, 'chapter-heading');
@@ -207,22 +209,22 @@ function addNotes(number, term, items) {
         }
         content.append(lesson);
     }
-    if (practice.length) addInputPractice(practice, term);
+    if (practice.length) addPracticeTopic(topic, practice, term);
     if (originals.length) addQuestionSection('本章原题', originals, 'notes');
 }
-function addInputPractice(items, term) {
+function addPracticeTopic(data, items, term) {
     const topic = el('details', null, 'chapter practice-topic');
-    topic.open = inputPracticeOpen || Boolean(term) || wrong.checked;
+    topic.open = Boolean(practiceOpen.get(data.chapterNumber) || term || wrong.checked);
     topic.addEventListener('toggle', () => {
         if (topic.isConnected && !search.value.trim() && !wrong.checked) {
-            inputPracticeOpen = topic.open;
+            practiceOpen.set(data.chapterNumber, topic.open);
         }
     });
-    topic.append(el('summary', inputPractice.title + ' · ' + items.length + ' 题'));
+    topic.append(el('summary', data.title + ' · ' + items.length + ' 题'));
     const exercises = el('div', null, 'practice-content');
     const rules = el('ul');
-    inputPractice.rules.forEach(rule => rules.append(el('li', rule)));
-    exercises.append(el('h3', '读入和输出规则'), rules);
+    data.rules.forEach(rule => rules.append(el('li', rule)));
+    exercises.append(el('h3', data.rulesHeading ?? '读入和输出规则'), rules);
     items.forEach(q => addQuestion(q, 'notes', exercises));
     topic.append(exercises);
     content.append(topic);
