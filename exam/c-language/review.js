@@ -8,8 +8,7 @@ const chapterSelect = document.querySelector('#chapter-select');
 const count = document.querySelector('#count');
 const feedback = document.querySelector('#feedback');
 const teachingQuestions = [...window.handQuestions, ...window.previousQuestions];
-const practiceTopics = new Map([window.inputPractice, window.flowPractice]
-    .map(topic => [topic.chapterNumber, topic]));
+const practiceTopics = [window.inputPractice, window.flowPractice, window.nestedPractice];
 const practiceOpen = new Map();
 const supplementalNotes = [...window.handNotes, ...window.previousNotes];
 const chapters = new Map([...new Set(window.chapterQuestions.map(q => q.chapter))]
@@ -35,7 +34,7 @@ function questionList(tab) {
     const number = Number(chapterSelect.value);
     const chapterQuestions = window.chapterQuestions.filter(q => q.chapter === chapters.get(number));
     if (tab === 'chapters') return chapterQuestions;
-    const practice = practiceTopics.get(number)?.questions ?? [];
+    const practice = practiceTopics.filter(topic => topic.chapterNumber === number).flatMap(topic => topic.questions);
     return [...practice, ...teachingQuestions.filter(q => q.chapterNumber === number), ...chapterQuestions];
 }
 function updateCount(tab) {
@@ -180,9 +179,8 @@ function addNotes(number, term, items) {
     const chapter = chapters.get(number);
     const notes = wrong.checked ? [] : window.courseNotes.filter(note => note.chapterNumber === number && matches(note, term));
     const supplements = wrong.checked ? [] : supplementalNotes.filter(note => note.chapterNumber === number && matches(note, term));
-    const topic = practiceTopics.get(number);
-    const practice = items.filter(q => topic?.questions.includes(q));
-    const originals = items.filter(q => !topic?.questions.includes(q));
+    const topics = practiceTopics.filter(topic => topic.chapterNumber === number);
+    const originals = items.filter(q => !topics.some(topic => topic.questions.includes(q)));
     if (!notes.length && !supplements.length && !items.length) return;
 
     const heading = el('div', null, 'chapter-heading');
@@ -209,15 +207,18 @@ function addNotes(number, term, items) {
         }
         content.append(lesson);
     }
-    if (practice.length) addPracticeTopic(topic, practice, term);
+    for (const topic of topics) {
+        const practice = items.filter(q => topic.questions.includes(q));
+        if (practice.length) addPracticeTopic(topic, practice, term);
+    }
     if (originals.length) addQuestionSection('本章原题', originals, 'notes');
 }
 function addPracticeTopic(data, items, term) {
     const topic = el('details', null, 'chapter practice-topic');
-    topic.open = Boolean(practiceOpen.get(data.chapterNumber) || term || wrong.checked);
+    topic.open = Boolean(practiceOpen.get(data) || term || wrong.checked);
     topic.addEventListener('toggle', () => {
         if (topic.isConnected && !search.value.trim() && !wrong.checked) {
-            practiceOpen.set(data.chapterNumber, topic.open);
+            practiceOpen.set(data, topic.open);
         }
     });
     topic.append(el('summary', data.title + ' · ' + items.length + ' 题'));
